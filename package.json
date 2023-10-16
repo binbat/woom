@@ -1,0 +1,31 @@
+{
+  "name": "vite-react",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "dev-refresh": "cross-env USE_REFRESH=true vite",
+    "build": "vite build",
+    "build-refresh": "cross-env USE_REFRESH=true vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@types/lodash.uniq": "^4.5.7",
+    "jotai": "^2.4.3",
+    "lodash.uniq": "^4.5.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@iconify-json/logos": "^1.1.37",
+    "@types/react": "^18.2.22",
+    "@types/react-dom": "^18.2.7",
+    "@unocss/core": "",
+    "@unocss/preset-attributify": "",
+    "@unocss/preset-icons": "",
+    "@vitejs/plugin-react": "^4.0.4",
+    "cross-env": "^7.0.3",
+    "typescript": "^5.2.2",
+    "unocss": "",
+    "vite": "^4.4.9"
+  }
+}

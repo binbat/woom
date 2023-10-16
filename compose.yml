@@ -1,0 +1,23 @@
+version: "3"
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    hostname: postgres
+    ports:
+      - "5432:5432/tcp"
+    environment:
+      POSTGRES_DB: woom
+      POSTGRES_PASSWORD: password
+
+  live777:
+    image: ghcr.io/binbat/live777-server:0.2.0
+    container_name: live777
+    hostname: live777
+    ports:
+      - "3000:3000/tcp"
+
+networks:
+  default:
+    name: woom
+
