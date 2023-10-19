@@ -1,10 +1,11 @@
-import { isValidElement, useRef } from 'react'
+import { isValidElement, useEffect, useRef } from 'react'
 import WHEPClient from './lib/whep'
 import { useAtom } from 'jotai'
-import { meAtom } from './atom'
+import { meAtom, usersAtom } from './atom'
 
 export default function App(props: { stream: string }) {
   const [me] = useAtom(meAtom)
+  const [users, setUsers] = useAtom(usersAtom)
 
   const refVideo = useRef<HTMLVideoElement>(null)
   //const refElement = useRef<HTMLDivElement>(null)
@@ -20,10 +21,16 @@ export default function App(props: { stream: string }) {
     pc.ontrack = (event) => {
       console.log(event)
       if (event.track.kind == "video") {
-        if (refVideo.current) {
-          const videoElement = refVideo.current
-          videoElement.srcObject = event.streams[0]
-        }
+
+        setUsers([...users, {
+          name: props.stream,
+          stream: event.streams[0]
+        }])
+
+        //if (refVideo.current) {
+        //  const videoElement = refVideo.current
+        //  videoElement.srcObject = event.streams[0]
+        //}
         //refVideo.current?.src = event.streams[0]
         //var el = document.createElement(event.track.kind)
         //el.srcObject = event.streams[0]
@@ -48,16 +55,19 @@ export default function App(props: { stream: string }) {
     whep.view(pc, url, token);
   }
 
+  useEffect(() => { startWhep() }, [props.stream])
+
+  return (<></>)
   //<div ref={refElement} />
-  return (
-    <div
-      bg="blue-400 hover:blue-500 dark:blue-500 dark:hover:blue-600 w-100px"
-    >
-      <video autoPlay={true} controls={true} ref={refVideo} />
-      <br />
-      {props.stream === me ? "Me" : props.stream}
-      <br />
-      <button onClick={startWhep}>start</button>
-    </div>
-  )
+  //return (
+  //  <div
+  //    bg="blue-400 hover:blue-500 dark:blue-500 dark:hover:blue-600 w-100px"
+  //  >
+  //    <video autoPlay={true} controls={true} ref={refVideo} />
+  //    <br />
+  //    {props.stream === me ? "Me" : props.stream}
+  //    <br />
+  //    <button onClick={startWhep}>start</button>
+  //  </div>
+  //)
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import WHIPClient from './lib/whip'
 import { useAtom } from 'jotai'
-import { meAtom } from './atom'
+import { meAtom, usersAtom } from './atom'
 
 
 const deviceScreen = {
@@ -14,6 +14,7 @@ const deviceScreen = {
 
 export default function App() {
   const [me] = useAtom(meAtom)
+  const [users, setUsers] = useAtom(usersAtom)
   const [permission, setPermission] = useState("unknow")
   const [currentDeviceAudio, setCurrentDeviceAudio] = useState()
   const [currentDeviceVideo, setCurrentDeviceVideo] = useState()
@@ -28,6 +29,11 @@ export default function App() {
     } else {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
     }
+
+    setUsers([...users, {
+      name: "me",
+      stream: stream,
+    }])
 
     const pc = new RTCPeerConnection();
     pc.addTransceiver(stream.getVideoTracks()[0], {
@@ -81,7 +87,7 @@ export default function App() {
         <label>Video Device:</label>
         <select
           value={currentDeviceVideo}
-          onChange={e => setDeviceVideo(e.target.value)}
+          onChange={e => setCurrentDeviceVideo(e.target.value)}
         >
           {deviceVideo.map(device =>
             <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
