@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
-import WHIPClient from './lib/whip'
+import { useRef, useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import { meAtom, usersAtom, meetingIdAtom } from './atom'
+import WHIPClient from './lib/whip'
 
 interface Device {
   deviceId: string,
@@ -99,6 +99,16 @@ export default function App() {
     setDeviceVideo([deviceNone, ...videos, deviceScreen])
   }
 
+  useEffect(() => {
+    console.log('Running effect once on mount')
+
+    refresh()
+
+    return () => {
+      console.log('Running clean-up of effect on unmount')
+    }
+  }, [])
+
   const onChangeVideo = async (deviceId: string) => {
     setCurrentDeviceVideo(deviceId)
 
@@ -133,7 +143,6 @@ export default function App() {
 
       </center>
 
-
       <div className='flex justify-evenly' bg="green-400 hover:green-500 ">
         <div>
           <label>{permission}</label>
@@ -160,7 +169,9 @@ export default function App() {
         </div>
       </div>
 
-      <button onClick={() => { start() }}>start</button>
+      <center>
+        <button className="bg-blue-400 hover:bg-blue-500 text-sm text-white font-mono font-light py-2 px-4 rounded border-2 border-blue-200 dark:bg-blue-500 dark:hover:bg-blue-600" onClick={() => { start() }}>start</button>
+      </center>
 
     </div>
   )
