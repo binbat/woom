@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import WHIPClient from './lib/whip'
+import WHIPClient from '../lib/whip'
 import { useAtom } from 'jotai'
-import { meAtom, usersAtom } from './atom'
-
+import { meAtom, usersAtom } from '../store/atom'
 
 const deviceScreen = {
   deviceId: "screen",

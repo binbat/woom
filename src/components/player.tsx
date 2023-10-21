@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useAtom } from 'jotai'
-import { User, meAtom } from './atom'
+import { User, meAtom } from '../store/atom'
 
 export default function App(props: { user: User }) {
   const [me] = useAtom(meAtom)

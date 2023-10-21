@@ -1,7 +1,7 @@
 import useSWR from 'swr'
-import Member from './member'
-import User from './user'
-import Card from './card'
+import Member from '../components/member'
+import User from '../components/user'
+import Card from '../components/card'
 
 const fetcher = (args: any) => fetch(args).then(res => res.json())
 

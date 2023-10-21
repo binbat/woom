@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
-import { meAtom, usersAtom, meetingIdAtom } from './atom'
-import WHIPClient from './lib/whip'
+import { meAtom, usersAtom, meetingIdAtom } from '../store/atom'
+import WHIPClient from '../lib/whip'
 
 interface Device {
   deviceId: string,

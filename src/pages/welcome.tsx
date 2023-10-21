@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAtom } from 'jotai'
-import { meAtom } from './atom'
-import Join from './join'
+import { meAtom } from '../store/atom'
+import Join from '../components/join'
 
 export default function App() {
   const [me] = useAtom(meAtom)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAtom } from 'jotai'
-import { streamAtom } from './atom'
+import { streamAtom } from '../store/atom'
 import uniq from 'lodash.uniq'
 
 export default function App() {

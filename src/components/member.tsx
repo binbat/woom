@@ -1,5 +1,5 @@
 import { useAtom } from 'jotai'
-import { streamAtom, meetingIdAtom } from './atom'
+import { streamAtom, meetingIdAtom } from '../store/atom'
 
 export default function App() {
   const [_, setStream] = useAtom(streamAtom)

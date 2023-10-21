@@ -1,5 +1,5 @@
 import { useAtom } from 'jotai'
-import { User, usersAtom } from './atom'
+import { User, usersAtom } from '../store/atom'
 import Player from './player'
 
 export default function App() {

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
-import Bar from './bar'
-import Uuid from './uuid'
-import Welcome from './welcome'
-import Meeting from './meeting'
-import { meAtom, meetingIdAtom } from './atom'
+import Bar from './components/bar'
+import Uuid from './components/uuid'
+import Welcome from './pages/welcome'
+import Meeting from './pages/meeting'
+import { meAtom, meetingIdAtom } from './store/atom'
 
 function App() {
   const [me] = useAtom(meAtom)

@@ -1,7 +1,7 @@
 import { isValidElement, useEffect, useRef } from 'react'
-import WHEPClient from './lib/whep'
+import WHEPClient from '../lib/whep'
 import { useAtom } from 'jotai'
-import { meAtom, usersAtom } from './atom'
+import { meAtom, usersAtom } from '../store/atom'
 
 export default function App(props: { stream: string }) {
   const [me] = useAtom(meAtom)
