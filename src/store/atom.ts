@@ -19,11 +19,16 @@ const meAtom = atom(uuid)
 const meetingIdAtom = atom("")
 const usersAtom = atom<User[]>([])
 
+const currentDeviceAudioAtom = atom<string>("none")
+const currentDeviceVideoAtom = atom<string>("none")
+
 export {
   meAtom,
   streamAtom,
   meetingIdAtom,
   usersAtom,
+  currentDeviceAudioAtom,
+  currentDeviceVideoAtom,
 }
 
 export type {
