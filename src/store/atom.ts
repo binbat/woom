@@ -22,6 +22,8 @@ const usersAtom = atom<User[]>([])
 const currentDeviceAudioAtom = atom<string>("none")
 const currentDeviceVideoAtom = atom<string>("none")
 
+const peerConnectionAtom = atom<{ current: RTCPeerConnection }>({ current: new RTCPeerConnection() })
+
 export {
   meAtom,
   streamAtom,
@@ -29,6 +31,7 @@ export {
   usersAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
+  peerConnectionAtom,
 }
 
 export type {

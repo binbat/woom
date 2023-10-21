@@ -5,6 +5,7 @@ import {
   meAtom,
   usersAtom,
   meetingIdAtom,
+  peerConnectionAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
 } from '../store/atom'
@@ -17,6 +18,8 @@ export default function App() {
   const refVideo = useRef<HTMLVideoElement>(null)
   const [me] = useAtom(meAtom)
   const [users, setUsers] = useAtom(usersAtom)
+
+  const [peerConnection] = useAtom(peerConnectionAtom)
 
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo, setCurrentDeviceVideo] = useAtom(currentDeviceVideoAtom)
@@ -47,8 +50,9 @@ export default function App() {
         stream: stream,
       }])
 
-      const pc = new RTCPeerConnection();
-      pc.addTransceiver(stream.getVideoTracks()[0], {
+      //const pc = new RTCPeerConnection();
+
+      const trans = peerConnection.current.addTransceiver(stream.getVideoTracks()[0], {
         direction: 'sendonly',
         //sendEncodings: [
         //  { rid: 'a', scaleResolutionDownBy: 2.0 },
@@ -56,11 +60,13 @@ export default function App() {
         //  { rid: 'c' }
         //]
       });
+
+      //trans.sender.replaceTrack(withTrack)
       const whip = new WHIPClient();
       const url = location.origin + `/whip/${me}`
       //const token = document.getElementById("token").value;
       const token = "xxx"
-      await whip.publish(pc, url, token);
+      await whip.publish(peerConnection.current, url, token);
       await startMeeting()
     }
   }

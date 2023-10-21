@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
-import { deviceNone, deviceScreen, Device, getStream } from '../lib/device'
+import { deviceNone, deviceScreen, Device, getStream, asyncGetStream } from '../lib/device'
 import {
+  streamAtom,
+  peerConnectionAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
 } from '../store/atom'
 
 export default function App() {
   const [permission, setPermission] = useState("unknow")
+
+  const [streams, setStreams] = useAtom(streamAtom)
+  const [peerConnection] = useAtom(peerConnectionAtom)
+
   //const [streamAudio, setStreamAudio] = useState<MediaStream | null>(null)
   //const [streamVideo, setStreamVideo] = useState<MediaStream | null>(null)
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
@@ -49,6 +55,33 @@ export default function App() {
       console.log('Running clean-up of effect on unmount')
     }
   }, [])
+
+  const onChangePublish = async () => {
+    console.log("onChangePublish")
+    const senders = peerConnection.current.getSenders()
+    if (senders[0]) {
+
+      const mediaStream = await asyncGetStream(currentDeviceVideo)
+      if (mediaStream) {
+
+        setStreams([{
+          stream: mediaStream,
+          name: "me",
+        }, ...streams.slice(1, -1)])
+
+        const tracks = mediaStream.getVideoTracks()
+
+        if (tracks) {
+          if (tracks[0]) {
+            senders[0].replaceTrack(tracks[0])
+          }
+        }
+      }
+    }
+  }
+  useEffect(() => {
+    onChangePublish()
+  }, [currentDeviceAudio, currentDeviceVideo])
 
   return (
     <div>
