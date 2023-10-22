@@ -3,7 +3,8 @@ import { useAtom } from 'jotai'
 import DeviceBar from './device'
 import {
   meAtom,
-  usersAtom,
+  localStreamAtom,
+  remoteStreamsAtom,
   meetingIdAtom,
   peerConnectionAtom,
   currentDeviceAudioAtom,
@@ -17,7 +18,9 @@ import WHIPClient from '../lib/whip'
 export default function App() {
   const refVideo = useRef<HTMLVideoElement>(null)
   const [me] = useAtom(meAtom)
-  const [users, setUsers] = useAtom(usersAtom)
+
+  const [localStream, setLocalStream] = useAtom(localStreamAtom)
+  const [remoteStreams, setRemoteStreams] = useAtom(remoteStreamsAtom)
 
   const [peerConnection] = useAtom(peerConnectionAtom)
 
@@ -45,13 +48,12 @@ export default function App() {
     const stream = await asyncGetStream(currentDeviceVideo)
     if (stream) {
 
-      setUsers([...users, {
+      setLocalStream({
         name: "me",
         stream: stream,
-      }])
+      })
 
       //const pc = new RTCPeerConnection();
-
       const trans = peerConnection.current.addTransceiver(stream.getVideoTracks()[0], {
         direction: 'sendonly',
         //sendEncodings: [

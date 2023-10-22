@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
 import WHEPClient from '../lib/whep'
 import { useAtom } from 'jotai'
-import { meAtom, usersAtom } from '../store/atom'
+import { meAtom, remoteStreamsAtom } from '../store/atom'
 
 export default function App(props: { stream: string }) {
   const [me] = useAtom(meAtom)
   if (props.stream === me) return <></>
-  const [users, setUsers] = useAtom(usersAtom)
+  const [users, setUsers] = useAtom(remoteStreamsAtom)
 
   const startWhep = async () => {
     const resource = props.stream

@@ -7,7 +7,7 @@ function guidGenerator() {
   return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4())
 }
 
-interface User {
+interface UserStream {
   stream: MediaStream | null,
   name: string
 }
@@ -17,7 +17,12 @@ const uuid = guidGenerator()
 const streamAtom = atom<string[]>([uuid])
 const meAtom = atom(uuid)
 const meetingIdAtom = atom("")
-const usersAtom = atom<User[]>([])
+
+const localStreamAtom = atom<UserStream>({
+  stream: null,
+  name: "me",
+})
+const remoteStreamsAtom = atom<UserStream[]>([])
 
 const currentDeviceAudioAtom = atom<string>("none")
 const currentDeviceVideoAtom = atom<string>("none")
@@ -28,12 +33,13 @@ export {
   meAtom,
   streamAtom,
   meetingIdAtom,
-  usersAtom,
+  localStreamAtom,
+  remoteStreamsAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
   peerConnectionAtom,
 }
 
 export type {
-  User,
+  UserStream,
 }

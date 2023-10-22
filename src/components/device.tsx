@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import { deviceNone, deviceScreen, Device, getStream, asyncGetStream } from '../lib/device'
 import {
-  streamAtom,
+  localStreamAtom,
   peerConnectionAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
@@ -11,11 +11,9 @@ import {
 export default function App() {
   const [permission, setPermission] = useState("unknow")
 
-  const [streams, setStreams] = useAtom(streamAtom)
   const [peerConnection] = useAtom(peerConnectionAtom)
+  const [_, setLocalStream] = useAtom(localStreamAtom)
 
-  //const [streamAudio, setStreamAudio] = useState<MediaStream | null>(null)
-  //const [streamVideo, setStreamVideo] = useState<MediaStream | null>(null)
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo, setCurrentDeviceVideo] = useAtom(currentDeviceVideoAtom)
   const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
@@ -64,15 +62,16 @@ export default function App() {
       const mediaStream = await asyncGetStream(currentDeviceVideo)
       if (mediaStream) {
 
-        setStreams([{
+        setLocalStream({
           stream: mediaStream,
           name: "me",
-        }, ...streams.slice(1, -1)])
+        })
 
         const tracks = mediaStream.getVideoTracks()
 
         if (tracks) {
           if (tracks[0]) {
+            senders[0].track?.stop()
             senders[0].replaceTrack(tracks[0])
           }
         }
