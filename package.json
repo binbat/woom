@@ -11,6 +11,7 @@
   "dependencies": {
     "@types/lodash.uniq": "^4.5.7",
     "jotai": "^2.4.3",
+    "jotai-location": "^0.5.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "swr": "^2.2.4"

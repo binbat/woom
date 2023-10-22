@@ -1,5 +1,9 @@
 import { atom } from 'jotai'
 
+import { atomWithLocation } from 'jotai-location'
+
+const locationAtom = atomWithLocation()
+
 function guidGenerator() {
   var S4 = function() {
     return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1)
@@ -32,6 +36,7 @@ const peerConnectionAtom = atom<{ current: RTCPeerConnection }>({ current: new R
 export {
   meAtom,
   streamAtom,
+  locationAtom,
   meetingIdAtom,
   localStreamAtom,
   remoteStreamsAtom,

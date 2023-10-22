@@ -3,6 +3,7 @@ import { useAtom } from 'jotai'
 import DeviceBar from './device'
 import {
   meAtom,
+  locationAtom,
   localStreamAtom,
   remoteStreamsAtom,
   meetingIdAtom,
@@ -16,6 +17,7 @@ import { deviceNone, deviceScreen, Device, asyncGetStream } from '../lib/device'
 import WHIPClient from '../lib/whip'
 
 export default function App() {
+  const [loc, setLoc] = useAtom(locationAtom)
   const refVideo = useRef<HTMLVideoElement>(null)
   const [me] = useAtom(meAtom)
 
@@ -31,17 +33,20 @@ export default function App() {
   const [tmpId, setTmpId] = useState<string>("")
 
   const startMeeting = async () => {
+    let meetingId: string
     if (!tmpId) {
-      let res = await fetch(location.origin + `/room/?uuid=${me}`, {
+      let res = await fetch(`/room/?uuid=${me}`, {
         method: "POST"
       })
-      setMeetingId(await res.text())
+      meetingId = await res.text()
     } else {
-      let res = await fetch(location.origin + `/room/${tmpId}?uuid=${me}`, {
+      let res = await fetch(`/room/${tmpId}?uuid=${me}`, {
         method: "PATCH"
       })
-      setMeetingId(tmpId)
+      meetingId = tmpId
     }
+    setMeetingId(meetingId)
+    setLoc(prev => ({ ...prev, pathname: `/${meetingId}` }))
   }
 
   const start = async () => {
@@ -81,6 +86,13 @@ export default function App() {
   useEffect(() => {
     onChangeVideo()
   }, [currentDeviceVideo])
+
+  useEffect(() => {
+    const id = loc.pathname?.replace("/", "")
+    if (id) {
+      setTmpId(id)
+    }
+  }, [location])
 
   return (
     <div className='flex flex-col justify-around' bg="red-400 hover:red-500">
