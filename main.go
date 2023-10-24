@@ -16,6 +16,7 @@ import (
 	"github.com/lib/pq/hstore"
 	"golang.org/x/exp/slices"
 
+	"github.com/caarlos0/env/v9"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
@@ -47,8 +48,14 @@ func main() {
 	migrate := flag.Bool("migrate", false, "Database Migrations")
 	flag.Parse()
 
-	connStr := "user=postgres password=password dbname=woom sslmode=disable"
-	db, err := sql.Open("postgres", connStr)
+	cfg := config{}
+	if err := env.Parse(&cfg); err != nil {
+		log.Printf("%+v\n", err)
+	}
+
+	log.Printf("%+v\n", cfg)
+
+	db, err := sql.Open("postgres", cfg.DatabaseUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -116,7 +123,7 @@ func main() {
 	r.HandleFunc("/whip/{uuid}", func(w http.ResponseWriter, r *http.Request) {
 		client := http.Client{}
 
-		req, _ := http.NewRequest(r.Method, "http://localhost:3000/whip/"+chi.URLParam(r, "uuid"), r.Body)
+		req, _ := http.NewRequest(r.Method, cfg.Live777Url+"/whip/"+chi.URLParam(r, "uuid"), r.Body)
 		// req.Header.Set("Context-Type", r.Header.Get("Context-Type"))
 		req.Header = r.Header
 		res, _ := client.Do(req)
@@ -131,7 +138,7 @@ func main() {
 	r.HandleFunc("/whep/{uuid}", func(w http.ResponseWriter, r *http.Request) {
 		client := http.Client{}
 
-		req, _ := http.NewRequest(r.Method, "http://localhost:3000/whip/"+chi.URLParam(r, "uuid"), r.Body)
+		req, _ := http.NewRequest(r.Method, cfg.Live777Url+"/whip/"+chi.URLParam(r, "uuid"), r.Body)
 		// req.Header.Set("Context-Type", r.Header.Get("Context-Type"))
 		req.Header = r.Header
 		res, _ := client.Do(req)
@@ -151,5 +158,5 @@ func main() {
 	FileServer(r, "/", NewSPA("index.html", http.FS(fsys)))
 
 	log.Println("=== started ===")
-	log.Panicln(http.ListenAndServe(":4000", r))
+	log.Panicln(http.ListenAndServe(":"+cfg.Port, r))
 }
