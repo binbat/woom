@@ -2,10 +2,14 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"flag"
+	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"woom/database"
 
 	_ "github.com/lib/pq"
@@ -16,6 +20,28 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 )
+
+//go:embed dist
+var dist embed.FS
+
+func FileServer(r chi.Router, path string, root http.FileSystem) {
+	if strings.ContainsAny(path, "{}*") {
+		panic("FileServer does not permit any URL parameters.")
+	}
+
+	if path != "/" && path[len(path)-1] != '/' {
+		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
+		path += "/"
+	}
+	path += "*"
+
+	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
+		rctx := chi.RouteContext(r.Context())
+		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
+		fs.ServeHTTP(w, r)
+	})
+}
 
 func main() {
 	migrate := flag.Bool("migrate", false, "Database Migrations")
@@ -33,9 +59,9 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("welcome"))
-	})
+	//r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	//	w.Write([]byte("welcome"))
+	//})
 
 	r.Post("/room/", func(w http.ResponseWriter, r *http.Request) {
 		uuid := r.URL.Query().Get("uuid")
@@ -85,6 +111,44 @@ func main() {
 		slices.Sort(rooms)
 		render.JSON(w, r, rooms)
 	})
+
+	// Proxy whip
+	r.HandleFunc("/whip/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+		client := http.Client{}
+
+		req, _ := http.NewRequest(r.Method, "http://localhost:3000/whip/"+chi.URLParam(r, "uuid"), r.Body)
+		// req.Header.Set("Context-Type", r.Header.Get("Context-Type"))
+		req.Header = r.Header
+		res, _ := client.Do(req)
+
+		w.Header().Add("E-Tag", res.Header.Get("E-Tag"))
+		w.Header().Add("Location", res.Header.Get("Location"))
+		io.Copy(w, res.Body)
+		w.WriteHeader(res.StatusCode)
+	})
+
+	// Proxy whep
+	r.HandleFunc("/whep/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+		client := http.Client{}
+
+		req, _ := http.NewRequest(r.Method, "http://localhost:3000/whip/"+chi.URLParam(r, "uuid"), r.Body)
+		// req.Header.Set("Context-Type", r.Header.Get("Context-Type"))
+		req.Header = r.Header
+		res, _ := client.Do(req)
+
+		w.Header().Add("E-Tag", res.Header.Get("E-Tag"))
+		w.Header().Add("Location", res.Header.Get("Location"))
+		io.Copy(w, res.Body)
+		w.WriteHeader(res.StatusCode)
+	})
+
+	fsys, err := fs.Sub(dist, "dist")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// FileServer(r, "/", http.FS(fsys))
+	FileServer(r, "/", NewSPA("index.html", http.FS(fsys)))
 
 	log.Println("=== started ===")
 	log.Panicln(http.ListenAndServe(":4000", r))
