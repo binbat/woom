@@ -26,6 +26,15 @@ import (
 //go:embed dist
 var dist embed.FS
 
+func handler(p http.Handler, token string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if token != "" {
+			r.Header.Set("Authorization", "Bearer "+token)
+		}
+		p.ServeHTTP(w, r)
+	}
+}
+
 func FileServer(r chi.Router, path string, root http.FileSystem) {
 	if strings.ContainsAny(path, "{}*") {
 		panic("FileServer does not permit any URL parameters.")
@@ -126,8 +135,8 @@ func main() {
 		render.JSON(w, r, rooms)
 	})
 
-	r.Handle("/whip/{uuid}", proxy)
-	r.Handle("/whep/{uuid}", proxy)
+	r.HandleFunc("/whip/{uuid}", handler(proxy, cfg.Live777Token))
+	r.HandleFunc("/whep/{uuid}", handler(proxy, cfg.Live777Token))
 
 	fsys, err := fs.Sub(dist, "dist")
 	if err != nil {
