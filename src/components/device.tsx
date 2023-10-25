@@ -20,10 +20,12 @@ export default function App() {
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
   const refresh = async () => {
-    navigator.getUserMedia({
+    const result = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true
-    }, () => setPermission("success"), () => setPermission("error"))
+    })
+
+    result instanceof MediaStream ? setPermission("success") : setPermission("error")
 
     const devices = await navigator.mediaDevices.enumerateDevices()
     const audios = []
