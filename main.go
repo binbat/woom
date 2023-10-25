@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"embed"
 	"flag"
-	"io"
 	"io/fs"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strconv"
 	"strings"
 	"woom/database"
@@ -64,6 +65,12 @@ func main() {
 		database.Migrations(db)
 	}
 
+	remote, err := url.Parse(cfg.Live777Url)
+	if err != nil {
+		panic(err)
+	}
+	proxy := httputil.NewSingleHostReverseProxy(remote)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	//r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -119,35 +126,8 @@ func main() {
 		render.JSON(w, r, rooms)
 	})
 
-	// Proxy whip
-	r.HandleFunc("/whip/{uuid}", func(w http.ResponseWriter, r *http.Request) {
-		client := http.Client{}
-
-		req, _ := http.NewRequest(r.Method, cfg.Live777Url+"/whip/"+chi.URLParam(r, "uuid"), r.Body)
-		// req.Header.Set("Context-Type", r.Header.Get("Context-Type"))
-		req.Header = r.Header
-		res, _ := client.Do(req)
-
-		w.Header().Add("E-Tag", res.Header.Get("E-Tag"))
-		w.Header().Add("Location", res.Header.Get("Location"))
-		io.Copy(w, res.Body)
-		w.WriteHeader(res.StatusCode)
-	})
-
-	// Proxy whep
-	r.HandleFunc("/whep/{uuid}", func(w http.ResponseWriter, r *http.Request) {
-		client := http.Client{}
-
-		req, _ := http.NewRequest(r.Method, cfg.Live777Url+"/whip/"+chi.URLParam(r, "uuid"), r.Body)
-		// req.Header.Set("Context-Type", r.Header.Get("Context-Type"))
-		req.Header = r.Header
-		res, _ := client.Do(req)
-
-		w.Header().Add("E-Tag", res.Header.Get("E-Tag"))
-		w.Header().Add("Location", res.Header.Get("Location"))
-		io.Copy(w, res.Body)
-		w.WriteHeader(res.StatusCode)
-	})
+	r.Handle("/whip/{uuid}", proxy)
+	r.Handle("/whep/{uuid}", proxy)
 
 	fsys, err := fs.Sub(dist, "dist")
 	if err != nil {
