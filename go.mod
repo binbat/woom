@@ -6,6 +6,7 @@ require (
 	github.com/caarlos0/env/v9 v9.0.0
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/render v1.0.3
+	github.com/gofrs/uuid/v5 v5.0.0
 	github.com/lib/pq v1.10.9
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 )

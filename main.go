@@ -20,6 +20,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
+	"github.com/gofrs/uuid/v5"
 )
 
 //go:embed dist
@@ -103,6 +104,20 @@ func main() {
 		}
 		slices.Sort(rooms)
 		render.JSON(w, r, rooms)
+	})
+
+	r.Post("/room/{roomId}/stream", func(w http.ResponseWriter, r *http.Request) {
+		id, err := uuid.NewV4()
+		if err != nil {
+			panic(err)
+		}
+
+		roomId := chi.URLParam(r, "roomId")
+		if _, err := db.Exec(`UPDATE rooms SET stream[$2] = $3 WHERE id = $1;`, roomId, id.String(), "user"); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+		}
+		w.Write([]byte(id.String()))
 	})
 
 	r.HandleFunc("/whip/{uuid}", handler(proxy, cfg.Live777Token))
