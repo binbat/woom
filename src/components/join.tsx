@@ -1,15 +1,12 @@
 import { useRef, useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
-  meAtom,
   locationAtom,
   meetingIdAtom,
 } from '../store/atom'
 
 export default function App() {
   const [loc, setLoc] = useAtom(locationAtom)
-  // TODO: remove
-  const [me] = useAtom(meAtom)
 
   const [_, setMeetingId] = useAtom(meetingIdAtom)
   const [tmpId, setTmpId] = useState<string>("")
@@ -17,12 +14,12 @@ export default function App() {
   const joinMeeting = async () => {
     let meetingId: string
     if (!tmpId) {
-      let res = await fetch(`/room/?uuid=${me}`, {
+      let res = await fetch(`/room/`, {
         method: "POST"
       })
       meetingId = await res.text()
     } else {
-      let res = await fetch(`/room/${tmpId}?uuid=${me}`, {
+      let res = await fetch(`/room/${tmpId}`, {
         method: "PATCH"
       })
       meetingId = tmpId

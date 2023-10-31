@@ -1,9 +1,9 @@
 import { useRef } from 'react'
 import { useAtom } from 'jotai'
-import { User, meAtom } from '../store/atom'
+import { User, localStreamIdAtom } from '../store/atom'
 
 export default function App(props: { user: User }) {
-  const [me] = useAtom(meAtom)
+  const [me] = useAtom(localStreamIdAtom)
   const refVideo = useRef<HTMLVideoElement>(null)
 
   if (refVideo.current) {

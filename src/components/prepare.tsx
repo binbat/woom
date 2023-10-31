@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import DeviceBar from './device'
 import {
-  meAtom,
+  localStreamIdAtom,
   meetingAtom,
   localStreamAtom,
   remoteStreamsAtom,
@@ -11,13 +11,13 @@ import {
   currentDeviceVideoAtom,
 } from '../store/atom'
 
-import { deviceNone, deviceScreen, Device, asyncGetStream } from '../lib/device'
+import { asyncGetStream } from '../lib/device'
 
 import WHIPClient from '../lib/whip'
 
 export default function App(props: { meetingId: string }) {
   const refVideo = useRef<HTMLVideoElement>(null)
-  const [me] = useAtom(meAtom)
+  const [localStreamId, setLocalStreamId] = useAtom(localStreamIdAtom)
   const [meeting, setMeeting] = useAtom(meetingAtom)
 
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
@@ -28,7 +28,19 @@ export default function App(props: { meetingId: string }) {
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo, setCurrentDeviceVideo] = useAtom(currentDeviceVideoAtom)
 
+  const getStreamId = async (): Promise<string> => {
+    let res = await fetch(`/room/${props.meetingId}/stream`, {
+      method: "POST"
+    })
+    return res.text()
+  }
+
   const start = async () => {
+    if (!localStreamId) {
+      const localStreamId = await getStreamId()
+      setLocalStreamId(localStreamId)
+    }
+
     const stream = await asyncGetStream(currentDeviceVideo)
     if (stream) {
 
@@ -49,7 +61,7 @@ export default function App(props: { meetingId: string }) {
 
       //trans.sender.replaceTrack(withTrack)
       const whip = new WHIPClient();
-      const url = location.origin + `/whip/${me}`
+      const url = location.origin + `/whip/${localStreamId}`
       //const token = document.getElementById("token").value;
       const token = "xxx"
       await whip.publish(peerConnection.current, url, token);

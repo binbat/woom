@@ -4,13 +4,13 @@ import Member from '../components/member'
 import User from '../components/user'
 import Card from '../components/card'
 import Bar from '../components/bar'
-import { meAtom } from '../store/atom'
+import { localStreamIdAtom } from '../store/atom'
 
 const fetcher = (args: any) => fetch(args).then(res => res.json())
 
 export default function App(props: { meetingId: string }) {
   const { data, error, isLoading } = useSWR(`/room/${props.meetingId}`, fetcher)
-  const [me] = useAtom(meAtom)
+  const [me] = useAtom(localStreamIdAtom)
 
   if (error) return <div>failed to load</div>
   if (isLoading) return <div>loading...</div>
