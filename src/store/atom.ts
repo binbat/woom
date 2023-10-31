@@ -1,5 +1,5 @@
 import { atom } from 'jotai'
-
+import { atomWithStorage } from 'jotai/utils'
 import { atomWithLocation } from 'jotai-location'
 
 const locationAtom = atomWithLocation()
@@ -16,11 +16,15 @@ interface UserStream {
   name: string
 }
 
-const uuid = guidGenerator()
+const meAtom = atomWithStorage('me', guidGenerator())
 
-const streamAtom = atom<string[]>([uuid])
-const meAtom = atom(uuid)
+//const uuid = guidGenerator()
+
+//const streamAtom = atom<string[]>([uuid])
+const streamAtom = atom<string[]>([])
+//const meAtom = atom<string | null>(null)
 const meetingIdAtom = atom("")
+const meetingAtom = atom(false)
 
 const localStreamAtom = atom<UserStream>({
   stream: null,
@@ -37,6 +41,7 @@ export {
   meAtom,
   streamAtom,
   locationAtom,
+  meetingAtom,
   meetingIdAtom,
   localStreamAtom,
   remoteStreamsAtom,
