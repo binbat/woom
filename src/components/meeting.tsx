@@ -16,15 +16,15 @@ export default function App(props: { meetingId: string }) {
   if (isLoading) return <div>loading...</div>
 
   return (
-    <div className='flex flex-col justify-around' bg="green-400 hover:green-500 max-h-full" style={{ height: '100vh' }}>
+    <div className='flex flex-col justify-around' style={{ height: '100vh' }}>
 
-      <center>
+      <center className='text-white'>
         <label>meeting Id: </label><code>{props.meetingId}</code>
         <br />
         <label>Me Id: </label><code>{me}</code>
       </center>
 
-      <div className='flex justify-evenly' bg="blue-400 hover:blue-500 ">
+      <div className='flex justify-evenly'>
         {data.map(stream => <Card key={stream} stream={stream} />)}
       </div>
 

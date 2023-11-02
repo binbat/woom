@@ -13,7 +13,7 @@ export default function App() {
 
   return (
     <div>
-      <button onClick={refresh}>Refresh</button>
+      <button className='btn-primary' onClick={refresh}>Refresh Members</button>
     </div>
   )
 }

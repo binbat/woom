@@ -11,11 +11,9 @@ export default function App(props: { user: User }) {
   }
 
   return (
-    <div
-      bg="blue-400 hover:blue-500 dark:blue-500 dark:hover:blue-600 w-100px"
-    >
+    <div>
       {props.user.stream
-        ? <video autoPlay={true} controls={true} style={{ width: '640px', height: '480px' }} ref={refVideo} />
+        ? <video className='rounded-xl' autoPlay={true} controls={false} style={{ width: '640px' }} ref={refVideo} />
         : null
       }
       <br />
