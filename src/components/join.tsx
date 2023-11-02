@@ -50,7 +50,7 @@ export default function App() {
       </center>
 
       <center>
-        <button className="btn-primary" onClick={() => { joinMeeting() }}>Join Meeting</button>
+        <button className='btn-primary' onClick={() => { joinMeeting() }}>Join Meeting</button>
       </center>
 
     </div>

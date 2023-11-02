@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import Join from '../components/join'
-import backgroundImage from '../assets/background.jpg'
 
 export default function App() {
   const [tabJoin, setTabJoin] = useState(false)
 
   return (
     <div className='flex flex-col justify-around' style={{
-      height: '100vh', backgroundImage: `url(${backgroundImage})`
+      height: '100%'
     }}>
       <center>
         <div>

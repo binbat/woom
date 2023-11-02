@@ -14,12 +14,14 @@ import Prepare from '../components/prepare'
 export default function App(props: { meetingId: string }) {
   const [meeting] = useAtom(meetingAtom)
   return (
-    <>
+    <div className='flex flex-col justify-around' style={{
+      height: '100%'
+    }}>
       {meeting
         ? <Meeting meetingId={props.meetingId} />
         : <Prepare meetingId={props.meetingId} />
       }
-    </>
+    </div>
   )
   //const { data, error, isLoading } = useSWR(`/room/${props.meetingId}`, fetcher)
   //const [me] = useAtom(meAtom)

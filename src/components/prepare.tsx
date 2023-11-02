@@ -80,17 +80,17 @@ export default function App(props: { meetingId: string }) {
   }, [currentDeviceVideo])
 
   return (
-    <div className='flex flex-col justify-around' bg="red-400 hover:red-500">
-      <center>
-        <video autoPlay={true} controls={true} ref={refVideo} style={{ width: '640px', height: '480px' }}></video>
+    <div className='flex flex-col justify-around'>
+      <center className='m-5xl'>
+        <video className='rounded-xl' autoPlay={true} controls={false} ref={refVideo} style={{ width: '640px' }}></video>
       </center>
 
-      <div className='flex justify-evenly' bg="green-400 hover:green-500 ">
+      <div className='flex justify-evenly bg-gray-800'>
         <DeviceBar />
       </div>
 
-      <center>
-        <button className="bg-blue-400 hover:bg-blue-500 text-sm text-white font-mono font-light py-2 px-4 rounded border-2 border-blue-200 dark:bg-blue-500 dark:hover:bg-blue-600" onClick={() => { start() }}>start</button>
+      <center className='m-5'>
+        <button className='btn-primary' onClick={() => { start() }}>start</button>
       </center>
 
     </div>
