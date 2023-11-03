@@ -7,7 +7,7 @@ export default function App() {
   const [remoteStreams] = useAtom(remoteStreamsAtom)
 
   return (
-    <div className='flex flex-wrap justify-evenly'>
+    <div className='flex flex-row flex-wrap justify-evenly'>
       <Player user={localStream} />
       {remoteStreams.map(user => <Player key={user.name} user={user} />)}
     </div>

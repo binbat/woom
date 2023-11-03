@@ -5,6 +5,7 @@ import { localStreamIdAtom, remoteStreamsAtom } from '../store/atom'
 
 export default function App(props: { stream: string }) {
   const [me] = useAtom(localStreamIdAtom)
+  if (!props.stream) return <></>
   if (props.stream === me) return <></>
   const [users, setUsers] = useAtom(remoteStreamsAtom)
 

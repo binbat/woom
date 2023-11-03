@@ -4,11 +4,12 @@ import {
   locationAtom,
   meetingIdAtom,
 } from '../store/atom'
+import { setMeetingId } from '../lib/storage'
 
 export default function App() {
   const [loc, setLoc] = useAtom(locationAtom)
 
-  const [_, setMeetingId] = useAtom(meetingIdAtom)
+  const [_, setAtomMeetingId] = useAtom(meetingIdAtom)
   const [tmpId, setTmpId] = useState<string>("")
 
   const joinMeeting = async () => {
@@ -24,6 +25,7 @@ export default function App() {
       })
       meetingId = tmpId
     }
+    setAtomMeetingId(meetingId)
     setMeetingId(meetingId)
     setLoc(prev => ({ ...prev, pathname: `/${meetingId}` }))
   }

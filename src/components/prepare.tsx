@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect } from 'react'
 import { useAtom } from 'jotai'
 import DeviceBar from './device'
 import {
@@ -11,6 +11,7 @@ import {
   currentDeviceVideoAtom,
 } from '../store/atom'
 
+import { asyncGetStreamId } from '../lib/storage'
 import { asyncGetStream } from '../lib/device'
 
 import WHIPClient from '../lib/whip'
@@ -28,17 +29,11 @@ export default function App(props: { meetingId: string }) {
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo, setCurrentDeviceVideo] = useAtom(currentDeviceVideoAtom)
 
-  const getStreamId = async (): Promise<string> => {
-    let res = await fetch(`/room/${props.meetingId}/stream`, {
-      method: "POST"
-    })
-    return res.text()
-  }
-
   const start = async () => {
+    let tmpLocalStreamId
     if (!localStreamId) {
-      const localStreamId = await getStreamId()
-      setLocalStreamId(localStreamId)
+      tmpLocalStreamId = await asyncGetStreamId()
+      setLocalStreamId(tmpLocalStreamId)
     }
 
     const stream = await asyncGetStream(currentDeviceVideo)
@@ -61,7 +56,7 @@ export default function App(props: { meetingId: string }) {
 
       //trans.sender.replaceTrack(withTrack)
       const whip = new WHIPClient();
-      const url = location.origin + `/whip/${localStreamId}`
+      const url = location.origin + `/whip/${localStreamId || tmpLocalStreamId}`
       //const token = document.getElementById("token").value;
       const token = "xxx"
       await whip.publish(peerConnection.current, url, token);

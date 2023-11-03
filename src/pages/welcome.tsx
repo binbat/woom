@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import Join from '../components/join'
+import Layout from '../components/layout'
 
 export default function App() {
   const [tabJoin, setTabJoin] = useState(false)
+
+  //<Layout />
 
   return (
     <div className='flex flex-col justify-around' style={{
