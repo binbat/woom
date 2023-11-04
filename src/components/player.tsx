@@ -16,8 +16,9 @@ export default function App(props: { user: User }) {
         ? <video className='rounded-xl' autoPlay={true} controls={false} style={{ width: '640px' }} ref={refVideo} />
         : null
       }
-      <br />
-      {props.user.name === me ? "Me" : props.user.name}
+      <center className='text-white'>
+        {props.user.name === me ? "Me" : props.user.name}
+      </center>
     </div>
   )
 }
