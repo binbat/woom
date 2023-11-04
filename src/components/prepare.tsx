@@ -17,7 +17,7 @@ import { asyncGetStream } from '../lib/device'
 
 import WHIPClient from '../lib/whip'
 
-export default function App(props: { meetingId: string }) {
+export default function Prepare(props: { meetingId: string }) {
   const [loading, setLoading] = useState<boolean>(false)
 
   const refVideo = useRef<HTMLVideoElement>(null)

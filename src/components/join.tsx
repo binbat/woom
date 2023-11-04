@@ -6,7 +6,7 @@ import {
 } from '../store/atom'
 import { setMeetingId } from '../lib/storage'
 
-export default function App() {
+export default function Join() {
   const [loc, setLoc] = useAtom(locationAtom)
 
   const [_, setAtomMeetingId] = useAtom(meetingIdAtom)

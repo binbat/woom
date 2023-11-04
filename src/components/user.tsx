@@ -2,7 +2,7 @@ import { useAtom } from 'jotai'
 import { localStreamAtom, remoteStreamsAtom } from '../store/atom'
 import Player from './player'
 
-export default function App() {
+export default function User() {
   const [localStream] = useAtom(localStreamAtom)
   const [remoteStreams] = useAtom(remoteStreamsAtom)
 

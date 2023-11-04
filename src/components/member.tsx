@@ -1,7 +1,7 @@
 import { useAtom } from 'jotai'
 import { localStreamIdAtom, remoteStreamsIdAtom, meetingIdAtom } from '../store/atom'
 
-export default function App() {
+export default function Member() {
   const [me] = useAtom(localStreamIdAtom)
   const [_, setStream] = useAtom(remoteStreamsIdAtom)
   const [meetingId] = useAtom(meetingIdAtom)

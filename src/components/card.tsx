@@ -3,7 +3,7 @@ import WHEPClient from '../lib/whep'
 import { useAtom } from 'jotai'
 import { localStreamIdAtom, remoteStreamsAtom } from '../store/atom'
 
-export default function App(props: { stream: string }) {
+export default function Card(props: { stream: string }) {
   const [me] = useAtom(localStreamIdAtom)
   if (!props.stream) return <></>
   if (props.stream === me) return <></>

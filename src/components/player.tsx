@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useAtom } from 'jotai'
 import { User, localStreamIdAtom } from '../store/atom'
 
-export default function App(props: { user: User }) {
+export default function Player(props: { user: User }) {
   const [me] = useAtom(localStreamIdAtom)
   const refVideo = useRef<HTMLVideoElement>(null)
 

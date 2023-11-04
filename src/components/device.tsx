@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
-import { deviceNone, deviceScreen, Device, getStream, asyncGetStream } from '../lib/device'
+import { deviceNone, deviceScreen, Device, asyncGetStream } from '../lib/device'
 import {
   localStreamAtom,
   peerConnectionAtom,
@@ -8,7 +8,7 @@ import {
   currentDeviceVideoAtom,
 } from '../store/atom'
 
-export default function App() {
+export default function DeviceBar() {
   const [permission, setPermission] = useState("unknow")
 
   const [peerConnection] = useAtom(peerConnectionAtom)
