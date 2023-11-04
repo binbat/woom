@@ -18,7 +18,7 @@ export default defineConfig({
     UnoCSS({
       shortcuts: [
         { logo: 'i-logos-react w-6em h-6em transform transition-800 hover:rotate-180' },
-        { 'btn-primary': "py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75" }
+        { 'btn-primary': "py-2 px-4 bg-blue-500 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75" }
       ],
       presets: [
         presetUno(),

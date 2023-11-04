@@ -1,6 +1,7 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import DeviceBar from './device'
+import Loading from "./loading"
 import {
   localStreamIdAtom,
   meetingAtom,
@@ -17,6 +18,8 @@ import { asyncGetStream } from '../lib/device'
 import WHIPClient from '../lib/whip'
 
 export default function App(props: { meetingId: string }) {
+  const [loading, setLoading] = useState<boolean>(false)
+
   const refVideo = useRef<HTMLVideoElement>(null)
   const [localStreamId, setLocalStreamId] = useAtom(localStreamIdAtom)
   const [meeting, setMeeting] = useAtom(meetingAtom)
@@ -30,6 +33,7 @@ export default function App(props: { meetingId: string }) {
   const [currentDeviceVideo, setCurrentDeviceVideo] = useAtom(currentDeviceVideoAtom)
 
   const start = async () => {
+    setLoading(true)
     let tmpLocalStreamId
     if (!localStreamId) {
       tmpLocalStreamId = await asyncGetStreamId()
@@ -85,7 +89,18 @@ export default function App(props: { meetingId: string }) {
       </div>
 
       <center className='m-5'>
-        <button className='btn-primary' onClick={() => { start() }}>start</button>
+        <button className='btn-primary flex flex-row justify-center' onClick={() => { start() }}>
+          {loading
+            ? <div className='m-2px'><Loading /></div>
+            : null
+          }
+          Join
+          {loading
+            ? "..."
+            : null
+          }
+
+        </button>
       </center>
 
     </div>
