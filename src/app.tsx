@@ -4,7 +4,7 @@ import Meeting from './pages/meeting'
 import { meetingIdAtom } from './store/atom'
 import backgroundImage from './assets/background.jpg'
 
-function App() {
+export default function WOOM() {
   const [meetingId] = useAtom(meetingIdAtom)
 
   return (
@@ -20,5 +20,3 @@ function App() {
     </div>
   )
 }
-
-export default App
