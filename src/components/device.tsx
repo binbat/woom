@@ -12,7 +12,7 @@ export default function DeviceBar() {
   const [permission, setPermission] = useState("unknow")
 
   const [peerConnection] = useAtom(peerConnectionAtom)
-  const [_, setLocalStream] = useAtom(localStreamAtom)
+  const [localStream, setLocalStream] = useAtom(localStreamAtom)
 
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo, setCurrentDeviceVideo] = useAtom(currentDeviceVideoAtom)
@@ -47,42 +47,41 @@ export default function DeviceBar() {
   }
 
   useEffect(() => {
-    console.log('Running effect once on mount')
-
     refresh()
-
-    return () => {
-      console.log('Running clean-up of effect on unmount')
-    }
   }, [])
 
-  const onChangePublish = async () => {
-    console.log("onChangePublish")
-    const senders = peerConnection.current.getSenders()
-    if (senders[0]) {
-
-      const mediaStream = await asyncGetStream(currentDeviceVideo)
-      if (mediaStream) {
-
-        setLocalStream({
-          stream: mediaStream,
-          name: "me",
-        })
-
-        const tracks = mediaStream.getVideoTracks()
-
-        if (tracks) {
-          if (tracks[0]) {
-            senders[0].track?.stop()
-            senders[0].replaceTrack(tracks[0])
-          }
-        }
-      }
-    }
+  const onChangedDeviceAudio = async (current: string) => {
+    setCurrentDeviceAudio(current)
   }
-  useEffect(() => {
-    onChangePublish()
-  }, [currentDeviceAudio, currentDeviceVideo])
+
+  const onChangedDeviceVideo = async (current: string) => {
+    console.log("onChangedDeviceVideo: ", current)
+    setCurrentDeviceVideo(current)
+
+    // Closed old tracks
+    const stream = localStream.stream
+    if (stream) {
+      stream.getVideoTracks().map(track => {
+        track.stop()
+        stream.removeTrack(track)
+      })
+    }
+
+    const mediaStream = await asyncGetStream(current)
+    setLocalStream({
+      stream: mediaStream,
+      name: "Me",
+    })
+
+    // If WebRTC is connected, switch track
+    peerConnection.current.getSenders().filter((_, i) => i === 0).map(sender => {
+      if (mediaStream) {
+        mediaStream.getVideoTracks().filter((_, i) => i === 0).map(track => {
+          sender.replaceTrack(track)
+        })
+      }
+    })
+  }
 
   return (
     <div className='flex flex-row flex-wrap justify-around p-4 m-4 container'>
@@ -96,7 +95,7 @@ export default function DeviceBar() {
         <select
           className='w-2/3'
           value={currentDeviceVideo}
-          onChange={e => setCurrentDeviceVideo(e.target.value)}
+          onChange={e => onChangedDeviceVideo(e.target.value)}
         >
           {deviceVideo.map(device =>
             <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
@@ -109,7 +108,7 @@ export default function DeviceBar() {
         <select
           className='w-2/3'
           value={currentDeviceAudio}
-          onChange={e => setCurrentDeviceAudio(e.target.value)}
+          onChange={e => onChangedDeviceAudio(e.target.value)}
         >
           {deviceAudio.map(device =>
             <option key={device.deviceId} value={device.deviceId}>{device.label}</option>

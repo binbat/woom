@@ -22,7 +22,7 @@ meetingJoinedAtom.debugLabel = 'meetingJoined'
 
 const localStreamAtom = atom<UserStream>({
   stream: null,
-  name: "me",
+  name: "Me",
 })
 
 localStreamAtom.debugLabel = 'localStream'
