@@ -4,7 +4,7 @@ import DeviceBar from './device'
 import Loading from "./loading"
 import {
   localStreamIdAtom,
-  meetingAtom,
+  meetingJoinedAtom,
   localStreamAtom,
   remoteStreamsAtom,
   peerConnectionAtom,
@@ -22,7 +22,7 @@ export default function Prepare(props: { meetingId: string }) {
 
   const refVideo = useRef<HTMLVideoElement>(null)
   const [localStreamId, setLocalStreamId] = useAtom(localStreamIdAtom)
-  const [meeting, setMeeting] = useAtom(meetingAtom)
+  const [meeting, setMeeting] = useAtom(meetingJoinedAtom)
 
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
   const [remoteStreams, setRemoteStreams] = useAtom(remoteStreamsAtom)
