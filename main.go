@@ -2,9 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"embed"
 	"flag"
-	"io/fs"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -22,9 +20,6 @@ import (
 	"github.com/go-chi/render"
 	"github.com/gofrs/uuid/v5"
 )
-
-//go:embed dist
-var dist embed.FS
 
 func handler(p http.Handler, token string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -123,12 +118,7 @@ func main() {
 	r.HandleFunc("/whip/{uuid}", handler(proxy, cfg.Live777Token))
 	r.HandleFunc("/whep/{uuid}", handler(proxy, cfg.Live777Token))
 
-	fsys, err := fs.Sub(dist, "dist")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	r.Handle("/*", http.StripPrefix("/", http.FileServer(NewSPA("index.html", http.FS(fsys)))))
+	r.Handle("/*", http.StripPrefix("/", http.FileServer(NewSPA("index.html", http.FS(dist)))))
 
 	log.Println("=== started ===")
 	log.Panicln(http.ListenAndServe(":"+cfg.Port, r))

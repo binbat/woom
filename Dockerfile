@@ -22,7 +22,7 @@ COPY . .
 
 COPY --from=builder-node /app/dist /app/dist
 
-RUN go build -o woom
+RUN go build -tags release -o woom
 
 # Bin
 FROM alpine AS bin
