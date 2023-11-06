@@ -8,6 +8,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strconv"
+	"time"
 	"woom/database"
 
 	_ "github.com/lib/pq"
@@ -49,6 +50,8 @@ func main() {
 	if *migrate {
 		database.Migrations(db)
 	}
+
+	messageService := NewMessageService(db)
 
 	remote, err := url.Parse(cfg.Live777Url)
 	if err != nil {
@@ -115,6 +118,47 @@ func main() {
 		w.Write([]byte(id.String()))
 	})
 
+	r.Get("/room/{roomId}/message", func(w http.ResponseWriter, r *http.Request) {
+		roomId, err := strconv.Atoi(chi.URLParam(r, "roomId"))
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		lastTime, err := strconv.Atoi(r.URL.Query().Get("lastTime"))
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		messages, err := messageService.GetMessages(roomId, time.UnixMilli(int64(lastTime)))
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		render.JSON(w, r, messages)
+	})
+
+	r.Post("/room/{roomId}/message", func(w http.ResponseWriter, r *http.Request) {
+		roomId, err := strconv.Atoi(chi.URLParam(r, "roomId"))
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		// currently only text messages can be sent
+		var data struct {
+			Content string `json:"content"`
+		}
+		if err := render.DefaultDecoder(r, &data); err != nil {
+			badRequest(w, err)
+			return
+		}
+		message, err := messageService.AddMessage(roomId, GetUserId(r), MESSAGE_TYPE_TEXT, data.Content)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		render.JSON(w, r, &message)
+	})
+
 	r.HandleFunc("/whip/{uuid}", handler(proxy, cfg.Live777Token))
 	r.HandleFunc("/whep/{uuid}", handler(proxy, cfg.Live777Token))
 
@@ -122,4 +166,19 @@ func main() {
 
 	log.Println("=== started ===")
 	log.Panicln(http.ListenAndServe(":"+cfg.Port, r))
+}
+
+func badRequest(w http.ResponseWriter, err error) {
+	throwError(w, http.StatusBadRequest, err)
+}
+
+func throwError(w http.ResponseWriter, statusCode int, err error) {
+	w.WriteHeader(statusCode)
+	w.Write([]byte(err.Error()))
+}
+
+// TODO
+func GetUserId(r *http.Request) int {
+	userId, _ := strconv.Atoi(r.Header.Get("X-USER-ID"))
+	return userId
 }
