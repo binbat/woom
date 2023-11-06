@@ -13,7 +13,17 @@ const deviceScreen = {
   label: "screen",
 }
 
-async function asyncGetStream(deviceId: string): Promise<MediaStream | null> {
+async function asyncGetAudioStream(deviceId: string): Promise<MediaStream | null> {
+  let stream = null
+  if (deviceId === "none") {
+    stream = null
+  } else {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+  }
+  return stream
+}
+
+async function asyncGetVideoStream(deviceId: string): Promise<MediaStream | null> {
   let stream = null
   if (deviceId === "none") {
     stream = null
@@ -26,7 +36,8 @@ async function asyncGetStream(deviceId: string): Promise<MediaStream | null> {
 }
 
 export {
-  asyncGetStream,
+  asyncGetAudioStream,
+  asyncGetVideoStream,
   deviceNone,
   deviceScreen,
 }

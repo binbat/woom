@@ -59,6 +59,6 @@ export default function WhepPlayer(props: { stream: string }) {
   }, [])
 
   return (
-    <Player user={userStream} />
+    <Player user={userStream} muted={false} />
   )
 }

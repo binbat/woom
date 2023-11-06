@@ -17,14 +17,24 @@ export default function WhipPlayer(props: { streamId: string }) {
     if (stream) {
 
       //const pc = new RTCPeerConnection();
-      const trans = peerConnection.current.addTransceiver(stream.getVideoTracks()[0], {
-        direction: 'sendonly',
-        //sendEncodings: [
-        //  { rid: 'a', scaleResolutionDownBy: 2.0 },
-        //  { rid: 'b', scaleResolutionDownBy: 1.0, },
-        //  { rid: 'c' }
-        //]
-      });
+
+      const pc = peerConnection.current
+      stream.getTracks().map(track => {
+        console.log(track)
+        pc.addTrack(track)
+      })
+      //pc.addTrack(...stream.getTracks())
+      //pc.addTransceiver(stream.getVideoTracks()[0], {
+      //  direction: 'sendonly',
+      //  //sendEncodings: [
+      //  //  { rid: 'a', scaleResolutionDownBy: 2.0 },
+      //  //  { rid: 'b', scaleResolutionDownBy: 1.0, },
+      //  //  { rid: 'c' }
+      //  //]
+      //})
+      //pc.addTransceiver(stream.getAudioTracks()[0], {
+      //  direction: 'sendonly',
+      //})
 
       const whip = new WHIPClient();
       const url = location.origin + `/whip/${props.streamId}`
@@ -41,6 +51,6 @@ export default function WhipPlayer(props: { streamId: string }) {
   }, [])
 
   return (
-    <Player user={localStream} />
+    <Player user={localStream} muted={true} />
   )
 }

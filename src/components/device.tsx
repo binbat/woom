@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
-import { deviceNone, deviceScreen, Device, asyncGetStream } from '../lib/device'
+import {
+  deviceNone,
+  deviceScreen,
+  Device,
+  asyncGetAudioStream,
+  asyncGetVideoStream,
+} from '../lib/device'
 import {
   localStreamAtom,
   peerConnectionAtom,
@@ -52,10 +58,46 @@ export default function DeviceBar() {
 
   const onChangedDeviceAudio = async (current: string) => {
     setCurrentDeviceAudio(current)
+
+    // Closed old tracks
+    const stream = localStream.stream
+    if (stream) {
+      stream.getAudioTracks().map(track => {
+        track.stop()
+        stream.removeTrack(track)
+      })
+    }
+
+    const mediaStream = await asyncGetAudioStream(current)
+
+    const videoTracks = localStream.stream?.getVideoTracks()
+    const audioTracks = mediaStream?.getAudioTracks()
+    let media: MediaStream | null = null
+
+    if (audioTracks && videoTracks) {
+      media = new MediaStream([...audioTracks, ...videoTracks])
+    } else if (audioTracks) {
+      media = new MediaStream(audioTracks)
+    } else if (videoTracks) {
+      media = new MediaStream(videoTracks)
+    }
+
+    setLocalStream({
+      stream: media,
+      name: "Me",
+    })
+
+    // If WebRTC is connected, switch track
+    peerConnection.current.getSenders().filter((_, i) => i === 0).map(sender => {
+      if (mediaStream) {
+        mediaStream.getAudioTracks().filter((_, i) => i === 0).map(track => {
+          sender.replaceTrack(track)
+        })
+      }
+    })
   }
 
   const onChangedDeviceVideo = async (current: string) => {
-    console.log("onChangedDeviceVideo: ", current)
     setCurrentDeviceVideo(current)
 
     // Closed old tracks
@@ -67,9 +109,21 @@ export default function DeviceBar() {
       })
     }
 
-    const mediaStream = await asyncGetStream(current)
+    const mediaStream = await asyncGetVideoStream(current)
+    const audioTracks = localStream.stream?.getAudioTracks()
+    const videoTracks = mediaStream?.getVideoTracks()
+    let media: MediaStream | null = null
+
+    if (audioTracks && videoTracks) {
+      media = new MediaStream([...audioTracks, ...videoTracks])
+    } else if (audioTracks) {
+      media = new MediaStream(audioTracks)
+    } else if (videoTracks) {
+      media = new MediaStream(videoTracks)
+    }
+
     setLocalStream({
-      stream: mediaStream,
+      stream: media,
       name: "Me",
     })
 

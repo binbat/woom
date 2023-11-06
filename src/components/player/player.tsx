@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { UserStream } from '../../store/atom'
 
-export default function Player(props: { user: UserStream }) {
+export default function Player(props: { user: UserStream, muted: boolean }) {
   const refVideo = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -13,7 +13,7 @@ export default function Player(props: { user: UserStream }) {
   return (
     <div className='flex-col'>
       {props.user.stream
-        ? <video className='rounded-xl' autoPlay={true} controls={false} style={{ width: '640px' }} ref={refVideo} />
+        ? <video className='rounded-xl' autoPlay={true} controls={false} muted={props.muted} style={{ width: '640px' }} ref={refVideo} />
         : null
       }
       <center className='text-white'>

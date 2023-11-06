@@ -15,7 +15,8 @@
     "jotai-location": "^0.5.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "swr": "^2.2.4"
+    "swr": "^2.2.4",
+    "wavesurfer.js": "^7.4.3"
   },
   "devDependencies": {
     "@iconify-json/logos": "^1.1.37",
