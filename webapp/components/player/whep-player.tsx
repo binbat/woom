@@ -1,42 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { useAtom } from 'jotai'
-import { remoteStreamsAtom } from '../../store/atom'
 import Player from './player'
 import WHEPClient from '../../lib/whep'
-
-import { UserStream, localStreamIdAtom } from '../../store/atom'
-
-function newPeerConnection(): RTCPeerConnection {
-  const pc = new RTCPeerConnection();
-  pc.addTransceiver('video', { 'direction': 'recvonly' })
-  pc.addTransceiver('audio', { 'direction': 'recvonly' })
-  return pc
-}
+import { UserStream } from '../../store/atom'
 
 export default function WhepPlayer(props: { stream: string }) {
   const refEnabled = useRef(false)
-  //const currentPC = useRef<RTCPeerConnection>(newPeerConnection())
-  //const [remoteStreams, setRemoteStreams] = useAtom(remoteStreamsAtom)
+  const refPC = useRef<RTCPeerConnection | null>(null)
+  const [connectionState, setConnectionState] = useState("unknown")
   const [userStream, setUserStream] = useState<UserStream>({
     stream: null,
     name: props.stream,
   })
 
-  //const pc = currentPC.current
-
-  const start = async () => {
-    const resource = props.stream
-    const pc = new RTCPeerConnection();
+  const newPeerConnection = () => {
+    const pc = new RTCPeerConnection()
     pc.addTransceiver('video', { 'direction': 'recvonly' })
     pc.addTransceiver('audio', { 'direction': 'recvonly' })
+    pc.onconnectionstatechange = () => setConnectionState(pc.connectionState)
+
     pc.ontrack = (event) => {
       if (event.track.kind == "video") {
-        //setRemoteStreams([...remoteStreams, {
-        //  name: props.stream,
-        //  stream: event.streams[0]
-        //}])
-        console.log("on track")
-
         setUserStream({
           name: props.stream,
           stream: event.streams[0]
@@ -45,20 +28,34 @@ export default function WhepPlayer(props: { stream: string }) {
       if (event.track.kind == "audio") {
       }
     }
-    const whep = new WHEPClient();
-    const url = location.origin + "/whep/" + resource;
-    const token = "xxx"
-    whep.view(pc, url, token);
+    refPC.current = pc
+  }
+
+  const start = async (resource: string) => {
+    if (refPC.current) {
+      const whep = new WHEPClient();
+      const url = location.origin + "/whep/" + resource;
+      const token = "xxx"
+      await whep.view(refPC.current, url, token);
+      //await whep.stop()
+    }
   }
 
   useEffect(() => {
     if (!refEnabled.current) {
       refEnabled.current = true
-      start()
+      newPeerConnection()
+      start(props.stream)
     }
   }, [])
 
   return (
-    <Player user={userStream} muted={false} />
+    <div className='flex flex-col'>
+      <Player user={userStream} muted={false} />
+      <center className='text-white flex flex-row justify-around'>
+        <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{connectionState}</p>
+        <button className='btn-primary' onClick={() => start(props.stream)}>restart</button>
+      </center>
+    </div>
   )
 }
