@@ -8,7 +8,7 @@ export default function Player(props: { user: UserStream, muted: boolean }) {
   const refWave = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (refWave.current && props.user.stream) {
+    if (refWave.current && !!props.user.stream?.getAudioTracks().length) {
       const wavesurfer = WaveSurfer.create({
         container: refWave.current,
         waveColor: 'rgb(200, 100, 0)',
