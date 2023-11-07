@@ -88,7 +88,7 @@ export default function DeviceBar() {
     })
 
     // If WebRTC is connected, switch track
-    peerConnection.current.getSenders().filter((_, i) => i === 0).map(sender => {
+    peerConnection.current.getSenders().filter(t => t.track?.kind !== "video").filter((_, i) => i === 0).map(sender => {
       if (mediaStream) {
         mediaStream.getAudioTracks().filter((_, i) => i === 0).map(track => {
           sender.replaceTrack(track)
@@ -128,7 +128,7 @@ export default function DeviceBar() {
     })
 
     // If WebRTC is connected, switch track
-    peerConnection.current.getSenders().filter((_, i) => i === 0).map(sender => {
+    peerConnection.current.getSenders().filter(t => t.track?.kind !== "audio").filter((_, i) => i === 0).map(sender => {
       if (mediaStream) {
         mediaStream.getVideoTracks().filter((_, i) => i === 0).map(track => {
           sender.replaceTrack(track)

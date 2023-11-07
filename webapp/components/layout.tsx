@@ -26,7 +26,7 @@ export default function Layout(props: { meetingId: string }) {
 
       <div className='flex flex-row flex-wrap justify-evenly'>
         <WhipPlayer streamId={localStreamId} />
-        {data.filter(i => i !== localStreamId).filter(i => !!i).map(stream => <WhepPlayer key={stream} stream={stream} />)}
+        {data.filter(i => i !== localStreamId).filter(i => !!i).map(stream => <WhepPlayer key={stream} streamId={stream} />)}
       </div>
 
       <center>

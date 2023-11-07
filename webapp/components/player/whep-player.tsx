@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import Player from './player'
-import WHEPClient from '../../lib/whep'
 import { UserStream } from '../../store/atom'
+import WHEPClient from '../../lib/whep'
 
-export default function WhepPlayer(props: { stream: string }) {
+export default function WhepPlayer(props: { streamId: string }) {
   const refEnabled = useRef(false)
   const refPC = useRef<RTCPeerConnection | null>(null)
   const [connectionState, setConnectionState] = useState("unknown")
   const [userStream, setUserStream] = useState<UserStream>({
     stream: null,
-    name: props.stream,
+    name: props.streamId,
   })
 
   const newPeerConnection = () => {
@@ -18,15 +18,11 @@ export default function WhepPlayer(props: { stream: string }) {
     pc.addTransceiver('audio', { 'direction': 'recvonly' })
     pc.onconnectionstatechange = () => setConnectionState(pc.connectionState)
 
-    pc.ontrack = (event) => {
-      if (event.track.kind == "video") {
-        setUserStream({
-          name: props.stream,
-          stream: event.streams[0]
-        })
-      }
-      if (event.track.kind == "audio") {
-      }
+    pc.ontrack = ev => {
+      setUserStream({
+        name: props.streamId,
+        stream: ev.streams[0],
+      })
     }
     refPC.current = pc
   }
@@ -41,11 +37,19 @@ export default function WhepPlayer(props: { stream: string }) {
     }
   }
 
+  const restart = async (resource: string) => {
+    if (refPC.current) {
+      refPC.current.close()
+    }
+    newPeerConnection()
+    start(resource)
+  }
+
   useEffect(() => {
     if (!refEnabled.current) {
       refEnabled.current = true
       newPeerConnection()
-      start(props.stream)
+      start(props.streamId)
     }
   }, [])
 
@@ -54,7 +58,7 @@ export default function WhepPlayer(props: { stream: string }) {
       <Player user={userStream} muted={false} />
       <center className='text-white flex flex-row justify-around'>
         <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{connectionState}</p>
-        <button className='btn-primary' onClick={() => start(props.stream)}>restart</button>
+        <button className='btn-primary' onClick={() => restart(props.streamId)}>restart</button>
       </center>
     </div>
   )

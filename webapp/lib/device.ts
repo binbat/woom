@@ -28,9 +28,9 @@ async function asyncGetVideoStream(deviceId: string): Promise<MediaStream | null
   if (deviceId === "none") {
     stream = null
   } else if (deviceId === "screen") {
-    stream = await navigator.mediaDevices.getDisplayMedia({ audio: false, video: true })
+    stream = await navigator.mediaDevices.getDisplayMedia({ audio: false, video: { width: 320 } })
   } else {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { width: 320 } })
   }
   return stream
 }

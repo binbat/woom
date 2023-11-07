@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
   localStreamAtom,
@@ -10,20 +10,27 @@ import WHIPClient from '../../lib/whip'
 export default function WhipPlayer(props: { streamId: string }) {
   const refEnabled = useRef(false)
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
+  const [connectionState, setConnectionState] = useState("unknown")
   const [peerConnection] = useAtom(peerConnectionAtom)
 
-  const start = async () => {
+  const newPeerConnection = () => {
     const stream = localStream.stream
     if (stream) {
-
-      //const pc = new RTCPeerConnection();
-
       const pc = peerConnection.current
-      stream.getTracks().map(track => {
-        console.log(track)
-        pc.addTrack(track)
-      })
-      //pc.addTrack(...stream.getTracks())
+      pc.onconnectionstatechange = () => setConnectionState(pc.connectionState)
+
+      if (!stream.getAudioTracks().length) {
+        pc.addTransceiver('audio', { 'direction': 'sendonly' })
+      } else {
+        stream.getAudioTracks().map(track => pc.addTrack(track))
+      }
+
+      if (!stream.getVideoTracks().length) {
+        pc.addTransceiver('video', { 'direction': 'sendonly' })
+      } else {
+        stream.getVideoTracks().map(track => pc.addTrack(track))
+      }
+
       //pc.addTransceiver(stream.getVideoTracks()[0], {
       //  direction: 'sendonly',
       //  //sendEncodings: [
@@ -32,12 +39,15 @@ export default function WhipPlayer(props: { streamId: string }) {
       //  //  { rid: 'c' }
       //  //]
       //})
-      //pc.addTransceiver(stream.getAudioTracks()[0], {
-      //  direction: 'sendonly',
-      //})
 
+    }
+  }
+
+  const start = async (resource: string) => {
+    const stream = localStream.stream
+    if (stream) {
       const whip = new WHIPClient();
-      const url = location.origin + `/whip/${props.streamId}`
+      const url = location.origin + `/whip/${resource}`
       const token = "xxx"
       await whip.publish(peerConnection.current, url, token);
     }
@@ -46,11 +56,18 @@ export default function WhipPlayer(props: { streamId: string }) {
   useEffect(() => {
     if (!refEnabled.current) {
       refEnabled.current = true
-      start()
+      newPeerConnection()
+      start(props.streamId)
     }
   }, [])
 
   return (
-    <Player user={localStream} muted={true} />
+    <div className='flex flex-col'>
+      <Player user={localStream} muted={true} />
+      <center className='text-white flex flex-row justify-around'>
+        <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{connectionState}</p>
+        <button className='btn-primary' disabled={connectionState === 'connected'} onClick={() => start(props.streamId)}>restart</button>
+      </center>
+    </div>
   )
 }
