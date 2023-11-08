@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 	"woom/database"
+	"woom/server"
 
 	_ "github.com/lib/pq"
 	"github.com/lib/pq/hstore"
@@ -35,7 +36,7 @@ func main() {
 	migrate := flag.Bool("migrate", false, "Database Migrations")
 	flag.Parse()
 
-	cfg := config{}
+	cfg := server.Config{}
 	if err := env.Parse(&cfg); err != nil {
 		log.Printf("%+v\n", err)
 	}
@@ -51,7 +52,7 @@ func main() {
 		database.Migrations(db)
 	}
 
-	messageService := NewMessageService(db)
+	messageService := server.NewMessageService(db)
 
 	remote, err := url.Parse(cfg.Live777Url)
 	if err != nil {
@@ -151,7 +152,7 @@ func main() {
 			badRequest(w, err)
 			return
 		}
-		message, err := messageService.AddMessage(roomId, GetUserId(r), MESSAGE_TYPE_TEXT, data.Content)
+		message, err := messageService.AddMessage(roomId, GetUserId(r), server.MESSAGE_TYPE_TEXT, data.Content)
 		if err != nil {
 			badRequest(w, err)
 			return
@@ -162,7 +163,7 @@ func main() {
 	r.HandleFunc("/whip/{uuid}", handler(proxy, cfg.Live777Token))
 	r.HandleFunc("/whep/{uuid}", handler(proxy, cfg.Live777Token))
 
-	r.Handle("/*", http.StripPrefix("/", http.FileServer(NewSPA("index.html", http.FS(dist)))))
+	r.Handle("/*", http.StripPrefix("/", http.FileServer(server.NewSinglePageApp("index.html", http.FS(dist)))))
 
 	log.Println("=== started ===")
 	log.Panicln(http.ListenAndServe(":"+cfg.Port, r))

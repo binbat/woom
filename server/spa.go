@@ -1,22 +1,22 @@
-package main
+package server
 
 import (
 	"net/http"
 )
 
-func NewSPA(path string, fs http.FileSystem) *SPA {
-	return &SPA{
+func NewSinglePageApp(path string, fs http.FileSystem) *SinglePageApp {
+	return &SinglePageApp{
 		path: path,
 		fs:   fs,
 	}
 }
 
-type SPA struct {
+type SinglePageApp struct {
 	path string
 	fs   http.FileSystem
 }
 
-func (s *SPA) Open(name string) (http.File, error) {
+func (s *SinglePageApp) Open(name string) (http.File, error) {
 	if file, err := s.fs.Open(name); err != nil {
 		return s.fs.Open(s.path)
 	} else {

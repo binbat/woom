@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"github.com/lib/pq/hstore"
@@ -19,7 +19,7 @@ type Room struct {
 type Message struct {
 	Id        int         `json:"id"`
 	RoomId    int         `json:"roomId"`
-	UserId    int         `json:"userId"` //TODO user model
+	UserId    int         `json:"userId"` // TODO user model
 	Type      MessageType `json:"type"`
 	Content   string      `json:"content"`
 	CreatedAt Timestamp   `json:"createdAt"`
