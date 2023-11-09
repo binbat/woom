@@ -9,15 +9,12 @@ import {
 } from '../lib/device'
 import {
   localStreamAtom,
-  peerConnectionAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
 } from '../store/atom'
 
 export default function DeviceBar() {
   const [permission, setPermission] = useState("unknow")
-
-  const [peerConnection] = useAtom(peerConnectionAtom)
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
 
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
@@ -57,8 +54,6 @@ export default function DeviceBar() {
   }, [])
 
   const onChangedDeviceAudio = async (current: string) => {
-    setCurrentDeviceAudio(current)
-
     // Closed old tracks
     const stream = localStream.stream
     if (stream) {
@@ -87,19 +82,10 @@ export default function DeviceBar() {
       name: "Me",
     })
 
-    // If WebRTC is connected, switch track
-    peerConnection.current.getSenders().filter(t => t.track?.kind !== "video").filter((_, i) => i === 0).map(sender => {
-      if (mediaStream) {
-        mediaStream.getAudioTracks().filter((_, i) => i === 0).map(track => {
-          sender.replaceTrack(track)
-        })
-      }
-    })
+    setCurrentDeviceAudio(current)
   }
 
   const onChangedDeviceVideo = async (current: string) => {
-    setCurrentDeviceVideo(current)
-
     // Closed old tracks
     const stream = localStream.stream
     if (stream) {
@@ -127,14 +113,7 @@ export default function DeviceBar() {
       name: "Me",
     })
 
-    // If WebRTC is connected, switch track
-    peerConnection.current.getSenders().filter(t => t.track?.kind !== "audio").filter((_, i) => i === 0).map(sender => {
-      if (mediaStream) {
-        mediaStream.getVideoTracks().filter((_, i) => i === 0).map(track => {
-          sender.replaceTrack(track)
-        })
-      }
-    })
+    setCurrentDeviceVideo(current)
   }
 
   return (

@@ -35,9 +35,6 @@ currentDeviceAudioAtom.debugLabel = 'currentDeviceAudio'
 const currentDeviceVideoAtom = atom<string>("none")
 currentDeviceVideoAtom.debugLabel = 'currentDeviceVideo'
 
-const peerConnectionAtom = atom<{ current: RTCPeerConnection }>({ current: new RTCPeerConnection() })
-peerConnectionAtom.debugLabel = 'peerConnection'
-
 export {
   localStreamIdAtom,
   remoteStreamIdsAtom,
@@ -49,7 +46,6 @@ export {
   remoteStreamsAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
-  peerConnectionAtom,
 }
 
 export type {

@@ -2,29 +2,35 @@ import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
   localStreamAtom,
-  peerConnectionAtom,
+  currentDeviceAudioAtom,
+  currentDeviceVideoAtom,
 } from '../../store/atom'
 import Player from './player'
 import WHIPClient from '../../lib/whip'
 
 export default function WhipPlayer(props: { streamId: string }) {
   const refEnabled = useRef(false)
-  const [localStream, setLocalStream] = useAtom(localStreamAtom)
+  const refPC = useRef<RTCPeerConnection | null>(null)
+  const [localStream] = useAtom(localStreamAtom)
   const [connectionState, setConnectionState] = useState("unknown")
-  const [peerConnection] = useAtom(peerConnectionAtom)
+
+  const [currentDeviceAudio] = useAtom(currentDeviceAudioAtom)
+  const [currentDeviceVideo] = useAtom(currentDeviceVideoAtom)
 
   const newPeerConnection = () => {
     const stream = localStream.stream
     if (stream) {
-      const pc = peerConnection.current
+      const pc = new RTCPeerConnection()
       pc.onconnectionstatechange = () => setConnectionState(pc.connectionState)
 
+      // NOTE: array audio index is: 0
       if (!stream.getAudioTracks().length) {
         pc.addTransceiver('audio', { 'direction': 'sendonly' })
       } else {
         stream.getAudioTracks().map(track => pc.addTrack(track))
       }
 
+      // NOTE: array video index is: 1
       if (!stream.getVideoTracks().length) {
         pc.addTransceiver('video', { 'direction': 'sendonly' })
       } else {
@@ -40,35 +46,66 @@ export default function WhipPlayer(props: { streamId: string }) {
       //  //]
       //})
 
+      refPC.current = pc
     }
   }
 
   const start = async (resource: string) => {
     const stream = localStream.stream
     if (stream) {
-      const whip = new WHIPClient();
-      const url = location.origin + `/whip/${resource}`
-      const token = "xxx"
-      await whip.publish(peerConnection.current, url, token);
+      if (refPC.current) {
+        const whip = new WHIPClient();
+        const url = location.origin + `/whip/${resource}`
+        const token = "xxx"
+        await whip.publish(refPC.current, url, token);
+      }
     }
   }
 
   const restart = async (resource: string) => {
-    if (peerConnection.current) {
-      peerConnection.current.close()
-      peerConnection.current = new RTCPeerConnection()
+    if (refPC.current) {
+      refPC.current.close()
     }
     newPeerConnection()
     start(resource)
   }
 
-  useEffect(() => {
-    if (!refEnabled.current) {
-      refEnabled.current = true
-      newPeerConnection()
-      start(props.streamId)
+  const init = () => {
+    if (localStream.stream) {
+      if (!refEnabled.current) {
+        refEnabled.current = true
+        newPeerConnection()
+        start(props.streamId)
+      }
     }
+  }
+  useEffect(() => {
+    init()
   }, [])
+
+  useEffect(() => {
+    const mediaStream = localStream.stream
+    // If WebRTC is connected, switch track
+    // NOTE: array audio index is: 0
+    refPC.current?.getSenders().filter((_, i) => i === 0).map(sender => {
+      if (mediaStream) {
+        mediaStream.getAudioTracks().map(track => sender.replaceTrack(track))
+      }
+    })
+    init()
+  }, [currentDeviceAudio])
+
+  useEffect(() => {
+    const mediaStream = localStream.stream
+    // If WebRTC is connected, switch track
+    // NOTE: array video index is: 1
+    refPC.current?.getSenders().filter((_, i) => i === 1).map(sender => {
+      if (mediaStream) {
+        mediaStream.getVideoTracks().map(track => sender.replaceTrack(track))
+      }
+    })
+    init()
+  }, [currentDeviceVideo])
 
   return (
     <div className='flex flex-col'>
