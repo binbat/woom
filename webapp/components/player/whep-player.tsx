@@ -8,7 +8,7 @@ export default function WhepPlayer(props: { streamId: string }) {
   const refPC = useRef<RTCPeerConnection | null>(null)
   const [connectionState, setConnectionState] = useState("unknown")
   const [userStream, setUserStream] = useState<UserStream>({
-    stream: null,
+    stream: new MediaStream,
     name: props.streamId,
   })
 

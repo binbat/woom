@@ -11,6 +11,7 @@ import WHIPClient from '../../lib/whip'
 export default function WhipPlayer(props: { streamId: string }) {
   const refEnabled = useRef(false)
   const refPC = useRef<RTCPeerConnection | null>(null)
+  const refClient = useRef<WHIPClient | null>(null)
   const [localStream] = useAtom(localStreamAtom)
   const [connectionState, setConnectionState] = useState("unknown")
 
@@ -57,7 +58,8 @@ export default function WhipPlayer(props: { streamId: string }) {
         const whip = new WHIPClient();
         const url = location.origin + `/whip/${resource}`
         const token = "xxx"
-        await whip.publish(refPC.current, url, token);
+        await whip.publish(refPC.current, url, token)
+        refClient.current = whip
       }
     }
   }
@@ -71,11 +73,17 @@ export default function WhipPlayer(props: { streamId: string }) {
   }
 
   const init = () => {
-    if (localStream.stream) {
+    if (!!localStream.stream.getTracks().length) {
       if (!refEnabled.current) {
         refEnabled.current = true
         newPeerConnection()
         start(props.streamId)
+      }
+    } else {
+      if (refEnabled.current) {
+        // TODO: live777 need remove `If-Match`
+        //refClient.current?.stop()
+        //console.log("should closed whip")
       }
     }
   }

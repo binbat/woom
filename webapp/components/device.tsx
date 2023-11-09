@@ -56,29 +56,18 @@ export default function DeviceBar() {
   const onChangedDeviceAudio = async (current: string) => {
     // Closed old tracks
     const stream = localStream.stream
-    if (stream) {
-      stream.getAudioTracks().map(track => {
-        track.stop()
-        stream.removeTrack(track)
-      })
-    }
+    stream.getAudioTracks().map(track => {
+      track.stop()
+      stream.removeTrack(track)
+    })
 
     const mediaStream = await asyncGetAudioStream(current)
 
-    const videoTracks = localStream.stream?.getVideoTracks()
-    const audioTracks = mediaStream?.getAudioTracks()
-    let media: MediaStream | null = null
-
-    if (audioTracks && videoTracks) {
-      media = new MediaStream([...audioTracks, ...videoTracks])
-    } else if (audioTracks) {
-      media = new MediaStream(audioTracks)
-    } else if (videoTracks) {
-      media = new MediaStream(videoTracks)
-    }
+    const videoTracks = localStream.stream.getVideoTracks()
+    const audioTracks = mediaStream.getAudioTracks()
 
     setLocalStream({
-      stream: media,
+      stream: new MediaStream([...audioTracks, ...videoTracks]),
       name: "Me",
     })
 
@@ -88,28 +77,17 @@ export default function DeviceBar() {
   const onChangedDeviceVideo = async (current: string) => {
     // Closed old tracks
     const stream = localStream.stream
-    if (stream) {
-      stream.getVideoTracks().map(track => {
-        track.stop()
-        stream.removeTrack(track)
-      })
-    }
+    stream.getVideoTracks().map(track => {
+      track.stop()
+      stream.removeTrack(track)
+    })
 
     const mediaStream = await asyncGetVideoStream(current)
-    const audioTracks = localStream.stream?.getAudioTracks()
-    const videoTracks = mediaStream?.getVideoTracks()
-    let media: MediaStream | null = null
-
-    if (audioTracks && videoTracks) {
-      media = new MediaStream([...audioTracks, ...videoTracks])
-    } else if (audioTracks) {
-      media = new MediaStream(audioTracks)
-    } else if (videoTracks) {
-      media = new MediaStream(videoTracks)
-    }
+    const audioTracks = localStream.stream.getAudioTracks()
+    const videoTracks = mediaStream.getVideoTracks()
 
     setLocalStream({
-      stream: media,
+      stream: new MediaStream([...audioTracks, ...videoTracks]),
       name: "Me",
     })
 

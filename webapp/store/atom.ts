@@ -5,7 +5,7 @@ import { atomWithLocation } from 'jotai-location'
 const locationAtom = atomWithLocation()
 
 interface UserStream {
-  stream: MediaStream | null,
+  stream: MediaStream,
   name: string
 }
 
@@ -21,7 +21,7 @@ const meetingJoinedAtom = atom(false)
 meetingJoinedAtom.debugLabel = 'meetingJoined'
 
 const localStreamAtom = atom<UserStream>({
-  stream: null,
+  stream: new MediaStream,
   name: "Me",
 })
 
