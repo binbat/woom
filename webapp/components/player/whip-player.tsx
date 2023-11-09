@@ -53,6 +53,15 @@ export default function WhipPlayer(props: { streamId: string }) {
     }
   }
 
+  const restart = async (resource: string) => {
+    if (peerConnection.current) {
+      peerConnection.current.close()
+      peerConnection.current = new RTCPeerConnection()
+    }
+    newPeerConnection()
+    start(resource)
+  }
+
   useEffect(() => {
     if (!refEnabled.current) {
       refEnabled.current = true
@@ -66,7 +75,7 @@ export default function WhipPlayer(props: { streamId: string }) {
       <Player user={localStream} muted={true} />
       <center className='text-white flex flex-row justify-around'>
         <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{connectionState}</p>
-        <button className='btn-primary' disabled={connectionState === 'connected'} onClick={() => start(props.streamId)}>restart</button>
+        <button className='btn-primary' disabled={connectionState === 'connected'} onClick={() => restart(props.streamId)}>restart</button>
       </center>
     </div>
   )
