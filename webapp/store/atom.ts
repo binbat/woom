@@ -3,6 +3,7 @@ import { atomWithStorage } from 'jotai/utils'
 import { atomWithLocation } from 'jotai-location'
 
 const locationAtom = atomWithLocation()
+locationAtom.debugLabel = 'location'
 
 interface UserStream {
   stream: MediaStream,
@@ -24,11 +25,7 @@ const localStreamAtom = atom<UserStream>({
   stream: new MediaStream,
   name: "Me",
 })
-
 localStreamAtom.debugLabel = 'localStream'
-
-const remoteStreamsAtom = atom<UserStream[]>([])
-remoteStreamsAtom.debugLabel = 'remoteStreams'
 
 const currentDeviceAudioAtom = atom<string>("none")
 currentDeviceAudioAtom.debugLabel = 'currentDeviceAudio'
@@ -43,7 +40,6 @@ export {
   meetingIdAtom,
   meetingJoinedAtom,
   localStreamAtom,
-  remoteStreamsAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
 }
