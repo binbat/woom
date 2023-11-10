@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
+  Device,
   deviceNone,
   deviceScreen,
-  Device,
   asyncGetAudioStream,
   asyncGetVideoStream,
 } from '../lib/device'
@@ -14,7 +14,8 @@ import {
 } from '../store/atom'
 
 export default function DeviceBar() {
-  const [permission, setPermission] = useState("unknow")
+  const refEnabled = useRef(false)
+  const [permission, setPermission] = useState("...")
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
 
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
@@ -22,35 +23,47 @@ export default function DeviceBar() {
   const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
-  const refresh = async () => {
-    const result = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true
-    })
+  const requestPermission = async (): Promise<boolean> => {
+    try {
+      const result = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      result instanceof MediaStream ? setPermission("success") : setPermission("error")
+      return true
+      //@ts-ignore
+    } catch ({ name, message }) {
+      setPermission(message)
+    }
+    return false
+  }
 
-    result instanceof MediaStream ? setPermission("success") : setPermission("error")
-
+  const refreshDevice = async () => {
     const devices = await navigator.mediaDevices.enumerateDevices()
-    const audios = []
-    const videos = []
-    for (const device of devices) {
+    const audios: Device[] = []
+    const videos: Device[] = []
+    devices.filter(i => !!i.deviceId).map(device => {
       switch (device.kind) {
-        case 'videoinput':
-          videos.push(device)
-          break;
-
         case 'audioinput':
           audios.push(device)
           break;
+        case 'videoinput':
+          videos.push(device)
+          break;
       }
-    }
+    })
 
     setDeviceAudio([deviceNone, ...audios])
     setDeviceVideo([deviceNone, ...videos, deviceScreen])
   }
 
+  const init = async () => {
+    await requestPermission()
+    await refreshDevice()
+  }
+
   useEffect(() => {
-    refresh()
+    if (!refEnabled.current) {
+      refEnabled.current = true
+      init()
+    }
   }, [])
 
   const onChangedDeviceAudio = async (current: string) => {
@@ -97,22 +110,14 @@ export default function DeviceBar() {
   return (
     <div className='flex flex-row flex-wrap justify-around p-4 m-4 container'>
       <center className='basis-full m-xl'>
-        <label className='m-xl text-white'>User device status: <code className={permission === "success" ? "text-green" : "text-red"}>{permission}</code></label>
-        <button className='btn-primary' onClick={() => { refresh() }}>refresh</button>
+        <label className='m-xl text-white'>
+          Your Device Status: <code className={permission === "success" ? "text-green" : "text-red"}>{permission}</code>
+        </label>
+        {permission === 'success'
+          ? <button className='btn-primary' onClick={() => { refreshDevice() }}>refresh</button>
+          : null
+        }
       </center>
-
-      <section className='md:basis-1/2 sm:basis-full'>
-        <label className='w-1/3 m-sm text-white'>Video Device:</label>
-        <select
-          className='w-2/3'
-          value={currentDeviceVideo}
-          onChange={e => onChangedDeviceVideo(e.target.value)}
-        >
-          {deviceVideo.map(device =>
-            <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
-          )}
-        </select>
-      </section>
 
       <section className='md:basis-1/2 sm:basis-full'>
         <label className='w-1/3 m-sm text-white'>Audio Device:</label>
@@ -122,6 +127,19 @@ export default function DeviceBar() {
           onChange={e => onChangedDeviceAudio(e.target.value)}
         >
           {deviceAudio.map(device =>
+            <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
+          )}
+        </select>
+      </section>
+
+      <section className='md:basis-1/2 sm:basis-full'>
+        <label className='w-1/3 m-sm text-white'>Video Device:</label>
+        <select
+          className='w-2/3'
+          value={currentDeviceVideo}
+          onChange={e => onChangedDeviceVideo(e.target.value)}
+        >
+          {deviceVideo.map(device =>
             <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
           )}
         </select>
