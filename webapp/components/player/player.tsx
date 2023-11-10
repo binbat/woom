@@ -32,10 +32,12 @@ export default function Player(props: { user: UserStream, muted: boolean }) {
     }
   }, [refVideo, props.user.stream]);
 
+  // NOTE: iOS can't display video
+  // https://webkit.org/blog/6784/new-video-policies-for-ios/
   return (
     <div className='flex-col'>
       {props.user.stream
-        ? <video className='rounded-xl' autoPlay={true} controls={false} muted={props.muted} style={{ width: '320px' }} ref={refVideo} />
+        ? <video className='rounded-xl' playsInline={true} autoPlay={true} controls={false} muted={props.muted} style={{ width: '320px' }} ref={refVideo} />
         : null
       }
       <div className='rounded-xl' ref={refWave}></div>

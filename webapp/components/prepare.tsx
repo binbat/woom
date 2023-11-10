@@ -68,7 +68,7 @@ export default function Prepare(props: { meetingId: string }) {
   return (
     <div className='flex flex-col justify-around'>
       <center className='m-5xl'>
-        <video className='rounded-xl' autoPlay={true} controls={false} ref={refVideo} style={{ width: '320px' }}></video>
+        <video className='rounded-xl' playsInline={true} autoPlay={true} controls={false} ref={refVideo} style={{ width: '320px' }}></video>
 
         <div className='rounded-xl' ref={refWave}></div>
       </center>
