@@ -85,6 +85,11 @@ export default function DeviceBar() {
     }
   }, [])
 
+  useEffect(() => {
+    navigator.mediaDevices.ondevicechange = () => refreshDevice()
+    return () => { navigator.mediaDevices.ondevicechange = () => { } }
+  })
+
   const onChangedDeviceAudio = async (current: string) => {
     // Closed old tracks
     const stream = localStream.stream
@@ -132,7 +137,7 @@ export default function DeviceBar() {
         <label className='m-xl text-white'>
           Your Device Status: <code className={permission === "success" ? "text-green" : "text-red"}>{permission}</code>
         </label>
-        {permission === 'success'
+        {permission === 'success' && false // TODO: I don't test `navigator.mediaDevices.ondevicechange`
           ? <button className='btn-primary' onClick={() => { refreshDevice() }}>refresh</button>
           : null
         }
