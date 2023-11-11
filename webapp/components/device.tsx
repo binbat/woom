@@ -15,7 +15,11 @@ import {
 
 export default function DeviceBar() {
   const refEnabled = useRef(false)
+
   const [permission, setPermission] = useState("...")
+  const [permissionAudio, setPermissionAudio] = useState("...")
+  const [permissionVideo, setPermissionVideo] = useState("...")
+
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
 
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
@@ -23,16 +27,31 @@ export default function DeviceBar() {
   const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
-  const requestPermission = async (): Promise<boolean> => {
+  const permissionsQuery = async () =>
+    (await Promise.all(["camera", "microphone"].map(
+      //@ts-ignore
+      name => navigator.permissions.query({ name })
+    ))).map(status => {
+      if (status.name === "audio_capture") {
+        setPermissionAudio(status.state)
+      }
+      if (status.name === "video_capture") {
+        setPermissionVideo(status.state)
+      }
+    })
+
+  const requestPermission = async () => {
     try {
+      permissionsQuery()
       const result = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       result instanceof MediaStream ? setPermission("success") : setPermission("error")
-      return true
+      result.getTracks().map(track => track.stop())
       //@ts-ignore
     } catch ({ name, message }) {
       setPermission(message)
+    } finally {
+      await permissionsQuery()
     }
-    return false
   }
 
   const refreshDevice = async () => {
@@ -51,7 +70,7 @@ export default function DeviceBar() {
     })
 
     setDeviceAudio([deviceNone, ...audios])
-    setDeviceVideo([deviceNone, ...videos, deviceScreen])
+    setDeviceVideo([deviceNone, deviceScreen, ...videos])
   }
 
   const init = async () => {
@@ -117,6 +136,15 @@ export default function DeviceBar() {
           ? <button className='btn-primary' onClick={() => { refreshDevice() }}>refresh</button>
           : null
         }
+
+        <section className='flex flex-row justify-center text-white'>
+          <div className='mx-sm'>
+            Microphone Permission: <code className={permissionAudio === "granted" ? "text-green" : "text-red"}>{permissionAudio}</code>
+          </div>
+          <div className='mx-sm'>
+            Camera Permission: <code className={permissionVideo === "granted" ? "text-green" : "text-red"}>{permissionVideo}</code>
+          </div>
+        </section>
       </center>
 
       <section className='md:basis-1/2 sm:basis-full'>
