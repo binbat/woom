@@ -3,10 +3,12 @@ import { useAtom } from 'jotai'
 import DeviceBar from './device'
 import Loading from "./loading"
 import {
+  displayNameAtom,
   localStreamIdAtom,
   meetingJoinedAtom,
   localStreamAtom,
   currentDeviceAudioAtom,
+  localUserStatusAtom,
 } from '../store/atom'
 
 import { asyncGetStreamId } from '../lib/storage'
@@ -19,7 +21,10 @@ export default function Prepare(props: { meetingId: string }) {
   const refWave = useRef<HTMLDivElement>(null)
 
   const refVideo = useRef<HTMLVideoElement>(null)
+  const [displayName, setDisplayName] = useAtom(displayNameAtom)
+
   const [localStreamId, setLocalStreamId] = useAtom(localStreamIdAtom)
+  const [localUserStatus, setLocalUserStatus] = useAtom(localUserStatusAtom)
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
 
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
@@ -32,6 +37,12 @@ export default function Prepare(props: { meetingId: string }) {
       tmpLocalStreamId = await asyncGetStreamId()
       setLocalStreamId(tmpLocalStreamId)
     }
+
+    setLocalUserStatus({
+      ...localUserStatus,
+      name: displayName || localStreamId,
+    })
+
     setLoading(false)
     setMeetingJoined(true)
   }
@@ -71,6 +82,14 @@ export default function Prepare(props: { meetingId: string }) {
         <video className='rounded-xl' playsInline={true} autoPlay={true} controls={false} ref={refVideo} style={{ width: '320px' }}></video>
 
         <div className='rounded-xl' ref={refWave}></div>
+      </center>
+
+      <center className='m-xl'>
+        <label className='text-white'>Your Name: </label>
+        <input
+          value={displayName}
+          onChange={e => setDisplayName(e.target.value)}
+        />
       </center>
 
       <div className='flex justify-evenly bg-gray-800'>

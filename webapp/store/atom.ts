@@ -17,6 +17,9 @@ interface UserStatus {
   screen: boolean
 }
 
+const displayNameAtom = atomWithStorage('name', '')
+displayNameAtom.debugLabel = 'displayName'
+
 const localStreamIdAtom = atomWithStorage('stream', '')
 localStreamIdAtom.debugLabel = 'localStreamId'
 
@@ -35,7 +38,7 @@ const localStreamAtom = atom<UserStream>({
 localStreamAtom.debugLabel = 'localStream'
 
 const localUserStatusAtom = atom<UserStatus>({
-  name: "name",
+  name: "",
   audio: false,
   video: false,
   screen: false,
@@ -51,6 +54,8 @@ const currentDeviceVideoAtom = atom<string>("none")
 currentDeviceVideoAtom.debugLabel = 'currentDeviceVideo'
 
 export {
+  displayNameAtom,
+
   localStreamIdAtom,
   remoteStreamIdsAtom,
 
