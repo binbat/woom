@@ -1,4 +1,4 @@
-package server
+package model
 
 import (
 	"github.com/lib/pq/hstore"
