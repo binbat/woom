@@ -20,7 +20,7 @@ RUN go mod download
 
 COPY . .
 
-COPY --from=builder-node /app/dist /app/dist
+COPY --from=builder-node /app/static/dist /app/static/dist
 
 RUN go build -tags release -o woom
 

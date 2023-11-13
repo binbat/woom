@@ -14,6 +14,9 @@ export default defineConfig({
       '^/room/.*': 'http://localhost:4000',
     },
   },
+  build: {
+    outDir: "static/dist"
+  },
   plugins: [
     UnoCSS({
       shortcuts: [

@@ -1,8 +1,8 @@
 //go:build !release
 
-package main
+package static
 
 import "embed"
 
 //go:embed index.html
-var dist embed.FS
+var Dist embed.FS

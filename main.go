@@ -11,6 +11,7 @@ import (
 	"time"
 	"woom/database"
 	"woom/server"
+	"woom/static"
 
 	_ "github.com/lib/pq"
 	"github.com/lib/pq/hstore"
@@ -163,7 +164,7 @@ func main() {
 	r.HandleFunc("/whip/{uuid}", handler(proxy, cfg.Live777Token))
 	r.HandleFunc("/whep/{uuid}", handler(proxy, cfg.Live777Token))
 
-	r.Handle("/*", http.StripPrefix("/", http.FileServer(server.NewSinglePageApp("index.html", http.FS(dist)))))
+	r.Handle("/*", http.StripPrefix("/", http.FileServer(server.NewSinglePageApp("index.html", http.FS(static.Dist)))))
 
 	log.Println("=== started ===")
 	log.Panicln(http.ListenAndServe(":"+cfg.Port, r))

@@ -1,6 +1,6 @@
 //go:build release
 
-package main
+package static
 
 import (
 	"embed"
@@ -11,11 +11,11 @@ import (
 //go:embed dist
 var build embed.FS
 
-var dist fs.FS
+var Dist fs.FS
 
 func init() {
 	var err error
-	dist, err = fs.Sub(build, "dist")
+	Dist, err = fs.Sub(build, "dist")
 	if err != nil {
 		log.Fatal(err)
 	}
