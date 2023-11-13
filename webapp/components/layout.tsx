@@ -10,6 +10,7 @@ const fetcher = (args: any) => fetch(args).then(res => res.json())
 
 export default function Layout(props: { meetingId: string }) {
   const { data, error, isLoading } = useSWR(`/room/${props.meetingId}`, fetcher)
+
   const [localStreamId] = useAtom(localStreamIdAtom)
 
   if (error) return <div>failed to load</div>
@@ -26,7 +27,7 @@ export default function Layout(props: { meetingId: string }) {
 
       <div className='flex flex-row flex-wrap justify-evenly'>
         <WhipPlayer streamId={localStreamId} />
-        {data.filter(i => i !== localStreamId).filter(i => !!i).map(stream => <WhepPlayer key={stream} streamId={stream} />)}
+        {Object.keys(data).filter(i => i !== localStreamId).filter(i => !!i).map(stream => <WhepPlayer key={stream} streamId={stream} />)}
       </div>
 
       <center>

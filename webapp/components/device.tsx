@@ -9,6 +9,7 @@ import {
 } from '../lib/device'
 import {
   localStreamAtom,
+  localUserStatusAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
 } from '../store/atom'
@@ -21,6 +22,7 @@ export default function DeviceBar() {
   const [permissionVideo, setPermissionVideo] = useState("...")
 
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
+  const [localUserStatus, setLocalUserStatus] = useAtom(localUserStatusAtom)
 
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo, setCurrentDeviceVideo] = useAtom(currentDeviceVideoAtom)
@@ -108,6 +110,11 @@ export default function DeviceBar() {
       name: "Me",
     })
 
+    setLocalUserStatus({
+      ...localUserStatus,
+      audio: current === "none" ? false : true,
+    })
+
     setCurrentDeviceAudio(current)
   }
 
@@ -126,6 +133,12 @@ export default function DeviceBar() {
     setLocalStream({
       stream: new MediaStream([...audioTracks, ...videoTracks]),
       name: "Me",
+    })
+
+    setLocalUserStatus({
+      ...localUserStatus,
+      video: current === "none" ? false : true,
+      screen: current === "screen" ? true : false,
     })
 
     setCurrentDeviceVideo(current)

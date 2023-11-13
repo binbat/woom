@@ -65,7 +65,8 @@ func main() {
 	r.Post("/room/", handle.CreateRoom)
 	r.Patch("/room/{roomId}", handle.UpdateRoom)
 	r.Get("/room/{roomId}", handle.ShowRoom)
-	r.Post("/room/{roomId}/stream", handle.UpdateRoomStream)
+	r.Post("/room/{roomId}/stream", handle.CreateRoomStream)
+	r.Patch("/room/{roomId}/stream/{streamId}", handle.UpdateRoomStream)
 
 	r.Post("/room/{roomId}/message", handle.CreateMessage)
 	r.Get("/room/{roomId}/message", handle.ShowMessage)

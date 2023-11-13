@@ -1,9 +1,9 @@
 package api
 
 import (
-	"database/sql"
+	"encoding/json"
+	"io"
 	"net/http"
-	"slices"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -13,16 +13,7 @@ import (
 )
 
 func (h *Handler) CreateRoom(w http.ResponseWriter, r *http.Request) {
-	uuid := r.URL.Query().Get("uuid")
-	hs := hstore.Hstore{
-		Map: map[string]sql.NullString{
-			uuid: {
-				"user",
-				true,
-			},
-		},
-	}
-
+	hs := hstore.Hstore{}
 	var roomId int
 	h.db.QueryRow(`INSERT INTO rooms (stream) VALUES ($1) RETURNING id;`, hs).Scan(&roomId)
 	w.Write([]byte(strconv.Itoa(roomId)))
@@ -31,7 +22,7 @@ func (h *Handler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateRoom(w http.ResponseWriter, r *http.Request) {
 	roomId := chi.URLParam(r, "roomId")
 	uuid := r.URL.Query().Get("uuid")
-	h.db.Exec(`UPDATE rooms SET stream[$2] = $3 WHERE id = $1;`, roomId, uuid, "user")
+	h.db.Exec(`UPDATE rooms SET stream[$2] = $3 WHERE id = $1;`, roomId, uuid, "")
 	w.Write([]byte(roomId))
 }
 
@@ -44,25 +35,50 @@ func (h *Handler) ShowRoom(w http.ResponseWriter, r *http.Request) {
 	}
 	var room Room
 	h.db.QueryRow(`SELECT id, stream FROM rooms WHERE id = $1;`, roomId).Scan(&room.Id, &room.Stream)
+	roomStream := make(map[string]json.RawMessage)
 
-	var rooms []string
-	for k := range room.Stream.Map {
-		rooms = append(rooms, k)
+	for k, v := range room.Stream.Map {
+		if k == "" {
+			continue
+		}
+		if v.String == "" {
+			continue
+		}
+		roomStream[k] = json.RawMessage(v.String)
 	}
-	slices.Sort(rooms)
-	render.JSON(w, r, rooms)
+	render.JSON(w, r, roomStream)
 }
 
-func (h *Handler) UpdateRoomStream(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateRoomStream(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.NewV4()
 	if err != nil {
-		panic(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
 	}
 
 	roomId := chi.URLParam(r, "roomId")
-	if _, err := h.db.Exec(`UPDATE rooms SET stream[$2] = $3 WHERE id = $1;`, roomId, id.String(), "user"); err != nil {
+	if _, err := h.db.Exec(`UPDATE rooms SET stream[$2] = $3 WHERE id = $1;`, roomId, id.String(), ""); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
+		return
 	}
 	w.Write([]byte(id.String()))
+}
+
+func (h *Handler) UpdateRoomStream(w http.ResponseWriter, r *http.Request) {
+	roomId := chi.URLParam(r, "roomId")
+	streamId := chi.URLParam(r, "streamId")
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	if _, err := h.db.Exec(`UPDATE rooms SET stream[$2] = $3 WHERE id = $1;`, roomId, streamId, data); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
 }

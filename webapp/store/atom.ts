@@ -10,6 +10,13 @@ interface UserStream {
   name: string
 }
 
+interface UserStatus {
+  name: string
+  audio: boolean
+  video: boolean
+  screen: boolean
+}
+
 const localStreamIdAtom = atomWithStorage('stream', '')
 localStreamIdAtom.debugLabel = 'localStreamId'
 
@@ -27,6 +34,17 @@ const localStreamAtom = atom<UserStream>({
 })
 localStreamAtom.debugLabel = 'localStream'
 
+const localUserStatusAtom = atom<UserStatus>({
+  name: "name",
+  audio: false,
+  video: false,
+  screen: false,
+})
+localUserStatusAtom.debugLabel = 'localUserStatus'
+
+const remoteUsersStatusAtom = atom<UserStatus[]>([])
+remoteUsersStatusAtom.debugLabel = 'remoteUsersStatus'
+
 const currentDeviceAudioAtom = atom<string>("none")
 currentDeviceAudioAtom.debugLabel = 'currentDeviceAudio'
 const currentDeviceVideoAtom = atom<string>("none")
@@ -35,6 +53,9 @@ currentDeviceVideoAtom.debugLabel = 'currentDeviceVideo'
 export {
   localStreamIdAtom,
   remoteStreamIdsAtom,
+
+  localUserStatusAtom,
+  remoteUsersStatusAtom,
 
   locationAtom,
   meetingIdAtom,
