@@ -56,7 +56,7 @@ export default function DeviceBar() {
     }
   }
 
-  const refreshDevice = async () => {
+  const updateDeviceList = async () => {
     const devices = await navigator.mediaDevices.enumerateDevices()
     const audios: Device[] = []
     const videos: Device[] = []
@@ -64,20 +64,20 @@ export default function DeviceBar() {
       switch (device.kind) {
         case 'audioinput':
           audios.push(device)
-          break;
+          break
         case 'videoinput':
           videos.push(device)
-          break;
+          break
       }
     })
 
     setDeviceAudio([deviceNone, ...audios])
-    setDeviceVideo([deviceNone, deviceScreen, ...videos])
+    setDeviceVideo([deviceNone, ...videos, deviceScreen])
   }
 
   const init = async () => {
     await requestPermission()
-    await refreshDevice()
+    await updateDeviceList()
   }
 
   useEffect(() => {
@@ -88,9 +88,10 @@ export default function DeviceBar() {
   }, [])
 
   useEffect(() => {
-    navigator.mediaDevices.ondevicechange = () => refreshDevice()
-    return () => { navigator.mediaDevices.ondevicechange = () => { } }
-  })
+    // Reference: https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/devicechange_event
+    navigator.mediaDevices.addEventListener("devicechange", updateDeviceList)
+    return () => { navigator.mediaDevices.removeEventListener("devicechange", updateDeviceList) }
+  }, [])
 
   const onChangedDeviceAudio = async (current: string) => {
     // Closed old tracks
@@ -150,10 +151,6 @@ export default function DeviceBar() {
         <label className='m-xl text-white'>
           Your Device Status: <code className={permission === "success" ? "text-green" : "text-red"}>{permission}</code>
         </label>
-        {permission === 'success' && false // TODO: I don't test `navigator.mediaDevices.ondevicechange`
-          ? <button className='btn-primary' onClick={() => { refreshDevice() }}>refresh</button>
-          : null
-        }
 
         <section className='flex flex-row justify-center text-white'>
           <div className='mx-sm'>
