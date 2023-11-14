@@ -1,20 +1,32 @@
-import useSWR from 'swr'
+import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import Member from './member'
 import WhipPlayer from './player/whip-player'
 import WhepPlayer from './player/whep-player'
 import DeviceBar from './device'
-import { localStreamIdAtom } from '../store/atom'
-
-const fetcher = (args: any) => fetch(args).then(res => res.json())
+import { UserStatus, localStreamIdAtom } from '../store/atom'
 
 export default function Layout(props: { meetingId: string }) {
-  const { data, error, isLoading } = useSWR(`/room/${props.meetingId}`, fetcher)
-
   const [localStreamId] = useAtom(localStreamIdAtom)
+  const [remoteUserStatus, setRemoteUserStatus] = useState<{ [_: string]: UserStatus }>({})
 
-  if (error) return <div>failed to load</div>
-  if (isLoading) return <div>loading...</div>
+  const refresh = async () => {
+    let res = await fetch(location.origin + `/room/${props.meetingId}`)
+    const data = await res.json()
+    const r = Object.keys(data)
+      .filter(i => i !== localStreamId)
+      .filter(i => !!i)
+      .reduce((map, i) => {
+        map[i] = data[i]
+        return map
+      }, {} as { [_: string]: UserStatus })
+    setRemoteUserStatus(r)
+  }
+
+  useEffect(() => {
+    const handle = setInterval(refresh, 3000)
+    return () => clearInterval(handle)
+  }, [])
 
   return (
     <div className='flex flex-col justify-around' style={{ height: '100vh' }}>
@@ -27,7 +39,7 @@ export default function Layout(props: { meetingId: string }) {
 
       <div className='flex flex-row flex-wrap justify-evenly'>
         <WhipPlayer streamId={localStreamId} />
-        {Object.keys(data).filter(i => i !== localStreamId).filter(i => !!i).map(i => <WhepPlayer key={i} streamId={i} status={data[i]} />)}
+        {Object.keys(remoteUserStatus).map(i => <WhepPlayer key={i} streamId={i} status={remoteUserStatus[i]} />)}
       </div>
 
       <center>
