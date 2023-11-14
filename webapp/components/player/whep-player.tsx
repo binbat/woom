@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import Player from './player'
-import { UserStream } from '../../store/atom'
+import { UserStream, UserStatus } from '../../store/atom'
 import WHEPClient from '../../lib/whep'
 
-export default function WhepPlayer(props: { streamId: string }) {
+export default function WhepPlayer(props: { streamId: string, status: UserStatus }) {
   const refEnabled = useRef(false)
   const refPC = useRef<RTCPeerConnection | null>(null)
   const [connectionState, setConnectionState] = useState("unknown")
@@ -53,9 +53,21 @@ export default function WhepPlayer(props: { streamId: string }) {
     }
   }, [])
 
+  useEffect(() => {
+    restart(props.streamId)
+  }, [props.status.audio, props.status.video, props.status.screen])
+
   return (
     <div className='flex flex-col'>
       <Player user={userStream} muted={false} />
+      <center className='text-white m-sm'>
+        <p>name: <code>{props.status.name}</code></p>
+        <div className='flex flex-row gap-4'>
+          <p>audio: <code>{String(props.status.audio)}</code></p>
+          <p>video: <code>{String(props.status.video)}</code></p>
+          <p>screen: <code>{String(props.status.screen)}</code></p>
+        </div>
+      </center>
       <center className='text-white flex flex-row justify-around'>
         <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{connectionState}</p>
         <button className='btn-primary' onClick={() => restart(props.streamId)}>restart</button>

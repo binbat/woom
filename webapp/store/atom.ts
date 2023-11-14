@@ -72,4 +72,5 @@ export {
 
 export type {
   UserStream,
+  UserStatus,
 }

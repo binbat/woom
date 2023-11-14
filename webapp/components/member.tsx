@@ -20,6 +20,11 @@ export default function Member() {
   }
 
   useEffect(() => {
+    const handle = setInterval(refresh, 3000)
+    return () => clearInterval(handle)
+  }, [])
+
+  useEffect(() => {
     fetch(location.origin + `/room/${meetingId}/stream/${localStreamId}`, {
       method: 'PATCH',
       headers: {
