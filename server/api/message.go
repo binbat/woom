@@ -6,7 +6,7 @@ import (
 	"time"
 	"woom/server/model"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 )
 
