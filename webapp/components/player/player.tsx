@@ -43,7 +43,7 @@ export default function Player(props: { user: UserStream, muted: boolean }) {
         controls={false}
         muted={props.muted}
         ref={refVideo}
-        style={!!props.user.stream.getVideoTracks().length ? { width: '320px' } : { height: '0px' }}
+        style={!!props.user.stream?.getVideoTracks().length ? { width: '320px' } : { height: '0px' }}
       />
       <div className='rounded-xl' ref={refWave}></div>
       <center className='text-white'>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
   localStreamAtom,
+  localUserStatusAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
 } from '../../store/atom'
@@ -13,7 +14,7 @@ export default function WhipPlayer(props: { streamId: string }) {
   const refPC = useRef<RTCPeerConnection | null>(null)
   const refClient = useRef<WHIPClient | null>(null)
   const [localStream] = useAtom(localStreamAtom)
-  const [connectionState, setConnectionState] = useState("unknown")
+  const [localUserStatus, setLocalUserStatus] = useAtom(localUserStatusAtom)
 
   const [currentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo] = useAtom(currentDeviceVideoAtom)
@@ -22,7 +23,10 @@ export default function WhipPlayer(props: { streamId: string }) {
     const stream = localStream.stream
     if (stream) {
       const pc = new RTCPeerConnection()
-      pc.onconnectionstatechange = () => setConnectionState(pc.connectionState)
+      pc.onconnectionstatechange = () => setLocalUserStatus({
+        ...localUserStatus,
+        state: pc.connectionState
+      })
 
       // NOTE: array audio index is: 0
       if (!stream.getAudioTracks().length) {
@@ -118,9 +122,20 @@ export default function WhipPlayer(props: { streamId: string }) {
   return (
     <div className='flex flex-col'>
       <Player user={localStream} muted={true} />
+
+      <center className='text-white my-sm'>
+        <p>name: <code>{localUserStatus.name}</code></p>
+        <p>state: <code>{String(localUserStatus.state)}</code></p>
+        <div className='flex flex-row justify-around'>
+          <p>audio: <code>{String(localUserStatus.audio)}</code></p>
+          <p>video: <code>{String(localUserStatus.video)}</code></p>
+          <p>screen: <code>{String(localUserStatus.screen)}</code></p>
+        </div>
+      </center>
+
       <center className='text-white flex flex-row justify-around'>
-        <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{connectionState}</p>
-        <button className='btn-primary' disabled={connectionState === 'connected'} onClick={() => restart(props.streamId)}>restart</button>
+        <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{localUserStatus.state}</p>
+        <button className='btn-primary' disabled={localUserStatus.state === 'connected'} onClick={() => restart(props.streamId)}>restart</button>
       </center>
     </div>
   )

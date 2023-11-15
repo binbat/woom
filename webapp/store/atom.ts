@@ -11,7 +11,11 @@ interface UserStream {
 }
 
 interface UserStatus {
+  // Nick Name
   name: string
+
+  // Reference: https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/connectionState#value
+  state: string
   audio: boolean
   video: boolean
   screen: boolean
@@ -39,6 +43,7 @@ localStreamAtom.debugLabel = 'localStream'
 
 const localUserStatusAtom = atom<UserStatus>({
   name: "",
+  state: "new",
   audio: false,
   video: false,
   screen: false,
