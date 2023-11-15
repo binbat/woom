@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -12,11 +13,30 @@ import (
 	"github.com/lib/pq/hstore"
 )
 
+const idLength = 9
+
 func (h *Handler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 	hs := hstore.Hstore{}
-	var roomId int
-	h.db.QueryRow(`INSERT INTO rooms (stream) VALUES ($1) RETURNING id;`, hs).Scan(&roomId)
-	w.Write([]byte(strconv.Itoa(roomId)))
+	var roomId string
+
+	id, err := strconv.Atoi(GenNumberSecret(idLength))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	if err := h.db.QueryRow(`INSERT INTO rooms (id, stream) VALUES ($1, $2) RETURNING id;`, id, hs).Scan(&roomId); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	if n := idLength - len(roomId); n > 0 {
+		roomId = strings.Repeat("0", n) + roomId
+	}
+
+	w.Write([]byte(roomId))
 }
 
 func (h *Handler) UpdateRoom(w http.ResponseWriter, r *http.Request) {
