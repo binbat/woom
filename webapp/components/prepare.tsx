@@ -87,6 +87,7 @@ export default function Prepare(props: { meetingId: string }) {
       <center className='m-xl'>
         <label className='text-white'>Your Name: </label>
         <input
+          className='text-center'
           value={displayName}
           onChange={e => setDisplayName(e.target.value)}
         />

@@ -5,6 +5,7 @@ import {
   meetingIdAtom,
 } from '../store/atom'
 import { setMeetingId } from '../lib/storage'
+import { addSplitSymbol, delSplitSymbol } from '../lib/util'
 
 export default function Join() {
   const [loc, setLoc] = useAtom(locationAtom)
@@ -44,8 +45,10 @@ export default function Join() {
         <div className='m-6'>
           <label className='text-white'>meeting id: </label>
           <input
-            value={tmpId}
-            onChange={e => setTmpId(e.target.value)}
+            className='text-center'
+            value={addSplitSymbol(tmpId)}
+            onChange={e => setTmpId(delSplitSymbol(e.target.value))}
+            maxLength={11}
           />
         </div>
 
