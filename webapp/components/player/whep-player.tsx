@@ -46,16 +46,18 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
   }
 
   useEffect(() => {
-    if (!refEnabled.current) {
+    if (!refEnabled.current && props.status.state === "connected") {
       refEnabled.current = true
       newPeerConnection()
       start(props.streamId)
     }
-  }, [])
+  }, [props.status.state])
 
   useEffect(() => {
-    restart(props.streamId)
-  }, [props.status.audio, props.status.video, props.status.screen])
+    if (props.status.state === "connected") {
+      restart(props.streamId)
+    }
+  }, [props.status.state, props.status.audio, props.status.video, props.status.screen])
 
   return (
     <div className='flex flex-col'>
