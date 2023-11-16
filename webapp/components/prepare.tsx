@@ -78,13 +78,13 @@ export default function Prepare(props: { meetingId: string }) {
 
   return (
     <div className='flex flex-col justify-around'>
-      <center className='m-5xl'>
+      <center className='m-xs'>
         <video className='rounded-xl' playsInline={true} autoPlay={true} controls={false} ref={refVideo} style={{ width: '320px' }}></video>
 
         <div className='rounded-xl' ref={refWave}></div>
       </center>
 
-      <center className='m-xl'>
+      <center className='mb-xs'>
         <label className='text-white'>Your Name: </label>
         <input
           className='text-center'
@@ -97,7 +97,7 @@ export default function Prepare(props: { meetingId: string }) {
         <DeviceBar />
       </div>
 
-      <center className='m-5'>
+      <center className='m-xs'>
         <button className='btn-primary flex flex-row justify-center' onClick={() => { start() }}>
           {loading
             ? <div className='m-2px'><Loading /></div>

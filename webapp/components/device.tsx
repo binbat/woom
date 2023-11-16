@@ -146,47 +146,49 @@ export default function DeviceBar() {
   }
 
   return (
-    <div className='flex flex-row flex-wrap justify-around p-4 m-4 container'>
-      <center className='basis-full m-xl'>
-        <label className='m-xl text-white'>
+    <div className='flex flex-row flex-wrap justify-around p-xs'>
+      <center className='basis-full'>
+        <label className='text-white'>
           Your Device Status: <code className={permission === "success" ? "text-green" : "text-red"}>{permission}</code>
         </label>
 
         <section className='flex flex-row justify-center text-white'>
-          <div className='mx-sm'>
-            Microphone Permission: <code className={permissionAudio === "granted" ? "text-green" : "text-red"}>{permissionAudio}</code>
+          <div className='mx-xs'>
+            Microphone: <code className={permissionAudio === "granted" ? "text-green" : "text-red"}>{permissionAudio}</code>
           </div>
-          <div className='mx-sm'>
-            Camera Permission: <code className={permissionVideo === "granted" ? "text-green" : "text-red"}>{permissionVideo}</code>
+          <div className='mx-xs'>
+            Camera: <code className={permissionVideo === "granted" ? "text-green" : "text-red"}>{permissionVideo}</code>
           </div>
         </section>
       </center>
 
-      <section className='md:basis-1/2 sm:basis-full'>
-        <label className='w-1/3 m-sm text-white'>Audio Device:</label>
-        <select
-          className='w-2/3'
-          value={currentDeviceAudio}
-          onChange={e => onChangedDeviceAudio(e.target.value)}
-        >
-          {deviceAudio.map(device =>
-            <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
-          )}
-        </select>
-      </section>
+      <center className='flex flex-row flex-wrap justify-around'>
+        <section className='md:basis-1/2 sm:basis-full'>
+          <label className='w-1/3 m-sm text-white'>Audio Device:</label>
+          <select
+            className='w-2/3'
+            value={currentDeviceAudio}
+            onChange={e => onChangedDeviceAudio(e.target.value)}
+          >
+            {deviceAudio.map(device =>
+              <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
+            )}
+          </select>
+        </section>
 
-      <section className='md:basis-1/2 sm:basis-full'>
-        <label className='w-1/3 m-sm text-white'>Video Device:</label>
-        <select
-          className='w-2/3'
-          value={currentDeviceVideo}
-          onChange={e => onChangedDeviceVideo(e.target.value)}
-        >
-          {deviceVideo.map(device =>
-            <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
-          )}
-        </select>
-      </section>
+        <section className='md:basis-1/2 sm:basis-full'>
+          <label className='w-1/3 m-sm text-white'>Video Device:</label>
+          <select
+            className='w-2/3'
+            value={currentDeviceVideo}
+            onChange={e => onChangedDeviceVideo(e.target.value)}
+          >
+            {deviceVideo.map(device =>
+              <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
+            )}
+          </select>
+        </section>
+      </center>
     </div>
   )
 }
