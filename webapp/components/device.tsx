@@ -31,13 +31,24 @@ export default function DeviceBar() {
 
   const permissionsQuery = async () =>
     (await Promise.all(["camera", "microphone"].map(
-      //@ts-ignore
-      name => navigator.permissions.query({ name })
+      // NOTE:
+      // Firefox don't have `camera` and `microphone` in permissions
+      // https://developer.mozilla.org/en-US/docs/Web/API/Permissions/query#name
+      // https://searchfox.org/mozilla-central/source/dom/webidl/Permissions.webidl#10
+      //
+      // NOTE:
+      // PermissionName
+      // https://w3c.github.io/permissions/
+      // Reference: https://developer.mozilla.org/en-US/docs/Web/API/Permissions_API
+      i => navigator.permissions.query({ name: i as PermissionName })
     ))).map(status => {
-      if (status.name === "audio_capture") {
+      // NOTE:
+      // Chrome: audio_capture, video_capture
+      // Safari: microphone, camera
+      if (status.name === "audio_capture" || "microphone") {
         setPermissionAudio(status.state)
       }
-      if (status.name === "video_capture") {
+      if (status.name === "video_capture" || "camera") {
         setPermissionVideo(status.state)
       }
     })
