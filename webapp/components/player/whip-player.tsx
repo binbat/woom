@@ -123,10 +123,12 @@ export default function WhipPlayer(props: { streamId: string }) {
     <div className='flex flex-col'>
       <Player user={localStream} muted={true} />
 
-      <center className='text-white my-sm'>
-        <p>name: <code>{localUserStatus.name}</code></p>
-        <p>state: <code>{String(localUserStatus.state)}</code></p>
-        <div className='flex flex-row justify-around'>
+      <center className='text-white'>
+        <div className='flex flex-row flex-wrap justify-around'>
+          <p>name: <code>{localUserStatus.name}</code></p>
+          <p>state: <code>{String(localUserStatus.state)}</code></p>
+        </div>
+        <div className='flex flex-row flex-wrap justify-around'>
           <p>audio: <code>{String(localUserStatus.audio)}</code></p>
           <p>video: <code>{String(localUserStatus.video)}</code></p>
           <p>screen: <code>{String(localUserStatus.screen)}</code></p>

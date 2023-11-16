@@ -93,7 +93,7 @@ export default function Prepare(props: { meetingId: string }) {
         />
       </center>
 
-      <div className='flex justify-evenly bg-gray-800'>
+      <div className='flex justify-evenly bg-gray-800/80'>
         <DeviceBar />
       </div>
 

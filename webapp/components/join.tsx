@@ -39,7 +39,7 @@ export default function Join() {
   }, [location])
 
   return (
-    <div className='flex flex-col justify-around bg-gray-800 p-6 my-4'>
+    <div className='flex flex-col justify-around bg-gray-800/80 p-6 my-4'>
       <center>
 
         <div className='m-6'>

@@ -34,9 +34,5 @@ export default function Member() {
     })
   }, [localUserStatus])
 
-  return (
-    <div>
-      <button className='btn-primary' onClick={refresh}>Refresh Members</button>
-    </div>
-  )
+  return <></>
 }

@@ -44,7 +44,9 @@ export default function Layout(props: { meetingId: string }) {
 
       <center>
         <Member />
-        <DeviceBar />
+        <div className='flex justify-evenly bg-gray-800/80'>
+          <DeviceBar />
+        </div>
       </center>
 
     </div>
