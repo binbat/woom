@@ -87,7 +87,13 @@ export default function DeviceBar() {
   }
 
   const init = async () => {
-    await requestPermission()
+    try {
+      // NOTE:
+      // In some device have problem:
+      // - Android Web Browser
+      // - Wechat WebView
+      await requestPermission()
+    } catch { }
     await updateDeviceList()
   }
 
