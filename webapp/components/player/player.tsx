@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { UserStream } from '../../store/atom'
 import WaveSurfer from 'wavesurfer.js'
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record'
+import { isWechat } from '../../lib/util'
 
 export default function Player(props: { user: UserStream, muted: boolean }) {
   const refVideo = useRef<HTMLVideoElement>(null)
@@ -29,6 +30,14 @@ export default function Player(props: { user: UserStream, muted: boolean }) {
   useEffect(() => {
     if (refVideo.current) {
       refVideo.current.srcObject = props.user.stream
+
+      // NOTE: About Autoplay
+      // Reference: https://developer.mozilla.org/en-US/docs/Web/Media/Autoplay_guide
+
+      // NOTE:
+      // iOS Wechat WebView
+      // https://developers.weixin.qq.com/community/develop/doc/0006a61de48ab0165f99e1dcd51c00
+      if (isWechat()) refVideo.current.play()
     }
   }, [refVideo, props.user.stream]);
 
@@ -46,9 +55,6 @@ export default function Player(props: { user: UserStream, muted: boolean }) {
         style={!!props.user.stream?.getVideoTracks().length ? { width: '320px' } : { height: '0px' }}
       />
       <div className='rounded-xl' ref={refWave}></div>
-      <center className='text-white'>
-        {props.user.name}
-      </center>
     </div>
   )
 }
