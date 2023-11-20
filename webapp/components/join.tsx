@@ -55,7 +55,7 @@ export default function Join() {
       </center>
 
       <center>
-        <button className='btn-primary' onClick={() => { joinMeeting() }}>Join Meeting</button>
+        <button className='btn-primary' onClick={() => { joinMeeting() }}>{!tmpId ? "New" : "Join"} Meeting</button>
       </center>
 
     </div>
