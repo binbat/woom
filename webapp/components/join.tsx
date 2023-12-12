@@ -13,19 +13,23 @@ export default function Join() {
   const [_, setAtomMeetingId] = useAtom(meetingIdAtom)
   const [tmpId, setTmpId] = useState<string>("")
 
+  const newMeeting = async () => {
+    let res = await fetch(`/room/`, {
+      method: "POST"
+    })
+    let meetingId = await res.text()
+    enterMeeting(meetingId)
+  }
+
   const joinMeeting = async () => {
-    let meetingId: string
-    if (!tmpId) {
-      let res = await fetch(`/room/`, {
-        method: "POST"
-      })
-      meetingId = await res.text()
-    } else {
-      let res = await fetch(`/room/${tmpId}`, {
-        method: "PATCH"
-      })
-      meetingId = tmpId
-    }
+    let meetingId = tmpId
+    await fetch(`/room/${meetingId}`, {
+      method: "PATCH"
+    })
+    enterMeeting(meetingId)
+  }
+
+  const enterMeeting = (meetingId: string) => {
     setAtomMeetingId(meetingId)
     setMeetingId(meetingId)
     setLoc(prev => ({ ...prev, pathname: `/${meetingId}` }))
@@ -40,22 +44,22 @@ export default function Join() {
 
   return (
     <div className='flex flex-col justify-around bg-gray-800/80 p-6 my-4'>
-      <center>
+      <center className='flex flex-row justify-center'>
 
-        <div className='m-6'>
-          <label className='text-white'>meeting id: </label>
+        <button className='btn-primary' onClick={() => { newMeeting() }}>New Meeting</button>
+
+        <div className='mx-2'>
           <input
-            className='text-center'
+            className='text-center text-4xl'
+            placeholder='Enter Meeting id'
             value={addSplitSymbol(tmpId)}
             onChange={e => setTmpId(delSplitSymbol(e.target.value))}
             maxLength={11}
           />
         </div>
 
-      </center>
+        <button type="button" className='btn-secondary' disabled={!tmpId} onClick={() => { joinMeeting() }}>Join</button>
 
-      <center>
-        <button className='btn-primary' onClick={() => { joinMeeting() }}>{!tmpId ? "New" : "Join"} Meeting</button>
       </center>
 
     </div>
