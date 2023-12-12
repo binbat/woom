@@ -44,11 +44,11 @@ export default function Join() {
 
   return (
     <div className='flex flex-col justify-around bg-gray-800/80 p-6 my-4'>
-      <center className='flex flex-row justify-center'>
+      <center className='flex flex-row flex-wrap justify-center'>
 
-        <button className='btn-primary' onClick={() => { newMeeting() }}>New Meeting</button>
+        <button className='btn-primary my-2' onClick={() => { newMeeting() }}>New Meeting</button>
 
-        <div className='mx-2'>
+        <div className='mx-2 my-2'>
           <input
             className='text-center text-4xl'
             placeholder='Enter Meeting id'
@@ -58,7 +58,7 @@ export default function Join() {
           />
         </div>
 
-        <button type="button" className='btn-secondary' disabled={!tmpId} onClick={() => { joinMeeting() }}>Join</button>
+        <button className='btn-secondary my-2' disabled={!tmpId} onClick={() => { joinMeeting() }}>Join</button>
 
       </center>
 
