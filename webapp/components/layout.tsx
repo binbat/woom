@@ -10,6 +10,9 @@ export default function Layout(props: { meetingId: string }) {
   const [localStreamId] = useAtom(localStreamIdAtom)
   const [remoteUserStatus, setRemoteUserStatus] = useState<{ [_: string]: UserStatus }>({})
 
+  const [speaker, setSpeaker] = useState<UserStatus | null>(null)
+  const [speakerId, setSpeakerId] = useState<string>("")
+
   const refresh = async () => {
     let res = await fetch(location.origin + `/room/${props.meetingId}`)
     const data = await res.json()
@@ -22,6 +25,21 @@ export default function Layout(props: { meetingId: string }) {
       }, {} as { [_: string]: UserStatus })
     setRemoteUserStatus(r)
   }
+
+  useEffect(() => {
+    let shareScreenId = ""
+    const setShareScreenId = (id: string) => shareScreenId = id
+    Object.keys(remoteUserStatus).map(i => remoteUserStatus[i].screen && setShareScreenId(i))
+
+    if (!shareScreenId) {
+      setSpeakerId("")
+      setSpeaker(null)
+    } else {
+      setSpeakerId(shareScreenId)
+      setSpeaker(remoteUserStatus[shareScreenId])
+    }
+
+  }, [remoteUserStatus])
 
   useEffect(() => {
     const handle = setInterval(refresh, 3000)
@@ -37,10 +55,13 @@ export default function Layout(props: { meetingId: string }) {
         <label>Me Id: </label><code>{localStreamId}</code>
       </center>
 
-      <div className='flex flex-row flex-wrap justify-evenly'>
-        <WhipPlayer streamId={localStreamId} />
-        {Object.keys(remoteUserStatus).map(i => <WhepPlayer key={i} streamId={i} status={remoteUserStatus[i]} />)}
-      </div>
+      {!speaker
+        ? <div className='flex flex-row flex-wrap justify-evenly'>
+          <WhipPlayer streamId={localStreamId} width="320px" />
+          {Object.keys(remoteUserStatus).map(i => <WhepPlayer key={i} streamId={i} status={remoteUserStatus[i]} width="320px" />)}
+        </div>
+        : <WhepPlayer streamId={speakerId} status={speaker} width="auto" />
+      }
 
       <center>
         <Member />

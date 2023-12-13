@@ -3,7 +3,7 @@ import Player from './player'
 import { UserStream, UserStatus } from '../../store/atom'
 import WHEPClient from '../../lib/whep'
 
-export default function WhepPlayer(props: { streamId: string, status: UserStatus }) {
+export default function WhepPlayer(props: { streamId: string, status: UserStatus, width: string }) {
   const refEnabled = useRef(false)
   const refPC = useRef<RTCPeerConnection | null>(null)
   const [connectionState, setConnectionState] = useState("unknown")
@@ -61,7 +61,7 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
 
   return (
     <div className='flex flex-col'>
-      <Player user={userStream} muted={false} />
+      <Player user={userStream} muted={false} width={props.width} />
 
       <center className='text-white'>
         <p>name: <code>{props.status.name}</code></p>

@@ -9,7 +9,7 @@ import {
 import Player from './player'
 import WHIPClient from '../../lib/whip'
 
-export default function WhipPlayer(props: { streamId: string }) {
+export default function WhipPlayer(props: { streamId: string, width: string }) {
   const refEnabled = useRef(false)
   const refPC = useRef<RTCPeerConnection | null>(null)
   const refClient = useRef<WHIPClient | null>(null)
@@ -121,7 +121,7 @@ export default function WhipPlayer(props: { streamId: string }) {
 
   return (
     <div className='flex flex-col'>
-      <Player user={localStream} muted={true} />
+      <Player user={localStream} muted={true} width={props.width} />
 
       <center className='text-white'>
         <div className='flex flex-row flex-wrap justify-around'>

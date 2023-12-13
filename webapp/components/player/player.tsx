@@ -4,7 +4,7 @@ import WaveSurfer from 'wavesurfer.js'
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record'
 import { isWechat } from '../../lib/util'
 
-export default function Player(props: { user: UserStream, muted: boolean }) {
+export default function Player(props: { user: UserStream, muted: boolean, width: string }) {
   const refVideo = useRef<HTMLVideoElement>(null)
   const refWave = useRef<HTMLDivElement>(null)
 
@@ -44,7 +44,7 @@ export default function Player(props: { user: UserStream, muted: boolean }) {
   // NOTE: iOS can't display video
   // https://webkit.org/blog/6784/new-video-policies-for-ios/
   return (
-    <div className='flex-col' style={{ width: '320px' }}>
+    <center className='flex-col' style={{ width: props.width }}>
       <video
         className='rounded-xl'
         playsInline={true}
@@ -52,9 +52,9 @@ export default function Player(props: { user: UserStream, muted: boolean }) {
         controls={false}
         muted={props.muted}
         ref={refVideo}
-        style={!!props.user.stream?.getVideoTracks().length ? { width: '320px' } : { height: '0px' }}
+        style={!!props.user.stream?.getVideoTracks().length ? { width: props.width } : { height: '0px' }}
       />
       <div className='rounded-xl' ref={refWave}></div>
-    </div>
+    </center>
   )
 }
