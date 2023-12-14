@@ -14,7 +14,11 @@ import {
   currentDeviceVideoAtom,
 } from '../store/atom'
 
+import SvgAudio from './svg/audio'
+import SvgVideo from './svg/video'
+
 export default function DeviceBar() {
+  const disableDevice = "none"
   const refEnabled = useRef(false)
 
   const [permission, setPermission] = useState("...")
@@ -26,6 +30,8 @@ export default function DeviceBar() {
 
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo, setCurrentDeviceVideo] = useAtom(currentDeviceVideoAtom)
+  const [currentSelectDeviceAudio, setCurrentSelectDeviceAudio] = useState(disableDevice)
+  const [currentSelectDeviceVideo, setCurrentSelectDeviceVideo] = useState(disableDevice)
   const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
@@ -110,6 +116,14 @@ export default function DeviceBar() {
     return () => { navigator.mediaDevices.removeEventListener("devicechange", updateDeviceList) }
   }, [])
 
+  const toggleEnableAudio = async () => {
+    if (currentDeviceAudio === disableDevice) {
+      onChangedDeviceAudio(currentSelectDeviceAudio)
+    } else {
+      onChangedDeviceAudio(disableDevice)
+    }
+  }
+
   const onChangedDeviceAudio = async (current: string) => {
     // Closed old tracks
     const stream = localStream.stream
@@ -130,10 +144,20 @@ export default function DeviceBar() {
 
     setLocalUserStatus({
       ...localUserStatus,
-      audio: current === "none" ? false : true,
+      audio: current === disableDevice ? false : true,
     })
 
+    current === disableDevice ? null : setCurrentSelectDeviceAudio(current)
+
     setCurrentDeviceAudio(current)
+  }
+
+  const toggleEnableVideo = async () => {
+    if (currentDeviceVideo === disableDevice) {
+      onChangedDeviceVideo(currentSelectDeviceVideo)
+    } else {
+      onChangedDeviceVideo(disableDevice)
+    }
   }
 
   const onChangedDeviceVideo = async (current: string) => {
@@ -155,9 +179,11 @@ export default function DeviceBar() {
 
     setLocalUserStatus({
       ...localUserStatus,
-      video: current === "none" ? false : true,
+      video: current === disableDevice ? false : true,
       screen: current === "screen" ? true : false,
     })
+
+    current === disableDevice ? null : setCurrentSelectDeviceVideo(current)
 
     setCurrentDeviceVideo(current)
   }
@@ -180,10 +206,29 @@ export default function DeviceBar() {
       </center>
 
       <center className='flex flex-row flex-wrap justify-around'>
-        <section className='md:basis-1/2 sm:basis-full'>
-          <label className='w-1/3 m-sm text-white'>Audio Device:</label>
+        <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
+          <button className='rounded-md w-8 h-8' onClick={() => toggleEnableAudio()}>
+            <center>
+              <SvgAudio />
+            </center>
+          </button>
+          <div className='flex flex-col justify-between w-1 pointer-events-none'>
+            {permissionAudio === "granted"
+              ? <div></div>
+              : <div className='bg-orange-500 shadow-sm w-1 h-1 p-1 rounded-full' style={{ position: 'relative', right: '7px' }}></div>
+            }
+            {currentDeviceAudio === disableDevice
+              ? <div className='w-8 h-1 bg-red-500 rounded-full rotate-45'
+                style={{
+                  position: 'relative',
+                  right: '32px',
+                  bottom: '14px',
+                }}></div>
+              : <div></div>
+            }
+          </div>
           <select
-            className='w-2/3'
+            className='w-3.5 h-8 rounded-sm rotate-180'
             value={currentDeviceAudio}
             onChange={e => onChangedDeviceAudio(e.target.value)}
           >
@@ -193,10 +238,29 @@ export default function DeviceBar() {
           </select>
         </section>
 
-        <section className='md:basis-1/2 sm:basis-full'>
-          <label className='w-1/3 m-sm text-white'>Video Device:</label>
+        <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
+          <button className='rounded-md w-8 h-8' onClick={() => toggleEnableVideo()}>
+            <center>
+              <SvgVideo />
+            </center>
+          </button>
+          <div className='flex flex-col justify-between w-1 pointer-events-none'>
+            {permissionAudio === "granted"
+              ? <div></div>
+              : <div className='bg-orange-500 shadow-sm w-1 h-1 p-1 rounded-full' style={{ position: 'relative', right: '7px' }}></div>
+            }
+            {currentDeviceVideo === disableDevice
+              ? < div className='w-8 h-1 bg-red-500 rounded-full rotate-45'
+                style={{
+                  position: 'relative',
+                  right: '32px',
+                  bottom: '14px',
+                }}></div>
+              : <div></div>
+            }
+          </div>
           <select
-            className='w-2/3'
+            className='w-3.5 h-8 rounded-sm rotate-180'
             value={currentDeviceVideo}
             onChange={e => onChangedDeviceVideo(e.target.value)}
           >
