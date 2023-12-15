@@ -59,19 +59,9 @@ export default function DeviceBar() {
     })
 
   const updateDeviceList = async () => {
-    const devices = await navigator.mediaDevices.enumerateDevices()
-    const audios: Device[] = []
-    const videos: Device[] = []
-    devices.filter(i => !!i.deviceId).map(device => {
-      switch (device.kind) {
-        case 'audioinput':
-          audios.push(device)
-          break
-        case 'videoinput':
-          videos.push(device)
-          break
-      }
-    })
+    const devices = (await navigator.mediaDevices.enumerateDevices()).filter(i => !!i.deviceId)
+    const audios: Device[] = devices.filter(i => i.kind === 'audioinput')
+    const videos: Device[] = devices.filter(i => i.kind === 'videoinput')
 
     if (currentDeviceAudio === disableDevice && currentSelectDeviceAudio === disableDevice) {
       let device = audios[0]
