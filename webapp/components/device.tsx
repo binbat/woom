@@ -191,17 +191,6 @@ export default function DeviceBar() {
 
   return (
     <div className='flex flex-row flex-wrap justify-around p-xs'>
-      <center className='basis-full'>
-        <section className='flex flex-row justify-center text-white'>
-          <div className='mx-xs'>
-            Microphone: <code className={permissionAudio === "granted" ? "text-green" : "text-red"}>{permissionAudio}</code>
-          </div>
-          <div className='mx-xs'>
-            Camera: <code className={permissionVideo === "granted" ? "text-green" : "text-red"}>{permissionVideo}</code>
-          </div>
-        </section>
-      </center>
-
       <center className='flex flex-row flex-wrap justify-around'>
         <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
           <button className='rounded-md w-8 h-8' onClick={() => toggleEnableAudio()}>
@@ -242,7 +231,7 @@ export default function DeviceBar() {
             </center>
           </button>
           <div className='flex flex-col justify-between w-1 pointer-events-none'>
-            {permissionAudio === "granted"
+            {permissionVideo === "granted"
               ? <div></div>
               : <div className='bg-orange-500 shadow-sm w-1 h-1 p-1 rounded-full' style={{ position: 'relative', right: '7px' }}></div>
             }
