@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import DeviceBar from './device'
 import Loading from "./loading"
@@ -15,10 +15,11 @@ import { asyncGetStreamId } from '../lib/storage'
 
 export default function Prepare(props: { meetingId: string }) {
   const [loading, setLoading] = useState<boolean>(false)
+  const refEnabled = useRef(false)
 
   const [displayName, setDisplayName] = useAtom(displayNameAtom)
 
-  const [localStream] = useAtom(localStreamAtom)
+  const [localStream, setLocalStream] = useAtom(localStreamAtom)
   const [localStreamId, setLocalStreamId] = useAtom(localStreamIdAtom)
   const [localUserStatus, setLocalUserStatus] = useAtom(localUserStatusAtom)
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
@@ -39,6 +40,23 @@ export default function Prepare(props: { meetingId: string }) {
     setLoading(false)
     setMeetingJoined(true)
   }
+
+  const init = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320 }, audio: true })
+      setLocalStream({
+        stream: stream,
+        name: "Me",
+      })
+    } catch { }
+  }
+
+  useEffect(() => {
+    if (!refEnabled.current) {
+      refEnabled.current = true
+      init()
+    }
+  }, [])
 
   return (
     <div className='flex flex-col justify-around'>

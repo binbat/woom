@@ -21,7 +21,6 @@ export default function DeviceBar() {
   const disableDevice = "none"
   const refEnabled = useRef(false)
 
-  const [permission, setPermission] = useState("...")
   const [permissionAudio, setPermissionAudio] = useState("...")
   const [permissionVideo, setPermissionVideo] = useState("...")
 
@@ -59,20 +58,6 @@ export default function DeviceBar() {
       }
     })
 
-  const requestPermission = async () => {
-    try {
-      permissionsQuery()
-      const result = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      result instanceof MediaStream ? setPermission("success") : setPermission("error")
-      result.getTracks().map(track => track.stop())
-      //@ts-ignore
-    } catch ({ name, message }) {
-      setPermission(message)
-    } finally {
-      await permissionsQuery()
-    }
-  }
-
   const updateDeviceList = async () => {
     const devices = await navigator.mediaDevices.enumerateDevices()
     const audios: Device[] = []
@@ -88,6 +73,22 @@ export default function DeviceBar() {
       }
     })
 
+    if (currentDeviceAudio === disableDevice && currentSelectDeviceAudio === disableDevice) {
+      let device = audios[0]
+      if (device) {
+        setCurrentDeviceAudio(device.deviceId)
+        setCurrentSelectDeviceAudio(device.deviceId)
+      }
+    }
+
+    if (currentDeviceVideo === disableDevice && currentSelectDeviceVideo === disableDevice) {
+      let device = videos[0]
+      if (device) {
+        setCurrentDeviceVideo(device.deviceId)
+        setCurrentSelectDeviceVideo(device.deviceId)
+      }
+    }
+
     setDeviceAudio([deviceNone, ...audios])
     setDeviceVideo([deviceNone, ...videos, deviceScreen])
   }
@@ -98,7 +99,7 @@ export default function DeviceBar() {
       // In some device have problem:
       // - Android Web Browser
       // - Wechat WebView
-      await requestPermission()
+      await permissionsQuery()
     } catch { }
     await updateDeviceList()
   }
@@ -191,10 +192,6 @@ export default function DeviceBar() {
   return (
     <div className='flex flex-row flex-wrap justify-around p-xs'>
       <center className='basis-full'>
-        <label className='text-white'>
-          Your Device Status: <code className={permission === "success" ? "text-green" : "text-red"}>{permission}</code>
-        </label>
-
         <section className='flex flex-row justify-center text-white'>
           <div className='mx-xs'>
             Microphone: <code className={permissionAudio === "granted" ? "text-green" : "text-red"}>{permissionAudio}</code>
