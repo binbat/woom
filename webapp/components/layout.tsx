@@ -47,7 +47,7 @@ export default function Layout(props: { meetingId: string }) {
   }, [])
 
   return (
-    <div className='flex flex-col justify-around' style={{ height: '100vh' }}>
+    <div className='flex flex-col justify-between' style={{ height: '100vh' }}>
 
       <center className='text-white'>
         <label>meeting Id: </label><code>{props.meetingId}</code>

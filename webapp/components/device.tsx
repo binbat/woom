@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
   Device,
@@ -19,7 +19,6 @@ import SvgVideo from './svg/video'
 
 export default function DeviceBar() {
   const disableDevice = "none"
-  const refEnabled = useRef(false)
 
   const [permissionAudio, setPermissionAudio] = useState("...")
   const [permissionVideo, setPermissionVideo] = useState("...")
@@ -79,8 +78,8 @@ export default function DeviceBar() {
       }
     }
 
-    setDeviceAudio([deviceNone, ...audios])
-    setDeviceVideo([deviceNone, ...videos, deviceScreen])
+    setDeviceAudio([...audios])
+    setDeviceVideo([...videos, deviceScreen])
   }
 
   const init = async () => {
@@ -95,11 +94,8 @@ export default function DeviceBar() {
   }
 
   useEffect(() => {
-    if (!refEnabled.current) {
-      refEnabled.current = true
-      init()
-    }
-  }, [])
+    init()
+  }, [localStream])
 
   useEffect(() => {
     // Reference: https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/devicechange_event
@@ -226,7 +222,7 @@ export default function DeviceBar() {
               : <div className='bg-orange-500 shadow-sm w-1 h-1 p-1 rounded-full' style={{ position: 'relative', right: '7px' }}></div>
             }
             {currentDeviceVideo === disableDevice
-              ? < div className='w-8 h-1 bg-red-500 rounded-full rotate-45'
+              ? <div className='w-8 h-1 bg-red-500 rounded-full rotate-45'
                 style={{
                   position: 'relative',
                   right: '32px',
