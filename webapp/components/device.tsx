@@ -16,6 +16,7 @@ import {
   currentDeviceVideoAtom,
 } from '../store/atom'
 
+import Loading from './svg/loading'
 import SvgAudio from './svg/audio'
 import SvgVideo from './svg/video'
 
@@ -27,6 +28,9 @@ export default function DeviceBar() {
 
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
   const [localUserStatus, setLocalUserStatus] = useAtom(localUserStatusAtom)
+
+  const [loadingAudio, setLoadingAudio] = useState(false)
+  const [loadingVideo, setLoadingVideo] = useState(false)
 
   const [enabledAudio] = useAtom(enabledAudioAtom)
   const [enabledVideo] = useAtom(enabledVideoAtom)
@@ -104,11 +108,13 @@ export default function DeviceBar() {
   }, [])
 
   const toggleEnableAudio = async () => {
+    setLoadingAudio(true)
     if (enabledAudio) {
       onChangedDeviceAudio(disableDevice)
     } else {
       onChangedDeviceAudio(currentDeviceAudio)
     }
+    setLoadingAudio(false)
   }
 
   const onChangedDeviceAudio = async (current: string) => {
@@ -138,11 +144,13 @@ export default function DeviceBar() {
   }
 
   const toggleEnableVideo = async () => {
+    setLoadingVideo(true)
     if (enabledVideo) {
       onChangedDeviceVideo(disableDevice)
     } else {
       onChangedDeviceVideo(currentDeviceVideo)
     }
+    setLoadingVideo(false)
   }
 
   const onChangedDeviceVideo = async (current: string) => {
@@ -177,7 +185,10 @@ export default function DeviceBar() {
         <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
           <button className='rounded-md w-8 h-8' onClick={() => toggleEnableAudio()}>
             <center>
-              <SvgAudio />
+              {loadingAudio
+                ? <Loading />
+                : <SvgAudio />
+              }
             </center>
           </button>
           <div className='flex flex-col justify-between w-1 pointer-events-none'>
@@ -209,7 +220,10 @@ export default function DeviceBar() {
         <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
           <button className='rounded-md w-8 h-8' onClick={() => toggleEnableVideo()}>
             <center>
-              <SvgVideo />
+              {loadingVideo
+                ? <Loading />
+                : <SvgVideo />
+              }
             </center>
           </button>
           <div className='flex flex-col justify-between w-1 pointer-events-none'>

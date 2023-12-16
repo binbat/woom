@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import DeviceBar from './device'
-import Loading from "./loading"
+import Loading from "./svg/loading"
 import Player from './player/player'
 import {
   displayNameAtom,
@@ -87,7 +87,7 @@ export default function Prepare(props: { meetingId: string }) {
       <center className='m-xs'>
         <button className='btn-primary flex flex-row justify-center' onClick={() => { start() }}>
           {loading
-            ? <div className='m-2px'><Loading /></div>
+            ? <center className='m-2px mr-3'><Loading /></center>
             : null
           }
           Join
