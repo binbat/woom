@@ -9,6 +9,8 @@ import {
 } from '../lib/device'
 import {
   localStreamAtom,
+  enabledAudioAtom,
+  enabledVideoAtom,
   localUserStatusAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
@@ -26,10 +28,10 @@ export default function DeviceBar() {
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
   const [localUserStatus, setLocalUserStatus] = useAtom(localUserStatusAtom)
 
+  const [enabledAudio] = useAtom(enabledAudioAtom)
+  const [enabledVideo] = useAtom(enabledVideoAtom)
   const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo, setCurrentDeviceVideo] = useAtom(currentDeviceVideoAtom)
-  const [currentSelectDeviceAudio, setCurrentSelectDeviceAudio] = useState(disableDevice)
-  const [currentSelectDeviceVideo, setCurrentSelectDeviceVideo] = useState(disableDevice)
   const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
@@ -62,19 +64,17 @@ export default function DeviceBar() {
     const audios: Device[] = devices.filter(i => i.kind === 'audioinput')
     const videos: Device[] = devices.filter(i => i.kind === 'videoinput')
 
-    if (currentDeviceAudio === disableDevice && currentSelectDeviceAudio === disableDevice) {
+    if (currentDeviceAudio === disableDevice) {
       let device = audios[0]
       if (device) {
         setCurrentDeviceAudio(device.deviceId)
-        setCurrentSelectDeviceAudio(device.deviceId)
       }
     }
 
-    if (currentDeviceVideo === disableDevice && currentSelectDeviceVideo === disableDevice) {
+    if (currentDeviceVideo === disableDevice) {
       let device = videos[0]
       if (device) {
         setCurrentDeviceVideo(device.deviceId)
-        setCurrentSelectDeviceVideo(device.deviceId)
       }
     }
 
@@ -104,10 +104,10 @@ export default function DeviceBar() {
   }, [])
 
   const toggleEnableAudio = async () => {
-    if (currentDeviceAudio === disableDevice) {
-      onChangedDeviceAudio(currentSelectDeviceAudio)
-    } else {
+    if (enabledAudio) {
       onChangedDeviceAudio(disableDevice)
+    } else {
+      onChangedDeviceAudio(currentDeviceAudio)
     }
   }
 
@@ -134,16 +134,14 @@ export default function DeviceBar() {
       audio: current === disableDevice ? false : true,
     })
 
-    current === disableDevice ? null : setCurrentSelectDeviceAudio(current)
-
     setCurrentDeviceAudio(current)
   }
 
   const toggleEnableVideo = async () => {
-    if (currentDeviceVideo === disableDevice) {
-      onChangedDeviceVideo(currentSelectDeviceVideo)
-    } else {
+    if (enabledVideo) {
       onChangedDeviceVideo(disableDevice)
+    } else {
+      onChangedDeviceVideo(currentDeviceVideo)
     }
   }
 
@@ -170,8 +168,6 @@ export default function DeviceBar() {
       screen: current === "screen" ? true : false,
     })
 
-    current === disableDevice ? null : setCurrentSelectDeviceVideo(current)
-
     setCurrentDeviceVideo(current)
   }
 
@@ -189,14 +185,14 @@ export default function DeviceBar() {
               ? <div></div>
               : <div className='bg-orange-500 shadow-sm w-1 h-1 p-1 rounded-full' style={{ position: 'relative', right: '7px' }}></div>
             }
-            {currentDeviceAudio === disableDevice
-              ? <div className='w-8 h-1 bg-red-500 rounded-full rotate-45'
+            {enabledAudio
+              ? <div></div>
+              : <div className='w-8 h-1 bg-red-500 rounded-full rotate-45'
                 style={{
                   position: 'relative',
                   right: '32px',
                   bottom: '14px',
                 }}></div>
-              : <div></div>
             }
           </div>
           <select
@@ -221,14 +217,14 @@ export default function DeviceBar() {
               ? <div></div>
               : <div className='bg-orange-500 shadow-sm w-1 h-1 p-1 rounded-full' style={{ position: 'relative', right: '7px' }}></div>
             }
-            {currentDeviceVideo === disableDevice
-              ? <div className='w-8 h-1 bg-red-500 rounded-full rotate-45'
+            {enabledVideo
+              ? <div></div>
+              : <div className='w-8 h-1 bg-red-500 rounded-full rotate-45'
                 style={{
                   position: 'relative',
                   right: '32px',
                   bottom: '14px',
                 }}></div>
-              : <div></div>
             }
           </div>
           <select

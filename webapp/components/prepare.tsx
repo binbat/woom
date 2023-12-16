@@ -48,6 +48,13 @@ export default function Prepare(props: { meetingId: string }) {
         stream: stream,
         name: "Me",
       })
+
+      setLocalUserStatus({
+        ...localUserStatus,
+        audio: true,
+        video: true,
+      })
+
     } catch { }
   }
 

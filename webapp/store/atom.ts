@@ -41,6 +41,11 @@ const localStreamAtom = atom<UserStream>({
 })
 localStreamAtom.debugLabel = 'localStream'
 
+const enabledAudioAtom = atom(get => get(localStreamAtom).stream.getAudioTracks().length !== 0)
+enabledAudioAtom.debugLabel = 'enabledAudio'
+const enabledVideoAtom = atom(get => get(localStreamAtom).stream.getVideoTracks().length !== 0)
+enabledVideoAtom.debugLabel = 'enabledVideo'
+
 const localUserStatusAtom = atom<UserStatus>({
   name: "",
   state: "new",
@@ -71,6 +76,8 @@ export {
   meetingIdAtom,
   meetingJoinedAtom,
   localStreamAtom,
+  enabledAudioAtom,
+  enabledVideoAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
 }
