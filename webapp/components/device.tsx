@@ -108,16 +108,15 @@ export default function DeviceBar() {
   }, [])
 
   const toggleEnableAudio = async () => {
-    setLoadingAudio(true)
     if (enabledAudio) {
       onChangedDeviceAudio(disableDevice)
     } else {
       onChangedDeviceAudio(currentDeviceAudio)
     }
-    setLoadingAudio(false)
   }
 
   const onChangedDeviceAudio = async (current: string) => {
+    setLoadingAudio(true)
     // Closed old tracks
     const stream = localStream.stream
     stream.getAudioTracks().map(track => {
@@ -140,20 +139,20 @@ export default function DeviceBar() {
       audio: current === disableDevice ? false : true,
     })
 
-    setCurrentDeviceAudio(current)
+    current === disableDevice ? null : setCurrentDeviceAudio(current)
+    setLoadingAudio(false)
   }
 
   const toggleEnableVideo = async () => {
-    setLoadingVideo(true)
     if (enabledVideo) {
       onChangedDeviceVideo(disableDevice)
     } else {
       onChangedDeviceVideo(currentDeviceVideo)
     }
-    setLoadingVideo(false)
   }
 
   const onChangedDeviceVideo = async (current: string) => {
+    setLoadingVideo(true)
     // Closed old tracks
     const stream = localStream.stream
     stream.getVideoTracks().map(track => {
@@ -176,7 +175,8 @@ export default function DeviceBar() {
       screen: current === "screen" ? true : false,
     })
 
-    setCurrentDeviceVideo(current)
+    current === disableDevice ? null : setCurrentDeviceVideo(current)
+    setLoadingVideo(false)
   }
 
   return (
