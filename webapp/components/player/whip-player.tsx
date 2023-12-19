@@ -121,24 +121,27 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
 
   return (
     <div className='flex flex-col'>
-      <Player user={localStream} muted={true} width={props.width} />
+      <Player user={localStream} muted={true} width={props.width} display="auto" />
 
-      <center className='text-white'>
-        <div className='flex flex-row flex-wrap justify-around'>
-          <p>name: <code>{localUserStatus.name}</code></p>
-          <p>state: <code>{String(localUserStatus.state)}</code></p>
-        </div>
-        <div className='flex flex-row flex-wrap justify-around'>
-          <p>audio: <code>{String(localUserStatus.audio)}</code></p>
-          <p>video: <code>{String(localUserStatus.video)}</code></p>
-          <p>screen: <code>{String(localUserStatus.screen)}</code></p>
-        </div>
-      </center>
+      <details className='text-white'>
+        <summary>{localUserStatus.name}</summary>
+        <center>
+          <div className='flex flex-row flex-wrap justify-around'>
+            <p>name: <code>{localUserStatus.name}</code></p>
+            <p>state: <code>{String(localUserStatus.state)}</code></p>
+          </div>
+          <div className='flex flex-row flex-wrap justify-around'>
+            <p>audio: <code>{String(localUserStatus.audio)}</code></p>
+            <p>video: <code>{String(localUserStatus.video)}</code></p>
+            <p>screen: <code>{String(localUserStatus.screen)}</code></p>
+          </div>
+        </center>
 
-      <center className='text-white flex flex-row justify-around'>
-        <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{localUserStatus.state}</p>
-        <button className='btn-primary' disabled={localUserStatus.state === 'connected'} onClick={() => restart(props.streamId)}>restart</button>
-      </center>
+        <center className='text-white flex flex-row justify-around'>
+          <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{localUserStatus.state}</p>
+          <button className='btn-primary' disabled={localUserStatus.state === 'connected'} onClick={() => restart(props.streamId)}>restart</button>
+        </center>
+      </details>
     </div>
   )
 }

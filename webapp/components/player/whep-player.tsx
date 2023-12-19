@@ -61,22 +61,27 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
 
   return (
     <div className='flex flex-col'>
-      <Player user={userStream} muted={false} width={props.width} />
+      <Player user={userStream} muted={false} width={props.width} display="auto" />
 
-      <center className='text-white'>
-        <p>name: <code>{props.status.name}</code></p>
-        <p>state: <code>{String(props.status.state)}</code></p>
-        <div className='flex flex-row justify-around'>
-          <p>audio: <code>{String(props.status.audio)}</code></p>
-          <p>video: <code>{String(props.status.video)}</code></p>
-          <p>screen: <code>{String(props.status.screen)}</code></p>
-        </div>
-      </center>
+      <details className='text-white'>
+        <summary>{props.status.name}</summary>
+        <center>
+          <div className='flex flex-row flex-wrap justify-around'>
+            <p>name: <code>{props.status.name}</code></p>
+            <p>state: <code>{String(props.status.state)}</code></p>
+          </div>
+          <div className='flex flex-row flex-wrap justify-around'>
+            <p>audio: <code>{String(props.status.audio)}</code></p>
+            <p>video: <code>{String(props.status.video)}</code></p>
+            <p>screen: <code>{String(props.status.screen)}</code></p>
+          </div>
+        </center>
 
-      <center className='text-white flex flex-row justify-around'>
-        <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{connectionState}</p>
-        <button className='btn-primary' onClick={() => restart(props.streamId)}>restart</button>
-      </center>
+        <center className='text-white flex flex-row justify-around'>
+          <p className='rounded-xl p-2 b-1 hover:border-orange-300'>{connectionState}</p>
+          <button className='btn-primary' onClick={() => restart(props.streamId)}>restart</button>
+        </center>
+      </details>
     </div>
   )
 }

@@ -4,7 +4,7 @@ import WaveSurfer from 'wavesurfer.js'
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record'
 import { isWechat } from '../../lib/util'
 
-export default function Player(props: { user: UserStream, muted: boolean, width: string }) {
+export default function Player(props: { user: UserStream, muted: boolean, width: string, display: string }) {
   const refVideo = useRef<HTMLVideoElement>(null)
   const refWave = useRef<HTMLDivElement>(null)
 
@@ -54,7 +54,10 @@ export default function Player(props: { user: UserStream, muted: boolean, width:
         ref={refVideo}
         style={!!props.user.stream?.getVideoTracks().length ? { width: props.width } : { height: '0px' }}
       />
-      <div className='rounded-xl' ref={refWave}></div>
+      {props.display === "full"
+        ? <div className='rounded-xl' ref={refWave}></div>
+        : null
+      }
     </center>
   )
 }
