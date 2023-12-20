@@ -19,6 +19,7 @@ import {
 import Loading from './svg/loading'
 import SvgAudio from './svg/audio'
 import SvgVideo from './svg/video'
+import { SvgPresentCancel, SvgPresentToAll } from './svg/present'
 
 export default function DeviceBar() {
   const disableDevice = "none"
@@ -31,6 +32,7 @@ export default function DeviceBar() {
 
   const [loadingAudio, setLoadingAudio] = useState(false)
   const [loadingVideo, setLoadingVideo] = useState(false)
+  const [loadingScreen, setLoadingScreen] = useState(false)
 
   const [enabledAudio] = useAtom(enabledAudioAtom)
   const [enabledVideo] = useAtom(enabledVideoAtom)
@@ -179,6 +181,16 @@ export default function DeviceBar() {
     setLoadingVideo(false)
   }
 
+  const toggleEnableScreen = async () => {
+    setLoadingScreen(true)
+    if (localUserStatus.screen) {
+      await onChangedDeviceVideo(disableDevice)
+    } else {
+      await onChangedDeviceVideo("screen")
+    }
+    setLoadingScreen(false)
+  }
+
   return (
     <div className='flex flex-row flex-wrap justify-around p-xs'>
       <center className='flex flex-row flex-wrap justify-around'>
@@ -251,6 +263,19 @@ export default function DeviceBar() {
             )}
           </select>
         </section>
+      </center>
+      <center>
+        <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
+          <button className='rounded-md w-8 h-8' onClick={() => toggleEnableScreen()}>
+            <center>
+              {loadingScreen
+                ? <Loading />
+                : localUserStatus.screen ? <SvgPresentCancel /> : <SvgPresentToAll />
+              }
+            </center>
+          </button>
+        </section>
+
       </center>
     </div>
   )
