@@ -1,11 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { UserStream } from '../../store/atom'
 import WaveSurfer from 'wavesurfer.js'
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record'
 import { isWechat } from '../../lib/util'
 
-export default function Player(props: { user: UserStream, muted: boolean, width: string, display: string }) {
-  const refVideo = useRef<HTMLVideoElement>(null)
+function AudioWave(props: { user: UserStream }) {
   const refWave = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -26,6 +25,22 @@ export default function Player(props: { user: UserStream, muted: boolean, width:
       }
     }
   }, [refWave.current, props.user.stream])
+
+  return <div ref={refWave}></div>
+}
+
+export default function Player(props: { user: UserStream, muted: boolean, width: string, display: string }) {
+  const refVideo = useRef<HTMLVideoElement>(null)
+  const [showAudio, setShowAudio] = useState(false)
+
+  useEffect(() => {
+    if (props.user.stream?.getAudioTracks().length !== 0 && props.user.stream?.getVideoTracks().length === 0) {
+      setShowAudio(true)
+    } else {
+      setShowAudio(false)
+    }
+
+  }, [props.user.stream])
 
   useEffect(() => {
     if (refVideo.current) {
@@ -54,8 +69,8 @@ export default function Player(props: { user: UserStream, muted: boolean, width:
         ref={refVideo}
         style={!!props.user.stream?.getVideoTracks().length ? { width: props.width } : { height: '0px' }}
       />
-      {props.display === "full"
-        ? <div className='rounded-xl' ref={refWave}></div>
+      {props.display === "full" || showAudio
+        ? <AudioWave user={props.user} />
         : null
       }
     </center>
