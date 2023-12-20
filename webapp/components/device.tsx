@@ -22,8 +22,6 @@ import SvgVideo from './svg/video'
 import { SvgPresentCancel, SvgPresentToAll } from './svg/present'
 
 export default function DeviceBar() {
-  const disableDevice = "none"
-
   const [permissionAudio, setPermissionAudio] = useState("...")
   const [permissionVideo, setPermissionVideo] = useState("...")
 
@@ -70,14 +68,14 @@ export default function DeviceBar() {
     const audios: Device[] = devices.filter(i => i.kind === 'audioinput')
     const videos: Device[] = devices.filter(i => i.kind === 'videoinput')
 
-    if (currentDeviceAudio === disableDevice) {
+    if (currentDeviceAudio === deviceNone.deviceId) {
       let device = audios[0]
       if (device) {
         setCurrentDeviceAudio(device.deviceId)
       }
     }
 
-    if (currentDeviceVideo === disableDevice) {
+    if (currentDeviceVideo === deviceNone.deviceId) {
       let device = videos[0]
       if (device) {
         setCurrentDeviceVideo(device.deviceId)
@@ -111,7 +109,7 @@ export default function DeviceBar() {
 
   const toggleEnableAudio = async () => {
     if (enabledAudio) {
-      onChangedDeviceAudio(disableDevice)
+      onChangedDeviceAudio(deviceNone.deviceId)
     } else {
       onChangedDeviceAudio(currentDeviceAudio)
     }
@@ -138,16 +136,16 @@ export default function DeviceBar() {
 
     setLocalUserStatus({
       ...localUserStatus,
-      audio: current === disableDevice ? false : true,
+      audio: current === deviceNone.deviceId ? false : true,
     })
 
-    current === disableDevice ? null : setCurrentDeviceAudio(current)
+    current === deviceNone.deviceId ? null : setCurrentDeviceAudio(current)
     setLoadingAudio(false)
   }
 
   const toggleEnableVideo = async () => {
     if (enabledVideo) {
-      onChangedDeviceVideo(disableDevice)
+      onChangedDeviceVideo(deviceNone.deviceId)
     } else {
       onChangedDeviceVideo(currentDeviceVideo)
     }
@@ -173,20 +171,20 @@ export default function DeviceBar() {
 
     setLocalUserStatus({
       ...localUserStatus,
-      video: current === disableDevice ? false : true,
-      screen: current === "screen" ? true : false,
+      video: current === deviceNone.deviceId ? false : true,
+      screen: current === deviceScreen.deviceId ? true : false,
     })
 
-    current === disableDevice ? null : setCurrentDeviceVideo(current)
+    current === deviceNone.deviceId ? null : setCurrentDeviceVideo(current)
     setLoadingVideo(false)
   }
 
   const toggleEnableScreen = async () => {
     setLoadingScreen(true)
     if (localUserStatus.screen) {
-      await onChangedDeviceVideo(disableDevice)
+      await onChangedDeviceVideo(deviceNone.deviceId)
     } else {
-      await onChangedDeviceVideo("screen")
+      await onChangedDeviceVideo(deviceScreen.deviceId)
     }
     setLoadingScreen(false)
   }
