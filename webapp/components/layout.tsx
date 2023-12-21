@@ -51,8 +51,6 @@ export default function Layout(props: { meetingId: string }) {
 
       <center className='text-white'>
         <label>meeting Id: </label><code>{props.meetingId}</code>
-        <br />
-        <label>Me Id: </label><code>{localStreamId}</code>
       </center>
 
       {!speaker

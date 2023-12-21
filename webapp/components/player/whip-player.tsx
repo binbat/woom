@@ -121,7 +121,9 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
 
   return (
     <div className='flex flex-col'>
-      <Player user={localStream} muted={true} width={props.width} display="auto" />
+      <center>
+        <Player user={localStream} muted={true} width={props.width} display="auto" />
+      </center>
 
       <details className='text-white'>
         <summary className='text-center'>{localUserStatus.name}</summary>
@@ -135,6 +137,8 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
             <p>video: <code>{String(localUserStatus.video)}</code></p>
             <p>screen: <code>{String(localUserStatus.screen)}</code></p>
           </div>
+
+          <code>{props.streamId}</code>
         </center>
 
         <center className='text-white flex flex-row justify-around'>

@@ -61,7 +61,9 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
 
   return (
     <div className='flex flex-col'>
-      <Player user={userStream} muted={false} width={props.width} display="auto" />
+      <center>
+        <Player user={userStream} muted={false} width={props.width} display="auto" />
+      </center>
 
       <details className='text-white'>
         <summary className='text-center'>{props.status.name}</summary>
@@ -75,6 +77,8 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
             <p>video: <code>{String(props.status.video)}</code></p>
             <p>screen: <code>{String(props.status.screen)}</code></p>
           </div>
+
+          <code>{props.streamId}</code>
         </center>
 
         <center className='text-white flex flex-row justify-around'>
