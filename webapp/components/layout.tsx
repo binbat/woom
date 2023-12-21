@@ -5,8 +5,12 @@ import WhipPlayer from './player/whip-player'
 import WhepPlayer from './player/whep-player'
 import DeviceBar from './device'
 import { UserStatus, localStreamIdAtom } from '../store/atom'
+import copy from 'copy-to-clipboard'
+import SvgDone from './svg/done'
 
 export default function Layout(props: { meetingId: string }) {
+  const [copyStatus, setCopyStatus] = useState(false)
+
   const [localStreamId] = useAtom(localStreamIdAtom)
   const [remoteUserStatus, setRemoteUserStatus] = useState<{ [_: string]: UserStatus }>({})
 
@@ -48,10 +52,7 @@ export default function Layout(props: { meetingId: string }) {
 
   return (
     <div className='flex flex-col justify-between' style={{ height: '100vh' }}>
-
-      <center className='text-white'>
-        <label>meeting Id: </label><code>{props.meetingId}</code>
-      </center>
+      <div></div>
 
       {!speaker
         ? <div className='flex flex-row flex-wrap justify-evenly'>
@@ -64,7 +65,20 @@ export default function Layout(props: { meetingId: string }) {
       <center>
         <Member />
         <div className='flex justify-evenly bg-gray-800/80'>
+          <section className='m-sm p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
+            <button className='rounded-md' onClick={() => copy(location.href) && setCopyStatus(true)}>
+              <code className='mx-xs'>{props.meetingId}</code>
+            </button>
+            {copyStatus
+              ? <center className='m-1.5 bg-indigo-200 rounded-md'>
+                <SvgDone />
+              </center>
+              : null
+            }
+          </section>
+
           <DeviceBar />
+          <div></div>
         </div>
       </center>
 

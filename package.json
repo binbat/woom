@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@types/lodash.uniq": "^4.5.7",
+    "copy-to-clipboard": "^3.3.3",
     "jotai": "^2.4.3",
     "jotai-devtools": "^0.7.0",
     "jotai-location": "^0.5.2",
