@@ -64,7 +64,7 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
       <Player user={userStream} muted={false} width={props.width} display="auto" />
 
       <details className='text-white'>
-        <summary>{props.status.name}</summary>
+        <summary className='text-center'>{props.status.name}</summary>
         <center>
           <div className='flex flex-row flex-wrap justify-around'>
             <p>name: <code>{props.status.name}</code></p>

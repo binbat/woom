@@ -124,7 +124,7 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
       <Player user={localStream} muted={true} width={props.width} display="auto" />
 
       <details className='text-white'>
-        <summary>{localUserStatus.name}</summary>
+        <summary className='text-center'>{localUserStatus.name}</summary>
         <center>
           <div className='flex flex-row flex-wrap justify-around'>
             <p>name: <code>{localUserStatus.name}</code></p>
