@@ -4,12 +4,14 @@ import Member from './member'
 import WhipPlayer from './player/whip-player'
 import WhepPlayer from './player/whep-player'
 import DeviceBar from './device'
-import { UserStatus, localStreamIdAtom } from '../store/atom'
+import { UserStatus, localStreamIdAtom, meetingJoinedAtom } from '../store/atom'
 import copy from 'copy-to-clipboard'
 import SvgDone from './svg/done'
+import SvgEnd from './svg/end'
 
 export default function Layout(props: { meetingId: string }) {
   const [copyStatus, setCopyStatus] = useState(false)
+  const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
 
   const [localStreamId] = useAtom(localStreamIdAtom)
   const [remoteUserStatus, setRemoteUserStatus] = useState<{ [_: string]: UserStatus }>({})
@@ -28,6 +30,12 @@ export default function Layout(props: { meetingId: string }) {
         return map
       }, {} as { [_: string]: UserStatus })
     setRemoteUserStatus(r)
+  }
+
+  const callEnd = async () => {
+    // TODO:
+    // need clear server status
+    setMeetingJoined(false)
   }
 
   useEffect(() => {
@@ -78,7 +86,15 @@ export default function Layout(props: { meetingId: string }) {
           </section>
 
           <DeviceBar />
-          <div></div>
+
+          <section className='m-sm p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
+            <button className='rounded-md w-12 h-9' onClick={() => callEnd()}>
+              <center>
+                <SvgEnd />
+              </center>
+            </button>
+          </section>
+
         </div>
       </center>
 
