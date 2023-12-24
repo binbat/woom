@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Player from './player'
 import { UserStream, UserStatus } from '../../store/atom'
-import WHEPClient from '../../lib/whep'
+import { WHEPClient } from '@binbat/whip-whep/whep'
 
 export default function WhepPlayer(props: { streamId: string, status: UserStatus, width: string }) {
   const refEnabled = useRef(false)

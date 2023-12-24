@@ -7,7 +7,7 @@ import {
   currentDeviceVideoAtom,
 } from '../../store/atom'
 import Player from './player'
-import WHIPClient from '../../lib/whip'
+import { WHIPClient } from '@binbat/whip-whep/whip'
 
 export default function WhipPlayer(props: { streamId: string, width: string }) {
   const refEnabled = useRef(false)
