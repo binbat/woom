@@ -17,4 +17,4 @@ min_machines_running = 0
 processes = ["app"]
 
 [env]
-LIVE777_URL = "http://live777.binbat.com:3000"
+LIVE777_URL = "http://live777.binbat.com:7777"

@@ -11,11 +11,11 @@ services:
       POSTGRES_PASSWORD: password
 
   live777:
-    image: ghcr.io/binbat/live777-server:0.2.0
+    image: ghcr.io/binbat/live777-server:0.3.1
     container_name: live777
     hostname: live777
     ports:
-      - "3000:3000/tcp"
+      - "7777:7777/tcp"
 
 networks:
   default:
