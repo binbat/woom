@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
   localStreamAtom,
+  presentationStreamAtom,
+
   localUserStatusAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
 } from '../../store/atom'
 import Player from './player'
 import { WHIPClient } from '@binbat/whip-whep/whip'
+import { deviceScreen } from '../../lib/device'
 
 export default function WhipPlayer(props: { streamId: string, width: string }) {
   const refEnabled = useRef(false)
@@ -18,6 +21,8 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
 
   const [currentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo] = useAtom(currentDeviceVideoAtom)
+
+  const [presentationStream, setPresentationStream] = useAtom(presentationStreamAtom)
 
   const newPeerConnection = () => {
     const stream = localStream.stream
@@ -108,6 +113,15 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
   }, [currentDeviceAudio])
 
   useEffect(() => {
+    if (currentDeviceVideo === deviceScreen.deviceId) {
+      setPresentationStream(localStream)
+    } else {
+      setPresentationStream({
+        stream: new MediaStream,
+        name: presentationStream.name
+      })
+    }
+
     const mediaStream = localStream.stream
     // If WebRTC is connected, switch track
     // NOTE: array video index is: 1

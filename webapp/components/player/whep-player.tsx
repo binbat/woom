@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import Player from './player'
-import { UserStream, UserStatus } from '../../store/atom'
+import {
+  UserStream,
+  UserStatus,
+  presentationStreamAtom,
+} from '../../store/atom'
 import { WHEPClient } from '@binbat/whip-whep/whep'
+import { useAtom } from 'jotai'
 
 export default function WhepPlayer(props: { streamId: string, status: UserStatus, width: string }) {
   const refEnabled = useRef(false)
@@ -11,6 +16,7 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
     stream: new MediaStream,
     name: props.streamId,
   })
+  const [presentationStream, setPresentationStream] = useAtom(presentationStreamAtom)
 
   const newPeerConnection = () => {
     const pc = new RTCPeerConnection()
@@ -57,7 +63,18 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
     if (props.status.state === "connected") {
       restart(props.streamId)
     }
-  }, [props.status.state, props.status.audio, props.status.video, props.status.screen])
+  }, [props.status.state, props.status.audio, props.status.video])
+
+  useEffect(() => {
+    if (props.status.screen) {
+      setPresentationStream(userStream)
+    } else {
+      setPresentationStream({
+        stream: new MediaStream,
+        name: presentationStream.name
+      })
+    }
+  },  [props.status.screen])
 
   return (
     <div className='flex flex-col'>

@@ -41,6 +41,15 @@ const localStreamAtom = atom<UserStream>({
 })
 localStreamAtom.debugLabel = 'localStream'
 
+const presentationStreamAtom = atom<UserStream>({
+  stream: new MediaStream,
+  name: "Presentation",
+})
+presentationStreamAtom.debugLabel = 'presentationStream'
+
+const enabledPresentationAtom = atom(get => get(presentationStreamAtom).stream.getVideoTracks().length !== 0)
+enabledPresentationAtom.debugLabel = 'enabledPresentation'
+
 const enabledAudioAtom = atom(get => get(localStreamAtom).stream.getAudioTracks().length !== 0)
 enabledAudioAtom.debugLabel = 'enabledAudio'
 const enabledVideoAtom = atom(get => get(localStreamAtom).stream.getVideoTracks().length !== 0)
@@ -73,11 +82,14 @@ export {
   remoteUsersStatusAtom,
 
   locationAtom,
+  presentationStreamAtom,
+
   meetingIdAtom,
   meetingJoinedAtom,
   localStreamAtom,
   enabledAudioAtom,
   enabledVideoAtom,
+  enabledPresentationAtom,
   currentDeviceAudioAtom,
   currentDeviceVideoAtom,
 }

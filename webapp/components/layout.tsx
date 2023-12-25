@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import Member from './member'
+import Player from './player/player'
 import WhipPlayer from './player/whip-player'
 import WhepPlayer from './player/whep-player'
 import DeviceBar from './device'
-import { UserStatus, localStreamIdAtom, meetingJoinedAtom } from '../store/atom'
+import {
+  UserStatus,
+  enabledPresentationAtom,
+  localStreamIdAtom,
+  meetingJoinedAtom,
+  presentationStreamAtom,
+} from '../store/atom'
 import copy from 'copy-to-clipboard'
 import SvgDone from './svg/done'
 import SvgEnd from './svg/end'
@@ -16,8 +23,10 @@ export default function Layout(props: { meetingId: string }) {
   const [localStreamId] = useAtom(localStreamIdAtom)
   const [remoteUserStatus, setRemoteUserStatus] = useState<{ [_: string]: UserStatus }>({})
 
-  const [speaker, setSpeaker] = useState<UserStatus | null>(null)
-  const [speakerId, setSpeakerId] = useState<string>("")
+  //const [speaker, setSpeaker] = useState<UserStatus | null>(null)
+  //const [speakerId, setSpeakerId] = useState<string>("")
+  const [enabledPresentation] = useAtom(enabledPresentationAtom)
+  const [presentationStream] = useAtom(presentationStreamAtom)
 
   const refresh = async () => {
     let res = await fetch(location.origin + `/room/${props.meetingId}`)
@@ -38,20 +47,18 @@ export default function Layout(props: { meetingId: string }) {
     setMeetingJoined(false)
   }
 
-  useEffect(() => {
-    let shareScreenId = ""
-    const setShareScreenId = (id: string) => shareScreenId = id
-    Object.keys(remoteUserStatus).map(i => remoteUserStatus[i].screen && setShareScreenId(i))
-
-    if (!shareScreenId) {
-      setSpeakerId("")
-      setSpeaker(null)
-    } else {
-      setSpeakerId(shareScreenId)
-      setSpeaker(remoteUserStatus[shareScreenId])
-    }
-
-  }, [remoteUserStatus])
+  //useEffect(() => {
+  //  let shareScreenId = ""
+  //  const setShareScreenId = (id: string) => shareScreenId = id
+  //  Object.keys(remoteUserStatus).map(i => remoteUserStatus[i].screen && setShareScreenId(i))
+  //  if (!shareScreenId) {
+  //    setSpeakerId("")
+  //    setSpeaker(null)
+  //  } else {
+  //    setSpeakerId(shareScreenId)
+  //    setSpeaker(remoteUserStatus[shareScreenId])
+  //  }
+  //}, [remoteUserStatus])
 
   useEffect(() => {
     const handle = setInterval(refresh, 3000)
@@ -62,13 +69,15 @@ export default function Layout(props: { meetingId: string }) {
     <div className='flex flex-col justify-between' style={{ height: '100vh' }}>
       <div></div>
 
-      {!speaker
-        ? <div className='flex flex-row flex-wrap justify-evenly'>
-          <WhipPlayer streamId={localStreamId} width="320px" />
-          {Object.keys(remoteUserStatus).map(i => <WhepPlayer key={i} streamId={i} status={remoteUserStatus[i]} width="320px" />)}
-        </div>
-        : <WhepPlayer streamId={speakerId} status={speaker} width="auto" />
+      { enabledPresentation
+        ? <Player user={presentationStream} muted={true} width="auto" display="auto" />
+        : null
       }
+
+      <div className='flex flex-row flex-wrap justify-evenly'>
+        <WhipPlayer streamId={localStreamId} width="320px" />
+        {Object.keys(remoteUserStatus).map(i => <WhepPlayer key={i} streamId={i} status={remoteUserStatus[i]} width="320px" />)}
+      </div>
 
       <center>
         <Member />
