@@ -89,7 +89,9 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
         }
       </center>
 
-      <details className='text-white'>
+      <details className='text-white mx-2 text-sm font-border' style={{
+        position: 'absolute',
+      }}>
         <summary className='text-center'>{props.status.name}</summary>
         <center>
           <div className='flex flex-row flex-wrap justify-around'>

@@ -147,7 +147,9 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
         }
       </center>
 
-      <details className='text-white'>
+      <details className='text-white mx-2 text-sm font-border' style={{
+        position: 'absolute',
+      }}>
         <summary className='text-center'>{localUserStatus.name}</summary>
         <center>
           <div className='flex flex-row flex-wrap justify-around'>
