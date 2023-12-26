@@ -11,6 +11,7 @@ import {
 import Player from './player'
 import { WHIPClient } from '@binbat/whip-whep/whip'
 import { deviceScreen } from '../../lib/device'
+import SvgProgress from '../svg/progress'
 
 export default function WhipPlayer(props: { streamId: string, width: string }) {
   const refEnabled = useRef(false)
@@ -18,6 +19,8 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
   const refClient = useRef<WHIPClient | null>(null)
   const [localStream] = useAtom(localStreamAtom)
   const [localUserStatus, setLocalUserStatus] = useAtom(localUserStatusAtom)
+
+  const [loading, setLoading] = useState(true)
 
   const [currentDeviceAudio] = useAtom(currentDeviceAudioAtom)
   const [currentDeviceVideo] = useAtom(currentDeviceVideoAtom)
@@ -71,9 +74,11 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
         refClient.current = whip
       }
     }
+    setLoading(false)
   }
 
   const restart = async (resource: string) => {
+    setLoading(true)
     if (refPC.current) {
       refPC.current.close()
     }
@@ -136,7 +141,10 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
   return (
     <div className='flex flex-col'>
       <center>
-        <Player user={localStream} muted={true} width={props.width} display="auto" />
+        { loading
+          ? <SvgProgress/>
+          : <Player user={localStream} muted={true} width={props.width} display="auto" />
+        }
       </center>
 
       <details className='text-white'>

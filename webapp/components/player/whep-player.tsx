@@ -7,10 +7,12 @@ import {
 } from '../../store/atom'
 import { WHEPClient } from '@binbat/whip-whep/whep'
 import { useAtom } from 'jotai'
+import SvgProgress from '../svg/progress'
 
 export default function WhepPlayer(props: { streamId: string, status: UserStatus, width: string }) {
   const refEnabled = useRef(false)
   const refPC = useRef<RTCPeerConnection | null>(null)
+  const [loading, setLoading] = useState(true)
   const [connectionState, setConnectionState] = useState("unknown")
   const [userStream, setUserStream] = useState<UserStream>({
     stream: new MediaStream,
@@ -34,6 +36,7 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
   }
 
   const start = async (resource: string) => {
+    setLoading(false)
     if (refPC.current) {
       const whep = new WHEPClient();
       const url = location.origin + "/whep/" + resource;
@@ -44,6 +47,7 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
   }
 
   const restart = async (resource: string) => {
+    setLoading(true)
     if (refPC.current) {
       refPC.current.close()
     }
@@ -79,7 +83,10 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
   return (
     <div className='flex flex-col'>
       <center>
-        <Player user={userStream} muted={false} width={props.width} display="auto" />
+        { loading
+          ? <SvgProgress/>
+          : <Player user={userStream} muted={false} width={props.width} display="auto" />
+        }
       </center>
 
       <details className='text-white'>
