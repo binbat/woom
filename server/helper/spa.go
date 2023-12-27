@@ -1,4 +1,4 @@
-package server
+package helper
 
 import (
 	"net/http"

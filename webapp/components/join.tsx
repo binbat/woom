@@ -17,7 +17,7 @@ export default function Join() {
     let res = await fetch(`/room/`, {
       method: "POST"
     })
-    let meetingId = await res.text()
+    let meetingId = (await res.json()).roomId
     enterMeeting(meetingId)
   }
 

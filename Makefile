@@ -22,13 +22,9 @@ webapp-clean:
 clean: webapp-clean
 	go clean -cache
 
-.PHONY: cli-pg
-cli-pg:
+.PHONY: cli-redis
+cli-redis:
 	$(CTR) run -it --rm --network=host \
-		-e PGHOST=localhost \
-		-e PGPORT=5432 \
-		-e PGUSER=postgres \
-		-e PGPASSWORD=password \
-		-e PGDATABASE=woom \
-		dbcliorg/pgcli
+		-e IREDIS_URL=redis://localhost:6379/0 \
+		dbcliorg/iredis
 

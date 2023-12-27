@@ -1,3 +1,0 @@
-DROP TABLE rooms;
-
-DROP EXTENSION hstore;

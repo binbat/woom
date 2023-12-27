@@ -1,14 +1,11 @@
 version: "3"
 services:
-  postgres:
-    image: postgres:16
-    container_name: postgres
-    hostname: postgres
+  redis:
+    image: redis:7
+    container_name: redis
+    hostname: redis
     ports:
-      - "5432:5432/tcp"
-    environment:
-      POSTGRES_DB: woom
-      POSTGRES_PASSWORD: password
+      - "6379:6379/tcp"
 
   live777:
     image: ghcr.io/binbat/live777-server:0.3.1
