@@ -30,7 +30,7 @@ export default function Layout(props: { meetingId: string }) {
 
   const refresh = async () => {
     let res = await fetch(location.origin + `/room/${props.meetingId}`)
-    const data = await res.json()
+    const data = (await res.json()).streams
     const r = Object.keys(data)
       .filter(i => i !== localStreamId)
       .filter(i => !!i)

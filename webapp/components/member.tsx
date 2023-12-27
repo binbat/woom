@@ -16,7 +16,7 @@ export default function Member() {
 
   const refresh = async () => {
     let res = await fetch(location.origin + `/room/${meetingId}`)
-    setStream(Object.keys(await res.json()).filter(i => i !== localStreamId))
+    setStream(Object.keys((await res.json()).streams).filter(i => i !== localStreamId))
   }
 
   useEffect(() => {

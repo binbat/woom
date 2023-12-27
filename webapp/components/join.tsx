@@ -52,8 +52,8 @@ export default function Join() {
           <input
             className='text-center text-4xl'
             placeholder='Enter Meeting id'
-            value={addSplitSymbol(tmpId)}
-            onChange={e => setTmpId(delSplitSymbol(e.target.value))}
+            value={tmpId}
+            onChange={e => setTmpId(e.target.value)}
             maxLength={11}
           />
         </div>

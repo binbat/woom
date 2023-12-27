@@ -14,10 +14,10 @@ function setStreamId(id: string) {
 }
 
 async function serverGetStreamId(meetingId: string): Promise<string> {
-  let res = await fetch(`/room/${meetingId}/stream`, {
+  let res = await (await fetch(`/room/${meetingId}/stream`, {
     method: "POST"
-  })
-  return res.text()
+  })).json()
+  return res.streamId
 }
 
 async function asyncGetStreamId(): Promise<string> {
