@@ -29,8 +29,6 @@ FROM alpine AS bin
 
 COPY --from=builder /app/woom /usr/bin/woom
 
-EXPOSE 8080/tcp
-
-CMD ["-migrate"]
+EXPOSE 4000/tcp
 
 ENTRYPOINT ["/usr/bin/woom"]
