@@ -142,7 +142,7 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
     <div className='flex flex-col'>
       <center>
         { loading
-          ? <SvgProgress/>
+          ? <div className='m-xl'><SvgProgress/></div>
           : <Player user={localStream} muted={true} width={props.width} display="auto" />
         }
       </center>
