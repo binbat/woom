@@ -16,26 +16,13 @@ func (h *Handler) helperCreateStreamId() (string, error) {
 	return id.String(), err
 }
 
-func (h *Handler) helperCreateRoomStream(r *http.Request, roomId, streamId string) (*model.Stream, error) {
-	stream := &model.Stream{
-		// TODO:
-		Name: "",
-		// TODO:
-		Token:  "",
-		Audio:  false,
-		Video:  false,
-		Screen: false,
-	}
-
+func (h *Handler) helperSetRoomStream(r *http.Request, roomId, streamId string, stream *model.Stream) error {
 	gobStream, err := helper.GobEncode(stream)
 	if err != nil {
-		return stream, err
+		return err
 	}
 
-	if err := h.rdb.HSet(context.TODO(), roomId, streamId, gobStream).Err(); err != nil {
-		return stream, err
-	}
-	return stream, err
+	return h.rdb.HSet(context.TODO(), roomId, streamId, gobStream).Err()
 }
 
 func (h *Handler) helperShowRoom(r *http.Request) (*model.Room, error) {
