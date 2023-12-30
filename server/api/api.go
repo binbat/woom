@@ -40,6 +40,7 @@ func NewApi(rdb *redis.Client, live777Url string, live777Token string) http.Hand
 	//r.Patch("/room/{roomId}", handle.UpdateRoom)
 	r.Post("/room/{roomId}/stream", handle.CreateRoomStream)
 	r.Patch("/room/{roomId}/stream/{streamId}", handle.UpdateRoomStream)
+	r.Delete("/room/{roomId}/stream/{streamId}", handle.DestroyRoomStream)
 
 	//r.Post("/room/{roomId}/message", handle.CreateMessage)
 	//r.Get("/room/{roomId}/message", handle.ShowMessage)

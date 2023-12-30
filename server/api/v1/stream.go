@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"net/http"
 	"woom/server/model"
 
@@ -49,4 +50,15 @@ func (h *Handler) UpdateRoomStream(w http.ResponseWriter, r *http.Request) {
 	}
 	room.StreamId = streamId
 	render.JSON(w, r, room)
+}
+
+func (h *Handler) DestroyRoomStream(w http.ResponseWriter, r *http.Request) {
+	roomId := chi.URLParam(r, "roomId")
+	streamId := chi.URLParam(r, "streamId")
+
+	if err := h.rdb.HDel(context.TODO(), roomId, streamId,).Err(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
 }

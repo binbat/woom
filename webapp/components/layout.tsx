@@ -42,8 +42,10 @@ export default function Layout(props: { meetingId: string }) {
   }
 
   const callEnd = async () => {
-    // TODO:
-    // need clear server status
+    await fetch(`/room/${props.meetingId}/stream/${localStreamId}`, {
+      method: "DELETE"
+    })
+
     setMeetingJoined(false)
   }
 
