@@ -1,3 +1,5 @@
+import { newUser } from "./api"
+
 const MeetingIdKey = 'meeting'
 const StreamIdKey = 'stream'
 
@@ -6,35 +8,16 @@ function setMeetingId(id: string) {
   if (id !== oldId) {
     localStorage.setItem(MeetingIdKey, id)
     localStorage.removeItem(StreamIdKey)
+    newUser()
   }
-}
-
-function setStreamId(id: string) {
-  localStorage.setItem(StreamIdKey, id)
-}
-
-async function serverGetStreamId(meetingId: string): Promise<string> {
-  let res = await (await fetch(`/room/${meetingId}/stream`, {
-    method: "POST"
-  })).json()
-  return res.streamId
 }
 
 async function asyncGetStreamId(): Promise<string> {
   const streamId = localStorage.getItem(StreamIdKey)
-  if (!!streamId) {
-    return streamId
-  }
-
-  const meetingId = localStorage.getItem(MeetingIdKey)
-  const id = await serverGetStreamId(meetingId)
-
-  setStreamId(id)
-  return id
+  return streamId || ""
 }
 
 export {
   setMeetingId,
-  setStreamId,
   asyncGetStreamId,
 }

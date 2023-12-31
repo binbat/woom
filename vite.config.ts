@@ -12,6 +12,7 @@ export default defineConfig({
       '^/whip/.*': 'http://localhost:7777',
       '^/whep/.*': 'http://localhost:7777',
       '^/room/.*': 'http://localhost:4000',
+      '^/user/.*': 'http://localhost:4000',
     },
   },
   build: {

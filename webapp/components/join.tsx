@@ -5,7 +5,7 @@ import {
   meetingIdAtom,
 } from '../store/atom'
 import { setMeetingId } from '../lib/storage'
-import { newRoom } from '../lib/api'
+import { newRoom, newUser } from '../lib/api'
 
 export default function Join() {
   const [loc, setLoc] = useAtom(locationAtom)
@@ -14,12 +14,14 @@ export default function Join() {
   const [tmpId, setTmpId] = useState<string>("")
 
   const newMeeting = async () => {
+    await newUser()
     let meetingId = (await newRoom()).roomId
     enterMeeting(meetingId)
   }
 
   const joinMeeting = async () => {
     let meetingId = tmpId
+    await newUser()
     //await fetch(`/room/${meetingId}`, {
     //  method: "PATCH"
     //})
