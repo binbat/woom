@@ -7,6 +7,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/render v1.0.3
 	github.com/gofrs/uuid/v5 v5.0.0
+	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/redis/go-redis/v9 v9.3.1
 )
 

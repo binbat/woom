@@ -30,7 +30,7 @@ func Daemon(ctx context.Context) {
 	rdb := newRdbClient(cfg.RedisUrl)
 	log.Println(rdb)
 
-	handler := api.NewApi(rdb, cfg.Live777Url, cfg.Live777Token)
+	handler := api.NewApi(rdb, cfg.Secret, cfg.Live777Url, cfg.Live777Token)
 
 	log.Println("=== started ===")
 	log.Panicln(http.ListenAndServe(":"+cfg.Port, handler))

@@ -5,6 +5,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
+	woomMiddleware "woom/server/api/middleware"
 	"woom/server/api/v1"
 	"woom/server/helper"
 	"woom/static"
@@ -23,7 +24,7 @@ func handler(p http.Handler, token string) func(http.ResponseWriter, *http.Reque
 	}
 }
 
-func NewApi(rdb *redis.Client, live777Url string, live777Token string) http.Handler {
+func NewApi(rdb *redis.Client, secret string, live777Url string, live777Token string) http.Handler {
 	remote, err := url.Parse(live777Url)
 	if err != nil {
 		panic(err)
@@ -33,14 +34,20 @@ func NewApi(rdb *redis.Client, live777Url string, live777Token string) http.Hand
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
-	handle := v1.NewHandler(rdb)
+	handle := v1.NewHandler(rdb, secret)
 
-	r.Post("/room/", handle.CreateRoom)
-	r.Get("/room/{roomId}", handle.ShowRoom)
-	//r.Patch("/room/{roomId}", handle.UpdateRoom)
-	r.Post("/room/{roomId}/stream", handle.CreateRoomStream)
-	r.Patch("/room/{roomId}/stream/{streamId}", handle.UpdateRoomStream)
-	r.Delete("/room/{roomId}/stream/{streamId}", handle.DestroyRoomStream)
+	r.Group(func(r chi.Router) {
+		r.Use(woomMiddleware.JWTAuth(secret))
+
+		r.Post("/room/", handle.CreateRoom)
+		r.Get("/room/{roomId}", handle.ShowRoom)
+		//r.Patch("/room/{roomId}", handle.UpdateRoom)
+		r.Post("/room/{roomId}/stream", handle.CreateRoomStream)
+		r.Patch("/room/{roomId}/stream/{streamId}", handle.UpdateRoomStream)
+		r.Delete("/room/{roomId}/stream/{streamId}", handle.DestroyRoomStream)
+	})
+
+	r.Post("/user/", handle.CreateUser)
 
 	//r.Post("/room/{roomId}/message", handle.CreateMessage)
 	//r.Get("/room/{roomId}/message", handle.ShowMessage)
