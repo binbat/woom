@@ -5,7 +5,7 @@ import {
   meetingIdAtom,
 } from '../store/atom'
 import { setMeetingId } from '../lib/storage'
-import { addSplitSymbol, delSplitSymbol } from '../lib/util'
+import { newRoom } from '../lib/api'
 
 export default function Join() {
   const [loc, setLoc] = useAtom(locationAtom)
@@ -14,18 +14,15 @@ export default function Join() {
   const [tmpId, setTmpId] = useState<string>("")
 
   const newMeeting = async () => {
-    let res = await fetch(`/room/`, {
-      method: "POST"
-    })
-    let meetingId = (await res.json()).roomId
+    let meetingId = (await newRoom()).roomId
     enterMeeting(meetingId)
   }
 
   const joinMeeting = async () => {
     let meetingId = tmpId
-    await fetch(`/room/${meetingId}`, {
-      method: "PATCH"
-    })
+    //await fetch(`/room/${meetingId}`, {
+    //  method: "PATCH"
+    //})
     enterMeeting(meetingId)
   }
 

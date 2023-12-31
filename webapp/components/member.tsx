@@ -6,17 +6,17 @@ import {
   remoteStreamIdsAtom,
   meetingIdAtom,
 } from '../store/atom'
+import { getRoom, setStream } from '../lib/api'
 
 export default function Member() {
   const [localStreamId] = useAtom(localStreamIdAtom)
-  const [_, setStream] = useAtom(remoteStreamIdsAtom)
+  const [_, setRemoteStreamIds] = useAtom(remoteStreamIdsAtom)
   const [meetingId] = useAtom(meetingIdAtom)
 
   const [localUserStatus] = useAtom(localUserStatusAtom)
 
   const refresh = async () => {
-    let res = await fetch(location.origin + `/room/${meetingId}`)
-    setStream(Object.keys((await res.json()).streams).filter(i => i !== localStreamId))
+    setRemoteStreamIds(Object.keys((await getRoom(meetingId)).streams).filter(i => i !== localStreamId))
   }
 
   useEffect(() => {
@@ -25,13 +25,7 @@ export default function Member() {
   }, [])
 
   useEffect(() => {
-    fetch(location.origin + `/room/${meetingId}/stream/${localStreamId}`, {
-      method: 'PATCH',
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(localUserStatus),
-    })
+    setStream(meetingId, localStreamId, localUserStatus)
   }, [localUserStatus])
 
   return <></>

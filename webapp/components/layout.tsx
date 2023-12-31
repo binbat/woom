@@ -15,6 +15,7 @@ import {
 import copy from 'copy-to-clipboard'
 import SvgDone from './svg/done'
 import SvgEnd from './svg/end'
+import { getRoom, delStream } from '../lib/api'
 
 export default function Layout(props: { meetingId: string }) {
   const [copyStatus, setCopyStatus] = useState(false)
@@ -29,8 +30,7 @@ export default function Layout(props: { meetingId: string }) {
   const [presentationStream] = useAtom(presentationStreamAtom)
 
   const refresh = async () => {
-    let res = await fetch(location.origin + `/room/${props.meetingId}`)
-    const data = (await res.json()).streams
+    const data = (await getRoom(props.meetingId)).streams
     const r = Object.keys(data)
       .filter(i => i !== localStreamId)
       .filter(i => !!i)
@@ -42,9 +42,7 @@ export default function Layout(props: { meetingId: string }) {
   }
 
   const callEnd = async () => {
-    await fetch(`/room/${props.meetingId}/stream/${localStreamId}`, {
-      method: "DELETE"
-    })
+    delStream(props.meetingId, localStreamId)
 
     setMeetingJoined(false)
   }
