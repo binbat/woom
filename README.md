@@ -1,4 +1,7 @@
-# WOOM
+<h1 align="center">
+  <img src="./logo.svg" alt="WOOM" width="200">
+  <br>WOOM<br>
+</h1>
 
 <div align="center">
     <a href="https://discord.gg/mtSpDNwCAz"><img src="https://img.shields.io/badge/-Discord-424549?style=social&logo=discord" height=25></a>
