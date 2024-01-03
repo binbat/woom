@@ -15,11 +15,15 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func handler(p http.Handler, token string) func(http.ResponseWriter, *http.Request) {
+func handler(p http.Handler, address, token string) func(http.ResponseWriter, *http.Request) {
+	u, _ := url.Parse(address)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if token != "" {
 			r.Header.Set("Authorization", "Bearer "+token)
 		}
+
+		// Reference: https://liqiang.io/post/implement-reverse-proxy-with-golang
+		r.Host = u.Host
 		p.ServeHTTP(w, r)
 	}
 }
@@ -52,8 +56,8 @@ func NewApi(rdb *redis.Client, secret string, live777Url string, live777Token st
 	//r.Post("/room/{roomId}/message", handle.CreateMessage)
 	//r.Get("/room/{roomId}/message", handle.ShowMessage)
 
-	r.HandleFunc("/whip/{uuid}", handler(proxy, live777Token))
-	r.HandleFunc("/whep/{uuid}", handler(proxy, live777Token))
+	r.HandleFunc("/whip/{uuid}", handler(proxy, live777Url, live777Token))
+	r.HandleFunc("/whep/{uuid}", handler(proxy, live777Url, live777Token))
 
 	r.Handle("/*", http.StripPrefix("/", http.FileServer(helper.NewSinglePageApp("index.html", http.FS(static.Dist)))))
 	return r
