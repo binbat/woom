@@ -10,31 +10,43 @@ interface Storage {
   name?: string,
 }
 
+function setStorageMeeting(value: string) { localStorage.setItem(MeetingKey, value) }
+function setStorageStream(value: string) { localStorage.setItem(StreamKey, value) }
+function setStorageToken(value: string) { localStorage.setItem(TokenKey, value) }
+function setStorageName(value: string) { localStorage.setItem(NameKey, value) }
+
+function getStorageMeeting() { return localStorage.getItem(MeetingKey) }
+function getStorageStream() { return localStorage.getItem(StreamKey) }
+function getStorageToken() { return localStorage.getItem(TokenKey) }
+function getStorageName() { return localStorage.getItem(NameKey) }
+
 function setStorage(opt: Storage) {
-  if (opt.meeting) {
-    localStorage.setItem(MeetingKey, opt.meeting)
-  }
-  if (opt.stream) {
-    localStorage.setItem(StreamKey, opt.stream)
-  }
-  if (opt.token) {
-    localStorage.setItem(TokenKey, opt.token)
-  }
-  if (opt.name) {
-    localStorage.setItem(NameKey, opt.name)
-  }
+  if (opt.meeting) setStorageMeeting(opt.meeting)
+  if (opt.stream) setStorageStream(opt.stream)
+  if (opt.token) setStorageToken(opt.token)
+  if (opt.name) setStorageName(opt.name)
 }
 
 function getStorage(): Storage {
   return {
-    meeting: localStorage.getItem(MeetingKey),
-    stream: localStorage.getItem(StreamKey),
-    token: localStorage.getItem(TokenKey),
-    name: localStorage.getItem(NameKey),
+    meeting: getStorageMeeting(),
+    stream: getStorageStream(),
+    token: getStorageToken(),
+    name: getStorageName(),
   } as Storage
 }
 
 export {
+  setStorageMeeting,
+  setStorageStream,
+  setStorageToken,
+  setStorageName,
+
+  getStorageMeeting,
+  getStorageStream,
+  getStorageToken,
+  getStorageName,
+
   setStorage,
   getStorage,
 }

@@ -20,9 +20,6 @@ interface UserStatus {
   screen: boolean
 }
 
-const displayNameAtom = atom('')
-displayNameAtom.debugLabel = 'displayName'
-
 const localStreamIdAtom = atom('')
 localStreamIdAtom.debugLabel = 'localStreamId'
 
@@ -72,8 +69,6 @@ const currentDeviceVideoAtom = atom<string>("none")
 currentDeviceVideoAtom.debugLabel = 'currentDeviceVideo'
 
 export {
-  displayNameAtom,
-
   localStreamIdAtom,
   remoteStreamIdsAtom,
 

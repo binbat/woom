@@ -4,18 +4,18 @@ import DeviceBar from './device'
 import Loading from "./svg/loading"
 import Player from './player/player'
 import {
-  displayNameAtom,
   localStreamIdAtom,
   meetingJoinedAtom,
   localStreamAtom,
   localUserStatusAtom,
 } from '../store/atom'
+import { getStorageName, setStorageName } from '../lib/storage'
 
 export default function Prepare(props: { meetingId: string }) {
   const [loading, setLoading] = useState<boolean>(false)
   const refEnabled = useRef(false)
 
-  const [displayName, setDisplayName] = useAtom(displayNameAtom)
+  const [displayName, setDisplayName] = useState<string>("")
 
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
   const [localStreamId] = useAtom(localStreamIdAtom)
@@ -32,11 +32,13 @@ export default function Prepare(props: { meetingId: string }) {
 
     setLoading(false)
     setMeetingJoined(true)
-    localStorage.setItem("name", displayName)
+    setStorageName(displayName)
   }
 
   const init = async () => {
     try {
+      setDisplayName(getStorageName() || "")
+
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320 }, audio: true })
       setLocalStream({
         stream: stream,
@@ -55,7 +57,6 @@ export default function Prepare(props: { meetingId: string }) {
   useEffect(() => {
     if (!refEnabled.current) {
       refEnabled.current = true
-      setDisplayName(localStorage.getItem("name") || "")
       init()
     }
   }, [])
