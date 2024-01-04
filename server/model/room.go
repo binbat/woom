@@ -18,6 +18,7 @@ type Room struct {
 type Stream struct {
 	Name   string `json:"name"`
 	Token  string `json:"-"`
+	State  string `json:"state"`
 	Audio  bool   `json:"audio"`
 	Video  bool   `json:"video"`
 	Screen bool   `json:"screen"`
