@@ -1,11 +1,3 @@
-const StreamIdKey = 'stream'
-
-function setStreamId(id: string) {
-  localStorage.setItem(StreamIdKey, id)
-}
-
-let token = ""
-
 interface Room {
   roomId: string,
   locked: false,
@@ -21,17 +13,21 @@ interface Stream {
   screen: boolean,
 }
 
-function setToken(str: string) {
+interface User {
+  streamId: string,
+  token: string,
+}
+
+let token = ""
+
+function setApiToken(str: string) {
   token = str
 }
 
-async function newUser(): Promise<string> {
-  const res = await (await fetch(`/user/`, {
+async function newUser(): Promise<User> {
+  return (await fetch(`/user/`, {
     method: "POST",
   })).json()
-  setToken(res.token)
-  setStreamId(res.streamId)
-  return res.streamId
 }
 
 async function newRoom(): Promise<Room> {
@@ -101,6 +97,7 @@ async function delStream(roomId: string, streamId: string): Promise<void> {
 }
 
 export {
+  setApiToken,
   newUser,
 
   newRoom,

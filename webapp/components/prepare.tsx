@@ -11,8 +11,6 @@ import {
   localUserStatusAtom,
 } from '../store/atom'
 
-import { asyncGetStreamId } from '../lib/storage'
-
 export default function Prepare(props: { meetingId: string }) {
   const [loading, setLoading] = useState<boolean>(false)
   const refEnabled = useRef(false)
@@ -20,17 +18,12 @@ export default function Prepare(props: { meetingId: string }) {
   const [displayName, setDisplayName] = useAtom(displayNameAtom)
 
   const [localStream, setLocalStream] = useAtom(localStreamAtom)
-  const [localStreamId, setLocalStreamId] = useAtom(localStreamIdAtom)
+  const [localStreamId] = useAtom(localStreamIdAtom)
   const [localUserStatus, setLocalUserStatus] = useAtom(localUserStatusAtom)
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
 
   const start = async () => {
     setLoading(true)
-    let tmpLocalStreamId
-    if (!localStreamId) {
-      tmpLocalStreamId = await asyncGetStreamId()
-      setLocalStreamId(tmpLocalStreamId)
-    }
 
     setLocalUserStatus({
       ...localUserStatus,
@@ -39,6 +32,7 @@ export default function Prepare(props: { meetingId: string }) {
 
     setLoading(false)
     setMeetingJoined(true)
+    localStorage.setItem("name", displayName)
   }
 
   const init = async () => {
@@ -61,6 +55,7 @@ export default function Prepare(props: { meetingId: string }) {
   useEffect(() => {
     if (!refEnabled.current) {
       refEnabled.current = true
+      setDisplayName(localStorage.getItem("name") || "")
       init()
     }
   }, [])

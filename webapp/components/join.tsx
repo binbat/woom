@@ -1,27 +1,42 @@
 import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
+  localStreamIdAtom,
   locationAtom,
   meetingIdAtom,
 } from '../store/atom'
-import { setMeetingId } from '../lib/storage'
-import { newRoom, newUser } from '../lib/api'
+import { getStorage, setStorage } from '../lib/storage'
+import { newRoom, newUser, setApiToken } from '../lib/api'
 
 export default function Join() {
   const [loc, setLoc] = useAtom(locationAtom)
 
-  const [_, setAtomMeetingId] = useAtom(meetingIdAtom)
+  const [_, setLocalStreamId] = useAtom(localStreamIdAtom)
+  const [__, setAtomMeetingId] = useAtom(meetingIdAtom)
   const [tmpId, setTmpId] = useState<string>("")
 
+  const getLoginStatus = async () => {
+    const user = getStorage()
+    if (!user.token || !user.stream) {
+      const res = await newUser()
+      user.token = res.token,
+      user.stream = res.streamId,
+      setStorage(user)
+    }
+
+    setApiToken(user.token)
+    if (user.stream) setLocalStreamId(user.stream)
+  }
+
   const newMeeting = async () => {
-    await newUser()
+    await getLoginStatus()
     let meetingId = (await newRoom()).roomId
     enterMeeting(meetingId)
   }
 
   const joinMeeting = async () => {
+    await getLoginStatus()
     let meetingId = tmpId
-    await newUser()
     //await fetch(`/room/${meetingId}`, {
     //  method: "PATCH"
     //})
@@ -30,7 +45,6 @@ export default function Join() {
 
   const enterMeeting = (meetingId: string) => {
     setAtomMeetingId(meetingId)
-    setMeetingId(meetingId)
     setLoc(prev => ({ ...prev, pathname: `/${meetingId}` }))
   }
 

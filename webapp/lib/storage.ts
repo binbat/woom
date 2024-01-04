@@ -1,23 +1,40 @@
-import { newUser } from "./api"
+const MeetingKey = 'meeting'
+const StreamKey = 'stream'
+const TokenKey = 'token'
+const NameKey = 'name'
 
-const MeetingIdKey = 'meeting'
-const StreamIdKey = 'stream'
+interface Storage {
+  meeting?: string,
+  stream?: string,
+  token?: string,
+  name?: string,
+}
 
-function setMeetingId(id: string) {
-  const oldId = localStorage.getItem(MeetingIdKey)
-  if (id !== oldId) {
-    localStorage.setItem(MeetingIdKey, id)
-    localStorage.removeItem(StreamIdKey)
-    newUser()
+function setStorage(opt: Storage) {
+  if (opt.meeting) {
+    localStorage.setItem(MeetingKey, opt.meeting)
+  }
+  if (opt.stream) {
+    localStorage.setItem(StreamKey, opt.stream)
+  }
+  if (opt.token) {
+    localStorage.setItem(TokenKey, opt.token)
+  }
+  if (opt.name) {
+    localStorage.setItem(NameKey, opt.name)
   }
 }
 
-async function asyncGetStreamId(): Promise<string> {
-  const streamId = localStorage.getItem(StreamIdKey)
-  return streamId || ""
+function getStorage(): Storage {
+  return {
+    meeting: localStorage.getItem(MeetingKey),
+    stream: localStorage.getItem(StreamKey),
+    token: localStorage.getItem(TokenKey),
+    name: localStorage.getItem(NameKey),
+  } as Storage
 }
 
 export {
-  setMeetingId,
-  asyncGetStreamId,
+  setStorage,
+  getStorage,
 }

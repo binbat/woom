@@ -1,5 +1,4 @@
 import { atom } from 'jotai'
-import { atomWithStorage } from 'jotai/utils'
 import { atomWithLocation } from 'jotai-location'
 
 const locationAtom = atomWithLocation()
@@ -21,10 +20,10 @@ interface UserStatus {
   screen: boolean
 }
 
-const displayNameAtom = atomWithStorage('name', '')
+const displayNameAtom = atom('')
 displayNameAtom.debugLabel = 'displayName'
 
-const localStreamIdAtom = atomWithStorage('stream', '')
+const localStreamIdAtom = atom('')
 localStreamIdAtom.debugLabel = 'localStreamId'
 
 const remoteStreamIdsAtom = atom<string[]>([])
