@@ -1,6 +1,6 @@
 {
-  "name": "vite-react",
-  "version": "0.0.0",
+  "name": "woom",
+  "version": "0.1.0",
   "scripts": {
     "dev": "vite",
     "dev-refresh": "cross-env USE_REFRESH=true vite",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@binbat/whip-whep": "^1.0.8",
+    "@binbat/whip-whep": "^1.0.9",
     "@types/lodash.uniq": "^4.5.7",
     "copy-to-clipboard": "^3.3.3",
     "jotai": "^2.4.3",
