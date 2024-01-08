@@ -87,13 +87,13 @@ async function setStream(roomId: string, streamId: string, data: any): Promise<S
   })).json()
 }
 
-async function delStream(roomId: string, streamId: string): Promise<void> {
-  return (await fetch(`/room/${roomId}/stream/${streamId}`, {
+async function delStream(roomId: string, streamId: string): Promise<any> {
+  return fetch(`/room/${roomId}/stream/${streamId}`, {
     headers: {
       "Authorization": `Bearer ${token}`,
     },
     method: "DELETE",
-  })).json()
+  })
 }
 
 export {
