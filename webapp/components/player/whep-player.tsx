@@ -38,10 +38,9 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
   const start = async (resource: string) => {
     setLoading(false)
     if (refPC.current) {
-      const whep = new WHEPClient();
-      const url = location.origin + "/whep/" + resource;
-      const token = "xxx"
-      await whep.view(refPC.current, url, token);
+      const whep = new WHEPClient()
+      const url = location.origin + "/whep/" + resource
+      await whep.view(refPC.current, url)
       //await whep.stop()
     }
   }

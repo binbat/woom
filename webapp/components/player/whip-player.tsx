@@ -69,8 +69,7 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
       if (refPC.current) {
         const whip = new WHIPClient();
         const url = location.origin + `/whip/${resource}`
-        const token = "xxx"
-        await whip.publish(refPC.current, url, token)
+        await whip.publish(refPC.current, url)
         refClient.current = whip
       }
     }
@@ -103,6 +102,13 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
   }
   useEffect(() => {
     init()
+    return () => {
+      if (refEnabled.current && refClient.current) {
+        refClient.current.stop()
+        refClient.current = null
+        refEnabled.current = false
+      }
+    }
   }, [])
 
   useEffect(() => {
