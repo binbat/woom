@@ -25,7 +25,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, &Claims{
 		streamId,
 		jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(timeNow.Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(timeNow.Add(10 * 365 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(timeNow),
 			NotBefore: jwt.NewNumericDate(timeNow),
 		},
