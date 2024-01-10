@@ -40,15 +40,21 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
     refPC.current = pc
   }
 
-  const run = () => refUserStatus.current.state !== "connected" || refConnState.current !== "connected" ? restart(props.streamId) : null
+  const run = () => refUserStatus.current.state !== "connected" && refUserStatus.current.state !== "signaled" || refConnState.current !== "connected" ? restart(props.streamId) : null
 
   const start = async (resource: string) => {
     setLoading(false)
     if (refPC.current) {
-      const whep = new WHEPClient()
-      const url = location.origin + "/whep/" + resource
-      await whep.view(refPC.current, url)
-      //await whep.stop()
+      refUserStatus.current.state = 'signaled'
+      try {
+        const whep = new WHEPClient()
+        const url = location.origin + "/whep/" + resource
+        await whep.view(refPC.current, url)
+        //await whep.stop()
+      } catch (e) {
+        console.log(e)
+        refUserStatus.current.state = 'failed'
+      }
     }
   }
 

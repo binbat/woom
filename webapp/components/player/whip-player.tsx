@@ -70,10 +70,16 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
     const stream = localStream.stream
     if (stream) {
       if (refPC.current) {
-        const whip = new WHIPClient();
-        const url = location.origin + `/whip/${resource}`
-        await whip.publish(refPC.current, url)
-        refClient.current = whip
+        refUserStatus.current.state = 'signaled'
+        try {
+          const whip = new WHIPClient();
+          const url = location.origin + `/whip/${resource}`
+          await whip.publish(refPC.current, url)
+          refClient.current = whip
+        } catch (e) {
+          console.log(e)
+          refUserStatus.current.state = 'failed'
+        }
       }
     }
     setLoading(false)
@@ -88,7 +94,7 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
     start(resource)
   }
 
-  const run = () => refUserStatus.current.state !== "connected" ? restart(props.streamId) : null
+  const run = () => refUserStatus.current.state !== "connected" && refUserStatus.current.state !== "signaled" ? restart(props.streamId) : null
 
   const init = () => {
     if (!!localStream.stream.getTracks().length) {
