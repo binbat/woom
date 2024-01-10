@@ -82,22 +82,23 @@ export default function Layout(props: { meetingId: string }) {
       <center>
         <Member />
         <div className='flex justify-evenly bg-gray-800/80'>
-          <section className='m-sm p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
-            <button className='rounded-md' onClick={() => copy(location.href) && setCopyStatus(true)}>
-              <code className='mx-xs'>{props.meetingId}</code>
-            </button>
-            {copyStatus
-              ? <center className='m-1.5 bg-indigo-200 rounded-md'>
+          <section className='m-sm p-0.5 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
+            <button className='flex flex-row text-rose-400 rounded-md p-2' onClick={() => {
+              copy(location.href)
+              setCopyStatus(true)
+              setTimeout(() => setCopyStatus(false), 3000)
+            }}>
+              <code className='mx-sm my-1px'>{props.meetingId}</code>
+              <center className='text-rose-400 rounded-md' style={{ visibility: copyStatus ? 'visible' : 'hidden' }} >
                 <SvgDone />
               </center>
-              : null
-            }
+            </button>
           </section>
 
           <DeviceBar />
 
-          <section className='m-sm p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
-            <button className='rounded-md w-12 h-9' onClick={() => callEnd()}>
+          <section className='flex flex-col justify-center'>
+            <button className='text-white bg-rose-600 hover:bg-rose-700 duration-1000 shadow-xl rounded-3xl w-18 h-10' onClick={() => callEnd()}>
               <center>
                 <SvgEnd />
               </center>

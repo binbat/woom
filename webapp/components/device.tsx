@@ -193,7 +193,7 @@ export default function DeviceBar() {
     <div className='flex flex-row flex-wrap justify-around p-xs'>
       <center className='flex flex-row flex-wrap justify-around'>
         <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
-          <button className='rounded-md w-8 h-8' onClick={() => toggleEnableAudio()}>
+          <button className='text-rose-400 rounded-md w-8 h-8' onClick={() => toggleEnableAudio()}>
             <center>
               {loadingAudio
                 ? <Loading />
@@ -228,7 +228,7 @@ export default function DeviceBar() {
         </section>
 
         <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
-          <button className='rounded-md w-8 h-8' onClick={() => toggleEnableVideo()}>
+          <button className='text-rose-400 rounded-md w-8 h-8' onClick={() => toggleEnableVideo()}>
             <center>
               {loadingVideo
                 ? <Loading />
@@ -264,7 +264,7 @@ export default function DeviceBar() {
       </center>
       <center>
         <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
-          <button className='rounded-md w-8 h-8' onClick={() => toggleEnableScreen()}>
+          <button className='text-rose-400 rounded-md w-8 h-8' onClick={() => toggleEnableScreen()}>
             <center>
               {loadingScreen
                 ? <Loading />
