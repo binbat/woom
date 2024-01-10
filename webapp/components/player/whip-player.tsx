@@ -15,10 +15,12 @@ import SvgProgress from '../svg/progress'
 
 export default function WhipPlayer(props: { streamId: string, width: string }) {
   const refEnabled = useRef(false)
+  const refTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const refPC = useRef<RTCPeerConnection | null>(null)
   const refClient = useRef<WHIPClient | null>(null)
   const [localStream] = useAtom(localStreamAtom)
   const [localUserStatus, setLocalUserStatus] = useAtom(localUserStatusAtom)
+  const refUserStatus = useRef(localUserStatus)
 
   const [loading, setLoading] = useState(true)
 
@@ -26,6 +28,7 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
   const [currentDeviceVideo] = useAtom(currentDeviceVideoAtom)
 
   const [presentationStream, setPresentationStream] = useAtom(presentationStreamAtom)
+  refUserStatus.current = localUserStatus
 
   const newPeerConnection = () => {
     const stream = localStream.stream
@@ -85,10 +88,13 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
     start(resource)
   }
 
+  const run = () => refUserStatus.current.state !== "connected" ? restart(props.streamId) : null
+
   const init = () => {
     if (!!localStream.stream.getTracks().length) {
       if (!refEnabled.current) {
         refEnabled.current = true
+        refTimer.current = setInterval(run, 5000)
         newPeerConnection()
         start(props.streamId)
       }
@@ -104,6 +110,8 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
     init()
     return () => {
       if (refEnabled.current && refClient.current) {
+        clearInterval(refTimer.current!)
+        refTimer.current = null
         refClient.current.stop()
         refClient.current = null
         refEnabled.current = false

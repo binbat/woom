@@ -11,6 +11,7 @@ import SvgProgress from '../svg/progress'
 
 export default function WhepPlayer(props: { streamId: string, status: UserStatus, width: string }) {
   const refEnabled = useRef(false)
+  const refTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const refPC = useRef<RTCPeerConnection | null>(null)
   const [loading, setLoading] = useState(true)
   const [connectionState, setConnectionState] = useState("unknown")
@@ -19,6 +20,8 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
     name: props.streamId,
   })
   const [presentationStream, setPresentationStream] = useAtom(presentationStreamAtom)
+  const refUserStatus = useRef(props.status)
+  refUserStatus.current = props.status
 
   const newPeerConnection = () => {
     const pc = new RTCPeerConnection()
@@ -34,6 +37,8 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
     }
     refPC.current = pc
   }
+
+  const run = () => refUserStatus.current.state !== "connected" ? restart(props.streamId) : null
 
   const start = async (resource: string) => {
     setLoading(false)
@@ -57,6 +62,7 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
   useEffect(() => {
     if (!refEnabled.current && props.status.state === "connected") {
       refEnabled.current = true
+      refTimer.current = setInterval(run, 5000)
       newPeerConnection()
       start(props.streamId)
     }
