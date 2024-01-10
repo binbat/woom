@@ -22,6 +22,8 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
   const [presentationStream, setPresentationStream] = useAtom(presentationStreamAtom)
   const refUserStatus = useRef(props.status)
   refUserStatus.current = props.status
+  const refConnState = useRef(connectionState)
+  refConnState.current = connectionState
 
   const newPeerConnection = () => {
     const pc = new RTCPeerConnection()
@@ -38,7 +40,7 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
     refPC.current = pc
   }
 
-  const run = () => refUserStatus.current.state !== "connected" ? restart(props.streamId) : null
+  const run = () => refUserStatus.current.state !== "connected" || refConnState.current !== "connected" ? restart(props.streamId) : null
 
   const start = async (resource: string) => {
     setLoading(false)
