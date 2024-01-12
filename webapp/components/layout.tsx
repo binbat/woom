@@ -82,8 +82,8 @@ export default function Layout(props: { meetingId: string }) {
       <center>
         <Member />
         <div className='flex justify-evenly bg-gray-800/80'>
-          <section className='m-sm p-0.5 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
-            <button className='flex flex-row text-rose-400 rounded-md p-2' onClick={() => {
+          <section className='hidden md:flex md:flex-col md:justify-center'>
+            <button className='flex flex-row text-rose-400 rounded-md bg-inherit p-2' onClick={() => {
               copy(location.href)
               setCopyStatus(true)
               setTimeout(() => setCopyStatus(false), 3000)
