@@ -1,39 +1,12 @@
-import { useEffect } from "react"
 import useWhipClient from "../use/whip"
 import Player from './player'
-import { useAtom } from 'jotai'
-import {
-  localStreamAtom,
-  localUserStatusAtom,
-
-  currentDeviceAudioAtom,
-  currentDeviceVideoAtom,
-} from '../../store/atom'
 
 export default function WhipPlayer(props: { streamId: string, width: string }) {
-  // TODO: Need fix
-  // - name
-  // - audio
-  // - video
-  const [localUserStatus] = useAtom(localUserStatusAtom)
-  const [localStream] = useAtom(localStreamAtom)
-  const { userStatus, setCurrentDeviceAudio, setCurrentDeviceVideo, restart } = useWhipClient(localUserStatus.name, props.streamId, localStream.stream)
-
-  const [currentDeviceAudio] = useAtom(currentDeviceAudioAtom)
-  const [currentDeviceVideo] = useAtom(currentDeviceVideoAtom)
-
-  useEffect(() => {
-    setCurrentDeviceAudio(currentDeviceAudio)
-  }, [currentDeviceAudio])
-
-  useEffect(() => {
-    setCurrentDeviceVideo(currentDeviceVideo)
-  }, [currentDeviceVideo])
-
+  const { stream, userStatus, restart } = useWhipClient(props.streamId)
   return (
     <div className='flex flex-col'>
       <center>
-        <Player user={localStream} muted={true} width={props.width} display="auto" />
+        <Player stream={stream} muted={true} width={props.width} display="auto" />
       </center>
 
       <details className='text-white mx-2 text-sm font-border' style={{

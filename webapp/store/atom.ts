@@ -31,12 +31,6 @@ meetingIdAtom.debugLabel = 'meetingIdAtom'
 const meetingJoinedAtom = atom(false)
 meetingJoinedAtom.debugLabel = 'meetingJoined'
 
-const localStreamAtom = atom<UserStream>({
-  stream: new MediaStream,
-  name: "Me",
-})
-localStreamAtom.debugLabel = 'localStream'
-
 const presentationStreamAtom = atom<UserStream>({
   stream: new MediaStream,
   name: "Presentation",
@@ -45,11 +39,6 @@ presentationStreamAtom.debugLabel = 'presentationStream'
 
 const enabledPresentationAtom = atom(get => get(presentationStreamAtom).stream.getVideoTracks().length !== 0)
 enabledPresentationAtom.debugLabel = 'enabledPresentation'
-
-const enabledAudioAtom = atom(get => get(localStreamAtom).stream.getAudioTracks().length !== 0)
-enabledAudioAtom.debugLabel = 'enabledAudio'
-const enabledVideoAtom = atom(get => get(localStreamAtom).stream.getVideoTracks().length !== 0)
-enabledVideoAtom.debugLabel = 'enabledVideo'
 
 const localUserStatusAtom = atom<UserStatus>({
   name: "",
@@ -63,11 +52,6 @@ localUserStatusAtom.debugLabel = 'localUserStatus'
 const remoteUsersStatusAtom = atom<UserStatus[]>([])
 remoteUsersStatusAtom.debugLabel = 'remoteUsersStatus'
 
-const currentDeviceAudioAtom = atom<string>("none")
-currentDeviceAudioAtom.debugLabel = 'currentDeviceAudio'
-const currentDeviceVideoAtom = atom<string>("none")
-currentDeviceVideoAtom.debugLabel = 'currentDeviceVideo'
-
 export {
   localStreamIdAtom,
   remoteStreamIdsAtom,
@@ -80,12 +64,7 @@ export {
 
   meetingIdAtom,
   meetingJoinedAtom,
-  localStreamAtom,
-  enabledAudioAtom,
-  enabledVideoAtom,
   enabledPresentationAtom,
-  currentDeviceAudioAtom,
-  currentDeviceVideoAtom,
 }
 
 export type {

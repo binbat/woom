@@ -1,19 +1,13 @@
+import useWhipClient from "./use/whip"
 import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
   Device,
   deviceNone,
   deviceScreen,
-  asyncGetAudioStream,
-  asyncGetVideoStream,
 } from '../lib/device'
 import {
-  localStreamAtom,
-  enabledAudioAtom,
-  enabledVideoAtom,
-  localUserStatusAtom,
-  currentDeviceAudioAtom,
-  currentDeviceVideoAtom,
+  localStreamIdAtom,
 } from '../store/atom'
 
 import Loading from './svg/loading'
@@ -25,17 +19,22 @@ export default function DeviceBar() {
   const [permissionAudio, setPermissionAudio] = useState("...")
   const [permissionVideo, setPermissionVideo] = useState("...")
 
-  const [localStream, setLocalStream] = useAtom(localStreamAtom)
-  const [localUserStatus, setLocalUserStatus] = useAtom(localUserStatusAtom)
+  const [localStreamId] = useAtom(localStreamIdAtom)
 
   const [loadingAudio, setLoadingAudio] = useState(false)
   const [loadingVideo, setLoadingVideo] = useState(false)
   const [loadingScreen, setLoadingScreen] = useState(false)
 
-  const [enabledAudio] = useAtom(enabledAudioAtom)
-  const [enabledVideo] = useAtom(enabledVideoAtom)
-  const [currentDeviceAudio, setCurrentDeviceAudio] = useAtom(currentDeviceAudioAtom)
-  const [currentDeviceVideo, setCurrentDeviceVideo] = useAtom(currentDeviceVideoAtom)
+  const {
+    userStatus,
+    currentDeviceAudio,
+    currentDeviceVideo,
+    setCurrentDeviceAudio,
+    setCurrentDeviceVideo,
+    toggleEnableAudio,
+    toggleEnableVideo,
+  } = useWhipClient(localStreamId)
+
   const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
@@ -70,16 +69,12 @@ export default function DeviceBar() {
 
     if (currentDeviceAudio === deviceNone.deviceId) {
       let device = audios[0]
-      if (device) {
-        setCurrentDeviceAudio(device.deviceId)
-      }
+      if (device) await setCurrentDeviceAudio(device.deviceId)
     }
 
     if (currentDeviceVideo === deviceNone.deviceId) {
       let device = videos[0]
-      if (device) {
-        setCurrentDeviceVideo(device.deviceId)
-      }
+      if (device) await setCurrentDeviceVideo(device.deviceId)
     }
 
     setDeviceAudio([...audios])
@@ -88,6 +83,7 @@ export default function DeviceBar() {
 
   const init = async () => {
     try {
+      (await navigator.mediaDevices.getUserMedia({ video: true, audio: true })).getTracks().map(track => track.stop())
       // NOTE:
       // In some device have problem:
       // - Android Web Browser
@@ -99,7 +95,7 @@ export default function DeviceBar() {
 
   useEffect(() => {
     init()
-  }, [localStream])
+  }, [])
 
   useEffect(() => {
     // Reference: https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/devicechange_event
@@ -107,81 +103,21 @@ export default function DeviceBar() {
     return () => { navigator.mediaDevices.removeEventListener("devicechange", updateDeviceList) }
   }, [])
 
-  const toggleEnableAudio = async () => {
-    if (enabledAudio) {
-      onChangedDeviceAudio(deviceNone.deviceId)
-    } else {
-      onChangedDeviceAudio(currentDeviceAudio)
-    }
-  }
-
   const onChangedDeviceAudio = async (current: string) => {
     setLoadingAudio(true)
-    // Closed old tracks
-    const stream = localStream.stream
-    stream.getAudioTracks().map(track => {
-      track.stop()
-      stream.removeTrack(track)
-    })
-
-    const mediaStream = await asyncGetAudioStream(current)
-
-    const videoTracks = localStream.stream.getVideoTracks()
-    const audioTracks = mediaStream.getAudioTracks()
-
-    setLocalStream({
-      stream: new MediaStream([...audioTracks, ...videoTracks]),
-      name: "Me",
-    })
-
-    setLocalUserStatus({
-      ...localUserStatus,
-      audio: current === deviceNone.deviceId ? false : true,
-    })
-
-    current === deviceNone.deviceId ? null : setCurrentDeviceAudio(current)
+    await setCurrentDeviceAudio(current)
     setLoadingAudio(false)
-  }
-
-  const toggleEnableVideo = async () => {
-    if (enabledVideo) {
-      onChangedDeviceVideo(deviceNone.deviceId)
-    } else {
-      onChangedDeviceVideo(currentDeviceVideo)
-    }
   }
 
   const onChangedDeviceVideo = async (current: string) => {
     setLoadingVideo(true)
-    // Closed old tracks
-    const stream = localStream.stream
-    stream.getVideoTracks().map(track => {
-      track.stop()
-      stream.removeTrack(track)
-    })
-
-    const mediaStream = await asyncGetVideoStream(current)
-    const audioTracks = localStream.stream.getAudioTracks()
-    const videoTracks = mediaStream.getVideoTracks()
-
-    setLocalStream({
-      stream: new MediaStream([...audioTracks, ...videoTracks]),
-      name: "Me",
-    })
-
-    setLocalUserStatus({
-      ...localUserStatus,
-      video: current === deviceNone.deviceId ? false : true,
-      screen: current === deviceScreen.deviceId ? true : false,
-    })
-
-    current === deviceNone.deviceId ? null : setCurrentDeviceVideo(current)
+    await setCurrentDeviceVideo(current)
     setLoadingVideo(false)
   }
 
   const toggleEnableScreen = async () => {
     setLoadingScreen(true)
-    if (localUserStatus.screen) {
+    if (userStatus.screen) {
       await onChangedDeviceVideo(deviceNone.deviceId)
     } else {
       await onChangedDeviceVideo(deviceScreen.deviceId)
@@ -206,7 +142,7 @@ export default function DeviceBar() {
               ? <div></div>
               : <div className='bg-orange-500 shadow-sm w-1 h-1 p-1 rounded-full' style={{ position: 'relative', right: '7px' }}></div>
             }
-            {enabledAudio
+            {userStatus.audio
               ? <div></div>
               : <div className='w-8 h-1 bg-red-500 rounded-full rotate-45'
                 style={{
@@ -241,7 +177,7 @@ export default function DeviceBar() {
               ? <div></div>
               : <div className='bg-orange-500 shadow-sm w-1 h-1 p-1 rounded-full' style={{ position: 'relative', right: '7px' }}></div>
             }
-            {enabledVideo
+            {userStatus.video
               ? <div></div>
               : <div className='w-8 h-1 bg-red-500 rounded-full rotate-45'
                 style={{
@@ -268,7 +204,7 @@ export default function DeviceBar() {
             <center>
               {loadingScreen
                 ? <Loading />
-                : localUserStatus.screen ? <SvgPresentCancel /> : <SvgPresentToAll />
+                : userStatus.screen ? <SvgPresentCancel /> : <SvgPresentToAll />
               }
             </center>
           </button>

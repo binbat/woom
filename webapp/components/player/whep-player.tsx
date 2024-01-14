@@ -98,7 +98,7 @@ export default function WhepPlayer(props: { streamId: string, status: UserStatus
       <center>
         { loading
           ? <div className='m-xl'><SvgProgress/></div>
-          : <Player user={userStream} muted={false} width={props.width} display="auto" />
+          : <Player stream={userStream.stream} muted={false} width={props.width} display="auto" />
         }
       </center>
 

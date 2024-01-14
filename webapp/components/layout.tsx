@@ -70,7 +70,7 @@ export default function Layout(props: { meetingId: string }) {
       <div></div>
 
       { enabledPresentation
-        ? <Player user={presentationStream} muted={true} width="auto" display="auto" />
+        ? <Player stream={presentationStream.stream} muted={true} width="auto" display="auto" />
         : null
       }
 
