@@ -9,6 +9,7 @@ import {
   meetingJoinedAtom,
 } from '../store/atom'
 import { getStorageName, setStorageName } from '../lib/storage'
+import { setStream } from '../lib/api'
 
 export default function Prepare(props: { meetingId: string }) {
   const [loading, setLoading] = useState<boolean>(false)
@@ -18,7 +19,7 @@ export default function Prepare(props: { meetingId: string }) {
   const [localStreamId] = useAtom(localStreamIdAtom)
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
 
-  const { stream, setUserName, start} = useWhipClient(localStreamId)
+  const { id, stream, setUserName, setSyncUserStatus, start} = useWhipClient(localStreamId)
 
   const join = async () => {
     setLoading(true)
@@ -29,6 +30,7 @@ export default function Prepare(props: { meetingId: string }) {
     setMeetingJoined(true)
     setStorageName(displayName)
     start()
+    setSyncUserStatus((status) => setStream(id, status))
   }
 
   useEffect(() => {

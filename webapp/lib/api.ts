@@ -19,9 +19,14 @@ interface User {
 }
 
 let token = ""
+let roomId = ""
 
 function setApiToken(str: string) {
   token = str
+}
+
+function setRoomId(str: string) {
+  roomId = str
 }
 
 async function newUser(): Promise<User> {
@@ -76,7 +81,7 @@ async function newStream(roomId: string): Promise<Stream> {
   })).json()
 }
 
-async function setStream(roomId: string, streamId: string, data: any): Promise<Stream> {
+async function setStream(streamId: string, data: any): Promise<Stream> {
   return (await fetch(`/room/${roomId}/stream/${streamId}`, {
     headers: {
       "Authorization": `Bearer ${token}`,
@@ -97,6 +102,7 @@ async function delStream(roomId: string, streamId: string): Promise<any> {
 }
 
 export {
+  setRoomId,
   setApiToken,
   newUser,
 

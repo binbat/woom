@@ -6,7 +6,7 @@ import {
   meetingIdAtom,
 } from '../store/atom'
 import { getStorage, setStorage } from '../lib/storage'
-import { newRoom, newUser, setApiToken } from '../lib/api'
+import { newRoom, newUser, setApiToken, setRoomId } from '../lib/api'
 
 export default function Join() {
   const [loc, setLoc] = useAtom(locationAtom)
@@ -41,6 +41,7 @@ export default function Join() {
     //  method: "PATCH"
     //})
     enterMeeting(meetingId)
+    setRoomId(meetingId)
   }
 
   const enterMeeting = (meetingId: string) => {

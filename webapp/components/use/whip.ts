@@ -25,6 +25,12 @@ class Context extends EventTarget {
   currentDeviceAudio = deviceNone.deviceId
   currentDeviceVideo = deviceNone.deviceId
 
+  syncUserStatus = (_: UserStatus) => {}
+  setSyncUserStatus = (callback: (userStatus: UserStatus) => void) => {
+    callback(this.userStatus)
+    this.syncUserStatus = callback
+  }
+
   setCurrentDeviceAudio = setCurrentDeviceAudio
   setCurrentDeviceVideo = setCurrentDeviceVideo
 
@@ -34,6 +40,7 @@ class Context extends EventTarget {
   setUserName = (name: string) => {
     this.userStatus.name = name
     this.sync()
+    this.syncUserStatus(this.userStatus)
   }
 
   setStream = (stream: MediaStream) => {
@@ -86,7 +93,7 @@ function onChangedDeviceAudio() {
 }
 
 async function setCurrentDeviceAudio(current: string) {
-  const { stream, userStatus, currentDeviceAudio, sync } = context
+  const { stream, userStatus, currentDeviceAudio, sync, syncUserStatus } = context
 
   if (current !== currentDeviceAudio || !userStatus.audio) {
     // Closed old tracks
@@ -105,6 +112,7 @@ async function setCurrentDeviceAudio(current: string) {
     context.currentDeviceAudio = current === deviceNone.deviceId ? context.currentDeviceAudio : current
 
     sync()
+    syncUserStatus(userStatus)
     onChangedDeviceAudio()
   }
 }
@@ -121,7 +129,7 @@ function onChangedDeviceVideo() {
 }
 
 async function setCurrentDeviceVideo(current: string) {
-  const { stream, userStatus, currentDeviceVideo, sync } = context
+  const { stream, userStatus, currentDeviceVideo, sync, syncUserStatus } = context
 
   if (current !== currentDeviceVideo || !userStatus.video) {
     // Closed old tracks
@@ -139,18 +147,22 @@ async function setCurrentDeviceVideo(current: string) {
     context.currentDeviceVideo = current === deviceNone.deviceId ? context.currentDeviceVideo : current
 
     sync()
+    syncUserStatus(userStatus)
     onChangedDeviceVideo()
   }
 }
 
 async function start() {
-  const { id, pc, stream, client, userStatus, sync } = context
+  const { id, pc, stream, client, userStatus, sync, syncUserStatus } = context
   if (stream.getTracks().length === 0) return
   pc.onconnectionstatechange = () => {
     userStatus.state = pc.connectionState
     sync()
+    syncUserStatus(userStatus)
   }
   userStatus.state = 'signaled'
+  sync()
+  syncUserStatus(userStatus)
   newPeerConnection()
 
   try {
@@ -159,6 +171,8 @@ async function start() {
   } catch (e) {
     console.log(e)
     userStatus.state = 'failed'
+    syncUserStatus(userStatus)
+    sync()
   }
 }
 

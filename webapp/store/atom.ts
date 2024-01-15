@@ -40,23 +40,12 @@ presentationStreamAtom.debugLabel = 'presentationStream'
 const enabledPresentationAtom = atom(get => get(presentationStreamAtom).stream.getVideoTracks().length !== 0)
 enabledPresentationAtom.debugLabel = 'enabledPresentation'
 
-const localUserStatusAtom = atom<UserStatus>({
-  name: "",
-  state: "new",
-  audio: false,
-  video: false,
-  screen: false,
-})
-localUserStatusAtom.debugLabel = 'localUserStatus'
-
 const remoteUsersStatusAtom = atom<UserStatus[]>([])
 remoteUsersStatusAtom.debugLabel = 'remoteUsersStatus'
 
 export {
   localStreamIdAtom,
   remoteStreamIdsAtom,
-
-  localUserStatusAtom,
   remoteUsersStatusAtom,
 
   locationAtom,
