@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record'
 import { isWechat } from '../../lib/util'
+import SvgProgress from '../svg/progress'
 
 function AudioWave(props: { stream: MediaStream }) {
   const refWave = useRef<HTMLDivElement>(null)
@@ -59,6 +60,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, wid
   // https://webkit.org/blog/6784/new-video-policies-for-ios/
   return (
     <center className='flex-col' style={{ width: props.width }}>
+      {!props.stream.getTracks().length ? <SvgProgress/> : null}
       <video
         className='rounded-xl'
         playsInline={true}
