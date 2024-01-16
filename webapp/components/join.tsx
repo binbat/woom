@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import {
-  localStreamIdAtom,
   locationAtom,
   meetingIdAtom,
 } from '../store/atom'
-import { getStorage, setStorage } from '../lib/storage'
+import { getStorage, setStorage, setStorageStream, setStorageMeeting } from '../lib/storage'
 import { newRoom, newUser, setApiToken, setRoomId } from '../lib/api'
 
 export default function Join() {
   const [loc, setLoc] = useAtom(locationAtom)
-
-  const [_, setLocalStreamId] = useAtom(localStreamIdAtom)
   const [__, setAtomMeetingId] = useAtom(meetingIdAtom)
   const [tmpId, setTmpId] = useState<string>("")
 
@@ -25,7 +22,7 @@ export default function Join() {
     }
 
     setApiToken(user.token)
-    if (user.stream) setLocalStreamId(user.stream)
+    if (user.stream) setStorageStream(user.stream)
   }
 
   const newMeeting = async () => {
@@ -45,6 +42,7 @@ export default function Join() {
   }
 
   const enterMeeting = (meetingId: string) => {
+    setStorageMeeting(meetingId)
     setAtomMeetingId(meetingId)
     setLoc(prev => ({ ...prev, pathname: `/${meetingId}` }))
   }

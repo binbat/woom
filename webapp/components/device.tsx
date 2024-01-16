@@ -1,25 +1,19 @@
 import useWhipClient from "./use/whip"
 import { useEffect, useState } from 'react'
-import { useAtom } from 'jotai'
 import {
   Device,
   deviceNone,
   deviceScreen,
 } from '../lib/device'
-import {
-  localStreamIdAtom,
-} from '../store/atom'
 
 import Loading from './svg/loading'
 import SvgAudio from './svg/audio'
 import SvgVideo from './svg/video'
 import { SvgPresentCancel, SvgPresentToAll } from './svg/present'
 
-export default function DeviceBar() {
+export default function DeviceBar(props: { streamId: string }) {
   const [permissionAudio, setPermissionAudio] = useState("...")
   const [permissionVideo, setPermissionVideo] = useState("...")
-
-  const [localStreamId] = useAtom(localStreamIdAtom)
 
   const [loadingAudio, setLoadingAudio] = useState(false)
   const [loadingVideo, setLoadingVideo] = useState(false)
@@ -33,7 +27,7 @@ export default function DeviceBar() {
     setCurrentDeviceVideo,
     toggleEnableAudio,
     toggleEnableVideo,
-  } = useWhipClient(localStreamId)
+  } = useWhipClient(props.streamId)
 
   const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])

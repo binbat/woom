@@ -8,9 +8,9 @@ interface Data {
   stream: MediaStream,
   userStatus: UserStatus,
 
-  stop: () => void,
-  start: () => void,
-  restart: () => void,
+  stop: () => Promise<void>
+  start: () => Promise<void>
+  restart: () => Promise<void>
 
   setUserName: (name: string) => void,
   setSyncUserStatus: (callback: (userStatus: UserStatus) => void) => void,

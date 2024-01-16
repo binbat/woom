@@ -8,7 +8,6 @@ import DeviceBar from './device'
 import {
   UserStatus,
   enabledPresentationAtom,
-  localStreamIdAtom,
   meetingJoinedAtom,
   presentationStreamAtom,
 } from '../store/atom'
@@ -16,12 +15,13 @@ import copy from 'copy-to-clipboard'
 import SvgDone from './svg/done'
 import SvgEnd from './svg/end'
 import { getRoom, delStream } from '../lib/api'
+import { getStorageStream } from '../lib/storage'
 
 export default function Layout(props: { meetingId: string }) {
   const [copyStatus, setCopyStatus] = useState(false)
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
 
-  const [localStreamId] = useAtom(localStreamIdAtom)
+  const localStreamId = getStorageStream()
   const [remoteUserStatus, setRemoteUserStatus] = useState<{ [_: string]: UserStatus }>({})
 
   //const [speaker, setSpeaker] = useState<UserStatus | null>(null)
@@ -95,7 +95,7 @@ export default function Layout(props: { meetingId: string }) {
             </button>
           </section>
 
-          <DeviceBar />
+          <DeviceBar streamId={localStreamId} />
 
           <section className='flex flex-col justify-center'>
             <button className='text-white bg-rose-600 hover:bg-rose-700 duration-1000 shadow-xl rounded-3xl w-18 h-10' onClick={() => callEnd()}>

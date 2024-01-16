@@ -5,10 +5,9 @@ import DeviceBar from './device'
 import Loading from "./svg/loading"
 import Player from './player/player'
 import {
-  localStreamIdAtom,
   meetingJoinedAtom,
 } from '../store/atom'
-import { getStorageName, setStorageName } from '../lib/storage'
+import { getStorageName, setStorageName, getStorageStream } from '../lib/storage'
 import { setStream } from '../lib/api'
 
 export default function Prepare(props: { meetingId: string }) {
@@ -16,21 +15,21 @@ export default function Prepare(props: { meetingId: string }) {
 
   const [displayName, setDisplayName] = useState<string>("")
 
-  const [localStreamId] = useAtom(localStreamIdAtom)
+  const localStreamId = getStorageStream()
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
 
-  const { id, stream, setUserName, setSyncUserStatus, start} = useWhipClient(localStreamId)
+  const { id, stream, setUserName, setSyncUserStatus, start } = useWhipClient(localStreamId)
 
   const join = async () => {
     setLoading(true)
 
     setUserName(displayName || localStreamId)
 
-    setLoading(false)
     setMeetingJoined(true)
     setStorageName(displayName)
-    start()
+    await start()
     setSyncUserStatus((status) => setStream(id, status))
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -53,7 +52,7 @@ export default function Prepare(props: { meetingId: string }) {
       </center>
 
       <div className='flex justify-evenly bg-gray-800/80'>
-        <DeviceBar />
+        <DeviceBar streamId={localStreamId} />
       </div>
 
       <center className='m-xs'>

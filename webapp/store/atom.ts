@@ -20,9 +20,6 @@ interface UserStatus {
   screen: boolean
 }
 
-const localStreamIdAtom = atom('')
-localStreamIdAtom.debugLabel = 'localStreamId'
-
 const remoteStreamIdsAtom = atom<string[]>([])
 remoteStreamIdsAtom.debugLabel = 'remoteStreamIds'
 
@@ -44,7 +41,6 @@ const remoteUsersStatusAtom = atom<UserStatus[]>([])
 remoteUsersStatusAtom.debugLabel = 'remoteUsersStatus'
 
 export {
-  localStreamIdAtom,
   remoteStreamIdsAtom,
   remoteUsersStatusAtom,
 

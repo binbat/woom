@@ -1,19 +1,16 @@
 import { useEffect } from 'react'
 import { useAtom } from 'jotai'
 import {
-  localStreamIdAtom,
   remoteStreamIdsAtom,
-  meetingIdAtom,
 } from '../store/atom'
+import { getStorageStream, getStorageMeeting } from '../lib/storage'
 import { getRoom } from '../lib/api'
 
 export default function Member() {
-  const [localStreamId] = useAtom(localStreamIdAtom)
   const [_, setRemoteStreamIds] = useAtom(remoteStreamIdsAtom)
-  const [meetingId] = useAtom(meetingIdAtom)
 
   const refresh = async () => {
-    setRemoteStreamIds(Object.keys((await getRoom(meetingId)).streams).filter(i => i !== localStreamId))
+    setRemoteStreamIds(Object.keys((await getRoom(getStorageMeeting())).streams).filter(i => i !== getStorageStream()))
   }
 
   useEffect(() => {
