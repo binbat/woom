@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
-import Member from './member'
 import Player from './player/player'
 import WhipPlayer from './player/whip-player'
 import WhepPlayer from './player/whep-player'
@@ -80,7 +79,6 @@ export default function Layout(props: { meetingId: string }) {
       </div>
 
       <center>
-        <Member />
         <div className='flex justify-evenly bg-gray-800/80'>
           <section className='hidden md:flex md:flex-col md:justify-center'>
             <button className='flex flex-row text-rose-400 rounded-md bg-inherit p-2' onClick={() => {
