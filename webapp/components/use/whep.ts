@@ -43,7 +43,7 @@ class WHEPContext extends Context {
 
 const contexts: WHEPContext[] = []
 
-export default function useWhipClient(id: string) {
+export default function useWhepClient(id: string) {
   const newContext = (id: string) => {
     const context = new WHEPContext(id)
     contexts.push(context)

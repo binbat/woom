@@ -1,4 +1,5 @@
 import { UserStatus } from '../../store/atom'
+import { deviceNone } from '../../lib/device'
 
 const event = new Event('sync')
 
@@ -10,6 +11,16 @@ interface Data {
   stop: () => void,
   start: () => void,
   restart: () => void,
+
+  setUserName: (name: string) => void,
+  setSyncUserStatus: (callback: (userStatus: UserStatus) => void) => void,
+
+  currentDeviceAudio: string,
+  currentDeviceVideo: string,
+  setCurrentDeviceAudio: (current: string) => Promise<void>,
+  setCurrentDeviceVideo: (current: string) => Promise<void>,
+  toggleEnableAudio: () => Promise<void>,
+  toggleEnableVideo: () => Promise<void>,
 }
 
 class Context extends EventTarget {
@@ -37,6 +48,15 @@ class Context extends EventTarget {
     this.cache = this.clone()
   }
 
+  setUserName: (name: string) => void = (_: string) => {}
+
+  currentDeviceAudio = deviceNone.deviceId
+  currentDeviceVideo = deviceNone.deviceId
+  toggleEnableAudio = async () => this.setCurrentDeviceAudio(this.userStatus.audio ? deviceNone.deviceId : this.currentDeviceAudio)
+  toggleEnableVideo = async () => this.setCurrentDeviceVideo(this.userStatus.video ? deviceNone.deviceId : this.currentDeviceVideo)
+
+  async setCurrentDeviceAudio(_: string) {}
+  async setCurrentDeviceVideo(_: string) {}
   clone() {
     return {
       id: this.id,
@@ -45,6 +65,16 @@ class Context extends EventTarget {
       stop: () => this.stop(),
       start: () => this.start(),
       restart:  () => this.restart(),
+
+      setUserName: (name: string) => this.setUserName(name),
+      setSyncUserStatus: (callback: (userStatus: UserStatus) => void) => this.setSyncUserStatus(callback),
+
+      currentDeviceAudio: this.currentDeviceAudio,
+      currentDeviceVideo: this.currentDeviceVideo,
+      setCurrentDeviceAudio: (current: string) => this.setCurrentDeviceAudio(current),
+      setCurrentDeviceVideo: (current: string) => this.setCurrentDeviceVideo(current),
+      toggleEnableAudio: () => this.toggleEnableAudio(),
+      toggleEnableVideo: () => this.toggleEnableVideo(),
     }
   }
 
