@@ -4,6 +4,7 @@ import { WHIPClient } from '@binbat/whip-whep/whip'
 import { UserStatus } from '../../store/atom'
 import {
   deviceNone,
+  deviceScreen,
   asyncGetAudioStream,
   asyncGetVideoStream,
 } from '../../lib/device'
@@ -104,6 +105,8 @@ class WHIPContext extends Context {
 
       setStream(new MediaStream([...audioTracks, ...videoTracks]))
       userStatus.video = current === deviceNone.deviceId ? false : true
+      // NOTE: screen share
+      userStatus.screen = current !== deviceScreen.deviceId ? false : true
       this.currentDeviceVideo = current === deviceNone.deviceId ? this.currentDeviceVideo : current
 
       this.sync()

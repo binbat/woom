@@ -111,11 +111,7 @@ export default function DeviceBar(props: { streamId: string }) {
 
   const toggleEnableScreen = async () => {
     setLoadingScreen(true)
-    if (userStatus.screen) {
-      await onChangedDeviceVideo(deviceNone.deviceId)
-    } else {
-      await onChangedDeviceVideo(deviceScreen.deviceId)
-    }
+    await onChangedDeviceVideo(userStatus.screen ? deviceNone.deviceId : deviceScreen.deviceId)
     setLoadingScreen(false)
   }
 
@@ -123,13 +119,12 @@ export default function DeviceBar(props: { streamId: string }) {
     <div className='flex flex-row flex-wrap justify-around p-xs'>
       <center className='flex flex-row flex-wrap justify-around'>
         <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
-          <button className='text-rose-400 rounded-md w-8 h-8' onClick={() => toggleEnableAudio()}>
-            <center>
-              {loadingAudio
-                ? <Loading />
-                : <SvgAudio />
-              }
-            </center>
+          <button className='text-rose-400 rounded-md w-8 h-8' onClick={async () => {
+            setLoadingAudio(true)
+            toggleEnableAudio()
+            setLoadingAudio(false)
+          }}>
+            <center>{ loadingAudio ? <Loading/> : <SvgAudio/> }</center>
           </button>
           <div className='flex flex-col justify-between w-1 pointer-events-none'>
             {permissionAudio === "granted"
@@ -158,13 +153,12 @@ export default function DeviceBar(props: { streamId: string }) {
         </section>
 
         <section className='m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500'>
-          <button className='text-rose-400 rounded-md w-8 h-8' onClick={() => toggleEnableVideo()}>
-            <center>
-              {loadingVideo
-                ? <Loading />
-                : <SvgVideo />
-              }
-            </center>
+          <button className='text-rose-400 rounded-md w-8 h-8' onClick={async () => {
+            setLoadingVideo(true)
+            await toggleEnableVideo()
+            setLoadingVideo(false)
+          }}>
+            <center>{ loadingVideo ? <Loading/> : <SvgVideo/> }</center>
           </button>
           <div className='flex flex-col justify-between w-1 pointer-events-none'>
             {permissionVideo === "granted"
