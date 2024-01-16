@@ -1,63 +1,15 @@
 import { useSyncExternalStore } from 'react'
-import { UserStatus } from '../../store/atom'
+import { event, Context } from './whxp'
 import { WHEPClient } from '@binbat/whip-whep/whep'
 
-const event = new Event('sync')
-
-class Context extends EventTarget {
-  id: string = ""
-  pc: RTCPeerConnection = new RTCPeerConnection()
+class WHEPContext extends Context {
   client: WHEPClient = new WHEPClient()
-  stream: MediaStream = new MediaStream()
-  userStatus: UserStatus = {
-    name: "",
-    state: "",
-    audio: true,
-    video: true,
-    screen: false,
-  }
-
-  setStream = (stream: MediaStream) => {
-    this.stream = stream
-    this.sync()
-  }
-
-  cache: any
-
-  constructor(id: string) {
-    super()
-    this.id = id
-    this.clone()
-  }
-
-  clone() {
-    this.cache = {
-      id: this.id,
-      stream: this.stream,
-      userStatus: this.userStatus,
-      start: () => this.start(),
-      restart:  () => this.restart(),
-    }
-  }
-
-  export = () => this.cache
 
   private newPeerConnection() {
     const { pc, setStream } = this
     pc.addTransceiver('video', { 'direction': 'recvonly' })
     pc.addTransceiver('audio', { 'direction': 'recvonly' })
     pc.ontrack = ev => setStream(ev.streams[0])
-  }
-
-  syncUserStatus = (_: UserStatus) => {}
-  setSyncUserStatus = (callback: (userStatus: UserStatus) => void) => {
-    callback(this.userStatus)
-    this.syncUserStatus = callback
-  }
-
-  sync() {
-    this.clone()
-    this.dispatchEvent(event)
   }
   async start() {
     const { id, pc, client, userStatus } = this
@@ -89,18 +41,11 @@ class Context extends EventTarget {
   }
 }
 
-const contexts: Context[] = []
-function run() {
-  console.log("=== RUN ===")
-  //const { userStatus } = context
-  //if (userStatus.state === "") start()
-
-  //if (userStatus.state !== "connected" && userStatus.state !== "signaled") restart()
-}
+const contexts: WHEPContext[] = []
 
 export default function useWhipClient(id: string) {
   const newContext = (id: string) => {
-    const context = new Context(id)
+    const context = new WHEPContext(id)
     contexts.push(context)
     return context
   }
