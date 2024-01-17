@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { event, Context } from './whxp'
+import { StreamState } from '../../lib/api'
 import { WHEPClient } from '@binbat/whip-whep/whep'
 
 class WHEPContext extends Context {
@@ -14,11 +15,11 @@ class WHEPContext extends Context {
   async start() {
     const { id, pc, client, userStatus } = this
     pc.onconnectionstatechange = () => {
-      userStatus.state = pc.connectionState
+      userStatus.state = pc.connectionState as StreamState
       this.sync()
       this.syncUserStatus(userStatus)
     }
-    userStatus.state = 'signaled'
+    userStatus.state = StreamState.Signaled
     this.sync()
     this.syncUserStatus(userStatus)
     this.newPeerConnection()
@@ -28,7 +29,7 @@ class WHEPContext extends Context {
       await client.view(pc, url)
     } catch (e) {
       console.log(e)
-      userStatus.state = 'failed'
+      userStatus.state = StreamState.Failed
       this.syncUserStatus(userStatus)
       this.sync()
     }

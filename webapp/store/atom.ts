@@ -20,9 +20,6 @@ interface UserStatus {
   screen: boolean
 }
 
-const remoteStreamIdsAtom = atom<string[]>([])
-remoteStreamIdsAtom.debugLabel = 'remoteStreamIds'
-
 const meetingIdAtom = atom("")
 meetingIdAtom.debugLabel = 'meetingIdAtom'
 const meetingJoinedAtom = atom(false)
@@ -37,13 +34,7 @@ presentationStreamAtom.debugLabel = 'presentationStream'
 const enabledPresentationAtom = atom(get => get(presentationStreamAtom).stream.getVideoTracks().length !== 0)
 enabledPresentationAtom.debugLabel = 'enabledPresentation'
 
-const remoteUsersStatusAtom = atom<UserStatus[]>([])
-remoteUsersStatusAtom.debugLabel = 'remoteUsersStatus'
-
 export {
-  remoteStreamIdsAtom,
-  remoteUsersStatusAtom,
-
   locationAtom,
   presentationStreamAtom,
 

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { event, Context } from './whxp'
+import { Stream, StreamState } from '../../lib/api'
 import { WHIPClient } from '@binbat/whip-whep/whip'
 import { UserStatus } from '../../store/atom'
 import {
@@ -13,7 +14,7 @@ class WHIPContext extends Context {
   client: WHIPClient = new WHIPClient()
 
   syncUserStatus = (_: UserStatus) => {}
-  setSyncUserStatus = (callback: (userStatus: UserStatus) => void) => {
+  setSyncUserStatus = (callback: (userStatus: Stream) => void) => {
     callback(this.userStatus)
     this.syncUserStatus = callback
   }
@@ -119,11 +120,11 @@ class WHIPContext extends Context {
     const { id, pc, stream, client, userStatus } = this
     if (stream.getTracks().length === 0) return
     pc.onconnectionstatechange = () => {
-      userStatus.state = pc.connectionState
+      userStatus.state = pc.connectionState as StreamState
       this.sync()
       this.syncUserStatus(userStatus)
     }
-    userStatus.state = 'signaled'
+    userStatus.state = StreamState.Signaled
     this.sync()
     this.syncUserStatus(userStatus)
     this.newPeerConnection()
@@ -133,7 +134,7 @@ class WHIPContext extends Context {
       await client.publish(pc, url)
     } catch (e) {
       console.log(e)
-      userStatus.state = 'failed'
+      userStatus.state = StreamState.Failed
       this.syncUserStatus(userStatus)
       this.sync()
     }

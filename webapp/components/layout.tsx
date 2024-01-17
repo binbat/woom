@@ -13,7 +13,7 @@ import {
 import copy from 'copy-to-clipboard'
 import SvgDone from './svg/done'
 import SvgEnd from './svg/end'
-import { getRoom, delStream } from '../lib/api'
+import { getRoom, delStream, Stream } from '../lib/api'
 import { getStorageStream } from '../lib/storage'
 
 export default function Layout(props: { meetingId: string }) {
@@ -36,7 +36,7 @@ export default function Layout(props: { meetingId: string }) {
       .reduce((map, i) => {
         map[i] = data[i]
         return map
-      }, {} as { [_: string]: UserStatus })
+      }, {} as { [_: string]: Stream })
     setRemoteUserStatus(r)
   }
 
@@ -75,7 +75,7 @@ export default function Layout(props: { meetingId: string }) {
 
       <div className='flex flex-row flex-wrap justify-evenly'>
         <WhipPlayer streamId={localStreamId} width="320px" />
-        {Object.keys(remoteUserStatus).map(i => <WhepPlayer key={i} streamId={i} status={remoteUserStatus[i]} width="320px" />)}
+        {Object.keys(remoteUserStatus).map(i => <WhepPlayer key={i} streamId={i} width="320px" />)}
       </div>
 
       <center>

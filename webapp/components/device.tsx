@@ -12,8 +12,8 @@ import SvgVideo from './svg/video'
 import { SvgPresentCancel, SvgPresentToAll } from './svg/present'
 
 export default function DeviceBar(props: { streamId: string }) {
-  const [permissionAudio, setPermissionAudio] = useState("...")
-  const [permissionVideo, setPermissionVideo] = useState("...")
+  const [permissionAudio, setPermissionAudio] = useState("")
+  const [permissionVideo, setPermissionVideo] = useState("")
 
   const [loadingAudio, setLoadingAudio] = useState(false)
   const [loadingVideo, setLoadingVideo] = useState(false)

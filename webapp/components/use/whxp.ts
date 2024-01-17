@@ -1,4 +1,4 @@
-import { UserStatus } from '../../store/atom'
+import { Stream, StreamState } from '../../lib/api'
 import { deviceNone } from '../../lib/device'
 
 const event = new Event('sync')
@@ -6,14 +6,14 @@ const event = new Event('sync')
 interface Data {
   id: string,
   stream: MediaStream,
-  userStatus: UserStatus,
+  userStatus: Stream,
 
   stop: () => Promise<void>
   start: () => Promise<void>
   restart: () => Promise<void>
 
   setUserName: (name: string) => void,
-  setSyncUserStatus: (callback: (userStatus: UserStatus) => void) => void,
+  setSyncUserStatus: (callback: (userStatus: Stream) => void) => void,
 
   currentDeviceAudio: string,
   currentDeviceVideo: string,
@@ -27,9 +27,9 @@ class Context extends EventTarget {
   id: string = ""
   pc: RTCPeerConnection = new RTCPeerConnection()
   stream: MediaStream = new MediaStream()
-  userStatus: UserStatus = {
+  userStatus: Stream = {
     name: "",
-    state: "",
+    state: StreamState.New,
     audio: true,
     video: true,
     screen: false,
@@ -67,7 +67,7 @@ class Context extends EventTarget {
       restart:  () => this.restart(),
 
       setUserName: (name: string) => this.setUserName(name),
-      setSyncUserStatus: (callback: (userStatus: UserStatus) => void) => this.setSyncUserStatus(callback),
+      setSyncUserStatus: (callback: (userStatus: Stream) => void) => this.setSyncUserStatus(callback),
 
       currentDeviceAudio: this.currentDeviceAudio,
       currentDeviceVideo: this.currentDeviceVideo,
@@ -79,8 +79,8 @@ class Context extends EventTarget {
   }
 
   export = () => this.cache
-  syncUserStatus = (_: UserStatus) => {}
-  setSyncUserStatus = (callback: (userStatus: UserStatus) => void) => {
+  syncUserStatus = (_: Stream) => {}
+  setSyncUserStatus = (callback: (userStatus: Stream) => void) => {
     callback(this.userStatus)
     this.syncUserStatus = callback
   }

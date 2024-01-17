@@ -6,8 +6,20 @@ interface Room {
   streams: any,
 }
 
+// Reference: https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/connectionState#value
+enum StreamState {
+  New = "new",
+  Signaled = "signaled",
+  Connecting = "connecting",
+  Connected = "connected",
+  Disconnected = "disconnected",
+  Failed = "failed",
+  Closed = "closed",
+}
+
 interface Stream {
   name: string,
+  state: StreamState
   audio: boolean,
   video: boolean,
   screen: boolean,
@@ -114,4 +126,10 @@ export {
   newStream,
   setStream,
   delStream,
+
+  StreamState,
+}
+
+export type {
+  Stream,
 }
