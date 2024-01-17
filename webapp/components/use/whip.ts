@@ -2,7 +2,6 @@ import { useSyncExternalStore } from 'react'
 import { event, Context } from './whxp'
 import { Stream, StreamState } from '../../lib/api'
 import { WHIPClient } from '@binbat/whip-whep/whip'
-import { UserStatus } from '../../store/atom'
 import {
   deviceNone,
   deviceScreen,
@@ -13,7 +12,7 @@ import {
 class WHIPContext extends Context {
   client: WHIPClient = new WHIPClient()
 
-  syncUserStatus = (_: UserStatus) => {}
+  syncUserStatus = (_: Stream) => {}
   setSyncUserStatus = (callback: (userStatus: Stream) => void) => {
     callback(this.userStatus)
     this.syncUserStatus = callback
@@ -145,6 +144,7 @@ class WHIPContext extends Context {
   }
 
   async restart() {
+    await this.stop()
     this.pc = new RTCPeerConnection()
     await this.start()
   }
