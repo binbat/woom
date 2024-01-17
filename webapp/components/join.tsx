@@ -4,7 +4,7 @@ import {
   locationAtom,
   meetingIdAtom,
 } from '../store/atom'
-import { getStorage, setStorage, setStorageStream, setStorageMeeting } from '../lib/storage'
+import { getStorage, setStorage, delStorage, setStorageStream, setStorageMeeting } from '../lib/storage'
 import { newRoom, newUser, setApiToken, setRoomId } from '../lib/api'
 
 export default function Join() {
@@ -57,9 +57,7 @@ export default function Join() {
   return (
     <div className='flex flex-col justify-around bg-gray-800/80 p-6 my-4'>
       <center className='flex flex-row flex-wrap justify-center'>
-
         <button className='btn-primary my-2' disabled={!!tmpId} onClick={() => { newMeeting() }}>New Meeting</button>
-
         <div className='mx-2 my-2'>
           <input
             className='text-center text-4xl'
@@ -71,9 +69,11 @@ export default function Join() {
         </div>
 
         <button className='btn-primary my-2' disabled={!tmpId} onClick={() => { joinMeeting() }}>Join</button>
-
       </center>
-
+      <center className='flex flex-row flex-wrap justify-center text-white'>
+        <p>If have some problems, Please click this:</p>
+        <a className='mx-2 text-red-300 underline' onClick={delStorage}>Reset</a>
+      </center>
     </div>
   )
 }

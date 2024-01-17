@@ -15,10 +15,15 @@ function setStorageStream(value: string) { localStorage.setItem(StreamKey, value
 function setStorageToken(value: string) { localStorage.setItem(TokenKey, value) }
 function setStorageName(value: string) { localStorage.setItem(NameKey, value) }
 
-function getStorageMeeting(): string { return localStorage.getItem(MeetingKey) || ""}
-function getStorageStream(): string { return localStorage.getItem(StreamKey) || ""}
-function getStorageToken(): string { return localStorage.getItem(TokenKey) || ""}
-function getStorageName(): string { return localStorage.getItem(NameKey) || ""}
+function getStorageMeeting(): string { return localStorage.getItem(MeetingKey) || "" }
+function getStorageStream(): string { return localStorage.getItem(StreamKey) || "" }
+function getStorageToken(): string { return localStorage.getItem(TokenKey) || "" }
+function getStorageName(): string { return localStorage.getItem(NameKey) || "" }
+
+function delStorageMeeting() { localStorage.removeItem(MeetingKey) }
+function delStorageStream() { localStorage.removeItem(StreamKey) }
+function delStorageToken() { localStorage.removeItem(TokenKey) }
+function delStorageName() { localStorage.removeItem(NameKey) }
 
 function setStorage(opt: Storage) {
   if (opt.meeting) setStorageMeeting(opt.meeting)
@@ -36,6 +41,13 @@ function getStorage(): Storage {
   } as Storage
 }
 
+function delStorage() {
+  delStorageMeeting()
+  delStorageStream()
+  delStorageToken()
+  delStorageName()
+}
+
 export {
   setStorageMeeting,
   setStorageStream,
@@ -49,4 +61,5 @@ export {
 
   setStorage,
   getStorage,
+  delStorage,
 }
