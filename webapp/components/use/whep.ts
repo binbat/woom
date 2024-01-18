@@ -1,18 +1,20 @@
 import { useSyncExternalStore } from 'react'
 import { event, Context, Data } from './whxp'
-import { StreamState } from '../../lib/api'
+import { StreamState, Stream } from '../../lib/api'
 import { WHEPClient } from '@binbat/whip-whep/whep'
 
 interface WHIPData extends Data {
-  //setUserStatus: (userStatus: Stream) => void,
+  setRemoteStatus: (userStatus: Stream) => void,
 }
 
 class WHEPContext extends Context {
   client: WHEPClient = new WHEPClient()
   cache: WHIPData
+  remoteStatus: Stream
   constructor(id: string) {
     super(id)
     this.cache = this.clone()
+    this.remoteStatus = Object.assign({}, this.userStatus)
   }
 
   private newPeerConnection() {
@@ -27,6 +29,8 @@ class WHEPContext extends Context {
     this.sync()
   }
 
+  setRemoteStatus = (userStatus: Stream) => this.remoteStatus = userStatus
+
   clone() {
     return {
       id: this.id,
@@ -35,6 +39,8 @@ class WHEPContext extends Context {
       stop: () => this.stop(),
       start: () => this.start(),
       restart:  () => this.restart(),
+
+      setRemoteStatus: (userStatus: Stream) => this.setRemoteStatus(userStatus),
     }
   }
 
@@ -88,7 +94,7 @@ class WHEPContext extends Context {
   run() {
     // WatchDog, Auto Restart
     const restartStates = [StreamState.Disconnected, StreamState.Closed, StreamState.Failed]
-    if (restartStates.find(i => i === this.userStatus.state)) this.restart()
+    if (restartStates.find(i => i === this.userStatus.state) && this.remoteStatus.state === StreamState.Connected) this.restart()
   }
 }
 

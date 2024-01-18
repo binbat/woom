@@ -4,10 +4,11 @@ import { useAtom } from 'jotai'
 import Detail from './detail'
 import Player from './player'
 import { presentationStreamAtom } from '../../store/atom'
+import { Stream } from '../../lib/api'
 
-export default function WhepPlayer(props: { streamId: string, width: string }) {
+export default function WhepPlayer(props: { streamId: string, userStatus: Stream, width: string }) {
   const refEnabled = useRef(false)
-  const { stream, userStatus, restart, start } = useWhepClient(props.streamId)
+  const { stream, restart, start, setRemoteStatus } = useWhepClient(props.streamId)
   const [, setPresentationStream] = useAtom(presentationStreamAtom)
 
   useEffect(() => {
@@ -18,16 +19,20 @@ export default function WhepPlayer(props: { streamId: string, width: string }) {
   }, [])
 
   useEffect(() => {
+    setRemoteStatus(props.userStatus)
+  }, [props.userStatus])
+
+  useEffect(() => {
     setPresentationStream({
-      name: userStatus.name + "Presentation",
-      stream: userStatus.screen ? stream : new MediaStream(),
+      name: props.userStatus.name + "Presentation",
+      stream: props.userStatus.screen ? stream : new MediaStream(),
     })
-  }, [userStatus.screen])
+  }, [props.userStatus.screen])
 
   return (
     <center className='flex flex-col'>
       <Player stream={stream} muted={false} width={props.width} display="auto" />
-      <Detail streamId={props.streamId} userStatus={userStatus} restart={restart} />
+      <Detail streamId={props.streamId} userStatus={props.userStatus} restart={restart} />
     </center>
   )
 }

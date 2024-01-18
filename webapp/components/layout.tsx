@@ -75,7 +75,7 @@ export default function Layout(props: { meetingId: string }) {
 
       <div className='flex flex-row flex-wrap justify-evenly'>
         <WhipPlayer streamId={localStreamId} width="320px" />
-        {Object.keys(remoteUserStatus).map(i => <WhepPlayer key={i} streamId={i} width="320px" />)}
+        {Object.keys(remoteUserStatus).map(i => <WhepPlayer key={i} streamId={i} userStatus={remoteUserStatus[i]} width="320px" />)}
       </div>
 
       <center>
