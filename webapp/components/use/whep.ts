@@ -33,12 +33,32 @@ class WHEPContext extends Context {
       this.syncUserStatus(userStatus)
       this.sync()
     }
+
+    if (!this.timer) this.timer = setInterval(() => this.run(), 5000)
   }
+
+  async stop() {
+    if (!!this.timer) {
+      clearInterval(this.timer)
+      this.timer = null
+    }
+    try {
+      await this.client.stop()
+    } catch (e) {
+      console.log(e)
+    }
+  }
+
   async restart() {
-    await this.client.stop()
     this.pc = new RTCPeerConnection()
     await this.start()
     this.sync()
+  }
+
+  run() {
+    // WatchDog, Auto Restart
+    const restartStates = [StreamState.Disconnected, StreamState.Closed, StreamState.Failed]
+    if (restartStates.find(i => i === this.userStatus.state)) this.restart()
   }
 }
 

@@ -35,6 +35,8 @@ class Context extends EventTarget {
     screen: false,
   }
 
+  timer: ReturnType<typeof setInterval> | null = null
+
   setStream = (stream: MediaStream) => {
     this.stream = stream
     this.sync()
