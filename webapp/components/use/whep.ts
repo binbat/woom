@@ -1,10 +1,19 @@
 import { useSyncExternalStore } from 'react'
-import { event, Context } from './whxp'
+import { event, Context, Data } from './whxp'
 import { StreamState } from '../../lib/api'
 import { WHEPClient } from '@binbat/whip-whep/whep'
 
+interface WHIPData extends Data {
+  //setUserStatus: (userStatus: Stream) => void,
+}
+
 class WHEPContext extends Context {
   client: WHEPClient = new WHEPClient()
+  cache: WHIPData
+  constructor(id: string) {
+    super(id)
+    this.cache = this.clone()
+  }
 
   private newPeerConnection() {
     const { pc, setStream } = this
@@ -12,16 +21,38 @@ class WHEPContext extends Context {
     pc.addTransceiver('audio', { 'direction': 'recvonly' })
     pc.ontrack = ev => setStream(ev.streams[0])
   }
+
+  setStream = (stream: MediaStream) => {
+    this.stream = stream
+    this.sync()
+  }
+
+  clone() {
+    return {
+      id: this.id,
+      stream: this.stream,
+      userStatus: this.userStatus,
+      stop: () => this.stop(),
+      start: () => this.start(),
+      restart:  () => this.restart(),
+    }
+  }
+
+  export = () => this.cache
+
+  sync() {
+    this.cache = this.clone()
+    this.dispatchEvent(event)
+  }
+
   async start() {
     const { id, pc, client, userStatus } = this
     pc.onconnectionstatechange = () => {
       userStatus.state = pc.connectionState as StreamState
       this.sync()
-      this.syncUserStatus(userStatus)
     }
     userStatus.state = StreamState.Signaled
     this.sync()
-    this.syncUserStatus(userStatus)
     this.newPeerConnection()
 
     try {
@@ -30,7 +61,6 @@ class WHEPContext extends Context {
     } catch (e) {
       console.log(e)
       userStatus.state = StreamState.Failed
-      this.syncUserStatus(userStatus)
       this.sync()
     }
 
@@ -50,9 +80,9 @@ class WHEPContext extends Context {
   }
 
   async restart() {
+    await this.stop()
     this.pc = new RTCPeerConnection()
     await this.start()
-    this.sync()
   }
 
   run() {

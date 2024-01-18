@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { event, Context } from './whxp'
+import { event, Context, Data } from './whxp'
 import { Stream, StreamState } from '../../lib/api'
 import { WHIPClient } from '@binbat/whip-whep/whip'
 import {
@@ -9,8 +9,31 @@ import {
   asyncGetVideoStream,
 } from '../../lib/device'
 
+interface WHIPData extends Data {
+  setUserName: (name: string) => void,
+  setSyncUserStatus: (callback: (userStatus: Stream) => void) => void,
+
+  currentDeviceAudio: string,
+  currentDeviceVideo: string,
+  setCurrentDeviceAudio: (current: string) => Promise<void>,
+  setCurrentDeviceVideo: (current: string) => Promise<void>,
+  toggleEnableAudio: () => Promise<void>,
+  toggleEnableVideo: () => Promise<void>,
+}
+
 class WHIPContext extends Context {
   client: WHIPClient = new WHIPClient()
+  cache: WHIPData
+
+  currentDeviceAudio = deviceNone.deviceId
+  currentDeviceVideo = deviceNone.deviceId
+  toggleEnableAudio = async () => this.setCurrentDeviceAudio(this.userStatus.audio ? deviceNone.deviceId : this.currentDeviceAudio)
+  toggleEnableVideo = async () => this.setCurrentDeviceVideo(this.userStatus.video ? deviceNone.deviceId : this.currentDeviceVideo)
+
+  constructor(id: string) {
+    super(id)
+    this.cache = this.clone()
+  }
 
   syncUserStatus = (_: Stream) => {}
   setSyncUserStatus = (callback: (userStatus: Stream) => void) => {
@@ -18,10 +41,43 @@ class WHIPContext extends Context {
     this.syncUserStatus = callback
   }
 
+  setStream = (stream: MediaStream) => {
+    this.stream = stream
+    this.sync()
+  }
+
   setUserName = (name: string) => {
     this.userStatus.name = name
     this.sync()
     this.syncUserStatus(this.userStatus)
+  }
+
+  clone() {
+    return {
+      id: this.id,
+      stream: this.stream,
+      userStatus: this.userStatus,
+      stop: () => this.stop(),
+      start: () => this.start(),
+      restart:  () => this.restart(),
+
+      setUserName: (name: string) => this.setUserName(name),
+      setSyncUserStatus: (callback: (userStatus: Stream) => void) => this.setSyncUserStatus(callback),
+
+      currentDeviceAudio: this.currentDeviceAudio,
+      currentDeviceVideo: this.currentDeviceVideo,
+      setCurrentDeviceAudio: (current: string) => this.setCurrentDeviceAudio(current),
+      setCurrentDeviceVideo: (current: string) => this.setCurrentDeviceVideo(current),
+      toggleEnableAudio: () => this.toggleEnableAudio(),
+      toggleEnableVideo: () => this.toggleEnableVideo(),
+    }
+  }
+
+  export = () => this.cache
+
+  sync() {
+    this.cache = this.clone()
+    this.dispatchEvent(event)
   }
 
   private newPeerConnection() {
