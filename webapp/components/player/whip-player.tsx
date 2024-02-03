@@ -18,7 +18,7 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
 
   return (
     <center className='flex flex-col'>
-      <Player stream={stream} muted={true} width={props.width} display="auto" />
+      <Player stream={stream} muted={true} width={props.width} audio={false} video={userStatus.video} />
       <Detail streamId={props.streamId} userStatus={userStatus} restart={restart} />
     </center>
   )

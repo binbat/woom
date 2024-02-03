@@ -29,7 +29,7 @@ function AudioWave(props: { stream: MediaStream }) {
   return <div ref={refWave}></div>
 }
 
-export default function Player(props: { stream: MediaStream, muted: boolean, width: string, display: string }) {
+export default function Player(props: { stream: MediaStream, muted: boolean, audio: boolean, video: boolean, width: string }) {
   const refVideo = useRef<HTMLVideoElement>(null)
   const [showAudio, setShowAudio] = useState(false)
 
@@ -59,18 +59,21 @@ export default function Player(props: { stream: MediaStream, muted: boolean, wid
   // NOTE: iOS can't display video
   // https://webkit.org/blog/6784/new-video-policies-for-ios/
   return (
-    <center className='flex-col' style={{ width: props.width }}>
-      {!props.stream.getTracks().length ? <SvgProgress/> : null}
-      <video
-        className='rounded-xl'
-        playsInline={true}
-        autoPlay={true}
-        controls={false}
-        muted={props.muted}
-        ref={refVideo}
-        style={!!props.stream?.getVideoTracks().length ? { width: props.width } : { height: '0px' }}
-      />
-      {props.display === "full" || showAudio
+    <center className='flex flex-col justify-center min-h-60' style={{ width: props.width }}>
+      {!props.stream.getTracks().length ? <center><SvgProgress/></center> : null}
+      {props.video
+        ? <video
+          className='rounded-xl'
+          playsInline={true}
+          autoPlay={true}
+          controls={false}
+          muted={props.muted}
+          ref={refVideo}
+          style={!!props.stream?.getVideoTracks().length ? { width: props.width } : { height: '0px' }}
+        />
+        : null
+      }
+      {!props.video || showAudio
         ? <AudioWave stream={props.stream} />
         : null
       }

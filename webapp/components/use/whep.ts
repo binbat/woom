@@ -21,7 +21,7 @@ class WHEPContext extends Context {
     const { pc, setStream } = this
     pc.addTransceiver('video', { 'direction': 'recvonly' })
     pc.addTransceiver('audio', { 'direction': 'recvonly' })
-    pc.ontrack = ev => setStream(ev.streams[0])
+    pc.ontrack = ev => setStream(new MediaStream([...this.stream.getTracks(), ev.track]))
   }
 
   setStream = (stream: MediaStream) => {
@@ -87,6 +87,7 @@ class WHEPContext extends Context {
 
   async restart() {
     await this.stop()
+    this.stream = new MediaStream()
     this.pc = new RTCPeerConnection()
     await this.start()
   }
