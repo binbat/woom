@@ -39,7 +39,7 @@ export default function Prepare(props: { meetingId: string }) {
   return (
     <div className='flex flex-col justify-around'>
       <center className='m-xs'>
-        <Player stream={stream} muted={true} width="320px" display="full" />
+        <Player stream={stream} muted={true} width="320px" audio={true} video={true} />
       </center>
 
       <center className='mb-xs'>
