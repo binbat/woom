@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@binbat/whip-whep": "^1.0.9",
+    "whip-whep": "1.1.1",
     "@types/lodash.uniq": "^4.5.7",
     "copy-to-clipboard": "^3.3.3",
     "jotai": "^2.4.3",

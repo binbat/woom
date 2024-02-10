@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { event, Context, Data } from './whxp'
 import { Stream, StreamState } from '../../lib/api'
-import { WHIPClient } from '@binbat/whip-whep/whip'
+import { WHIPClient } from 'whip-whep/whip'
 import {
   deviceNone,
   deviceScreen,
@@ -59,7 +59,7 @@ class WHIPContext extends Context {
       userStatus: this.userStatus,
       stop: () => this.stop(),
       start: () => this.start(),
-      restart:  () => this.restart(),
+      restart: () => this.restart(),
 
       setUserName: (name: string) => this.setUserName(name),
       setSyncUserStatus: (callback: (userStatus: Stream) => void) => this.setSyncUserStatus(callback),
@@ -171,14 +171,16 @@ class WHIPContext extends Context {
     }
   }
 
+  onconnectionstatechange = () => {
+    this.userStatus.state = this.pc.connectionState as StreamState
+    this.sync()
+    this.syncUserStatus(this.userStatus)
+  }
+
   async start() {
     const { id, pc, stream, client, userStatus } = this
     if (stream.getTracks().length === 0) return
-    pc.onconnectionstatechange = () => {
-      userStatus.state = pc.connectionState as StreamState
-      this.sync()
-      this.syncUserStatus(userStatus)
-    }
+    pc.addEventListener("connectionstatechange", this.onconnectionstatechange)
     userStatus.state = StreamState.Signaled
     this.sync()
     this.syncUserStatus(userStatus)
@@ -204,6 +206,7 @@ class WHIPContext extends Context {
     }
     try {
       await this.client.stop()
+      this.pc.removeEventListener("connectionstatechange", this.onconnectionstatechange)
     } catch (e) {
       console.log(e)
     }

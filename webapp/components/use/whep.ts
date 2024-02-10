@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { event, Context, Data } from './whxp'
 import { StreamState, Stream } from '../../lib/api'
-import { WHEPClient } from '@binbat/whip-whep/whep'
+import { WHEPClient } from 'whip-whep/whep'
 
 interface WHIPData extends Data {
   setRemoteStatus: (userStatus: Stream) => void,
@@ -38,7 +38,7 @@ class WHEPContext extends Context {
       userStatus: this.userStatus,
       stop: () => this.stop(),
       start: () => this.start(),
-      restart:  () => this.restart(),
+      restart: () => this.restart(),
 
       setRemoteStatus: (userStatus: Stream) => this.setRemoteStatus(userStatus),
     }
@@ -51,12 +51,14 @@ class WHEPContext extends Context {
     this.dispatchEvent(event)
   }
 
+  onconnectionstatechange = () => {
+    this.userStatus.state = this.pc.connectionState as StreamState
+    this.sync()
+  }
+
   async start() {
     const { id, pc, client, userStatus } = this
-    pc.onconnectionstatechange = () => {
-      userStatus.state = pc.connectionState as StreamState
-      this.sync()
-    }
+    pc.addEventListener('connectionstatechange', this.onconnectionstatechange)
     userStatus.state = StreamState.Signaled
     this.sync()
     this.newPeerConnection()
@@ -80,6 +82,7 @@ class WHEPContext extends Context {
     }
     try {
       await this.client.stop()
+      this.pc.removeEventListener("connectionstatechange", this.onconnectionstatechange)
     } catch (e) {
       console.log(e)
     }
