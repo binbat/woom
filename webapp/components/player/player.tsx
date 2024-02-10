@@ -16,7 +16,7 @@ function AudioWave(props: { stream: MediaStream }) {
       })
 
       const record = wavesurfer.registerPlugin(RecordPlugin.create())
-      const { onDestroy, onEnd } = record.renderMicStream(props.stream)
+      const { onDestroy, onEnd } = record.renderMicStream(new MediaStream(props.stream.getAudioTracks()))
 
       return () => {
         onDestroy()
@@ -32,19 +32,28 @@ function AudioWave(props: { stream: MediaStream }) {
 export default function Player(props: { stream: MediaStream, muted: boolean, audio: boolean, video: boolean, width: string }) {
   const refVideo = useRef<HTMLVideoElement>(null)
   const [showAudio, setShowAudio] = useState(false)
+  const audioTrack = props.stream.getAudioTracks()[0]
+  const videoTrack = props.stream.getVideoTracks()[0]
 
   useEffect(() => {
-    if (props.stream?.getAudioTracks().length !== 0 && props.stream?.getVideoTracks().length === 0) {
-      setShowAudio(true)
-    } else {
-      setShowAudio(false)
+    audioTrack && !videoTrack ? setShowAudio(true) : setShowAudio(false)
+    if (audioTrack && props.audio) {
+      const el = document.createElement("audio")
+      el.srcObject = new MediaStream([audioTrack])
+      el.autoplay
+      el.play()
+
+      return () => {
+        el.pause()
+        el.srcObject = null
+        el.remove()
+      }
     }
-
-  }, [props.stream])
+  }, [audioTrack, videoTrack])
 
   useEffect(() => {
-    if (refVideo.current) {
-      refVideo.current.srcObject = props.stream
+    if (refVideo.current && videoTrack) {
+      refVideo.current.srcObject = new MediaStream([videoTrack])
 
       // NOTE: About Autoplay
       // Reference: https://developer.mozilla.org/en-US/docs/Web/Media/Autoplay_guide
@@ -54,7 +63,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
       // https://developers.weixin.qq.com/community/develop/doc/0006a61de48ab0165f99e1dcd51c00
       if (isWechat()) refVideo.current.play()
     }
-  }, [refVideo, props.stream])
+  }, [refVideo, videoTrack])
 
   // NOTE: iOS can't display video
   // https://webkit.org/blog/6784/new-video-policies-for-ios/
