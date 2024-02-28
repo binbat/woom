@@ -68,7 +68,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   // NOTE: iOS can't display video
   // https://webkit.org/blog/6784/new-video-policies-for-ios/
   return (
-    <center className='flex flex-col justify-center min-h-60' style={{ width: props.width }}>
+    <center className='flex flex-col justify-center min-h-60' style={{ width: props.width, pointerEvents: 'none' }}>
       {!props.stream.getTracks().length ? <center><SvgProgress/></center> : null}
       {props.video
         ? <video
