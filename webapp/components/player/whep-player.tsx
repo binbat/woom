@@ -8,7 +8,7 @@ import { Stream } from '../../lib/api'
 
 export default function WhepPlayer(props: { streamId: string, userStatus: Stream, width: string }) {
   const refEnabled = useRef(false)
-  const { stream, restart, start, setRemoteStatus } = useWhepClient(props.streamId)
+  const { stream, restart, start, connStatus, setRemoteStatus } = useWhepClient(props.streamId)
   const [, setPresentationStream] = useAtom(presentationStreamAtom)
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function WhepPlayer(props: { streamId: string, userStatus: Stream
   return (
     <center className='flex flex-col'>
       <Player stream={stream} muted={false} width={props.width} audio={true} video={props.userStatus.video} />
-      <Detail streamId={props.streamId} userStatus={props.userStatus} restart={restart} />
+      <Detail streamId={props.streamId} connStatus={connStatus} userStatus={props.userStatus} restart={restart} />
     </center>
   )
 }

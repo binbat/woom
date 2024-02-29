@@ -11,6 +11,7 @@ class WHEPContext extends Context {
   client: WHEPClient = new WHEPClient()
   cache: WHIPData
   remoteStatus: Stream
+  connStatus: string = 'new'
   constructor(id: string) {
     super(id)
     this.cache = this.clone()
@@ -35,6 +36,7 @@ class WHEPContext extends Context {
     return {
       id: this.id,
       stream: this.stream,
+      connStatus: this.connStatus,
       userStatus: this.userStatus,
       stop: () => this.stop(),
       start: () => this.start(),
@@ -53,6 +55,7 @@ class WHEPContext extends Context {
 
   onconnectionstatechange = () => {
     this.userStatus.state = this.pc.connectionState as StreamState
+    this.connStatus = this.pc.connectionState
     this.sync()
   }
 

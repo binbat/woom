@@ -1,10 +1,10 @@
 import { UserStatus } from "../../store/atom"
 
-export default function Detail(props: { streamId: string, userStatus: UserStatus, restart: () => void }) {
-  const { streamId, userStatus, restart } = props
+export default function Detail(props: { streamId: string, connStatus: string, userStatus: UserStatus, restart: () => void }) {
+  const { streamId, connStatus, userStatus, restart } = props
   return (
     <details className='text-white mx-2 text-sm font-border' style={{ position: 'absolute' }}>
-      <summary className='text-center rounded-lg px-xs' style={{ backgroundColor: userStatus.state === 'connected' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(244, 63, 94, 0.6)' }}>{userStatus.name}</summary>
+      <summary className='text-center rounded-lg px-xs' style={{ backgroundColor: connStatus === 'connected' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(244, 63, 94, 0.6)' }}>{userStatus.name}</summary>
       <center>
         <div className='flex flex-row flex-wrap justify-around'>
           <p>name: <code>{userStatus.name}</code></p>
