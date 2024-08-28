@@ -9,7 +9,7 @@ import presetUno from '@unocss/preset-uno'
 export default defineConfig({
   server: {
     proxy: {
-      '^/resource/.*': 'http://localhost:7777',
+      '^/session/.*': 'http://localhost:7777',
       '^/whip/.*': 'http://localhost:7777',
       '^/whep/.*': 'http://localhost:7777',
       '^/room/.*': 'http://localhost:4000',
