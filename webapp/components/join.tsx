@@ -29,6 +29,7 @@ export default function Join() {
     await getLoginStatus()
     let meetingId = (await newRoom()).roomId
     enterMeeting(meetingId)
+    setRoomId(meetingId)
   }
 
   const joinMeeting = async () => {
