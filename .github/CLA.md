@@ -45,3 +45,4 @@ Example:
 
 - Metal A-wing, @a-wing, 2024/10/23
 - Hongcha Zhang, @hongcha98, 2024/10/24
+- Winter Zhang, @WinterJack002, 2024/10/26

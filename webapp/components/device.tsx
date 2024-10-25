@@ -11,18 +11,18 @@ import SvgAudio from './svg/audio'
 import SvgVideo from './svg/video'
 import { SvgPresentCancel, SvgPresentToAll } from './svg/present'
 
-// 1.将每个设备的 deviceId 和 label 转换为可显示的格式。如果 label 为空，会使用设备类型和 deviceId 作为显示名称。
+// 1. Converts each device's deviceId and label into a displayable format. If label is empty, uses the device type and deviceId as the display name.
 function deviceInfoToOption(info: MediaDeviceInfo) {
   const value = info.deviceId;
-  let text = info.label;  
+  let text = info.label;
   if (text.length <= 0) {
       text = `${info.kind} (${info.deviceId})`;
   }
   return { value, text };
 }
 
-// 2.uniqByValue 去重
-function uniqByValue<T extends { value: unknown }>(items: T[]) {    
+// 2. Removes duplicate items based on their value.
+function uniqByValue<T extends { value: unknown }>(items: T[]) {
   const map = new Map<unknown, T>();
   for (const item of items) {
       if (!map.has(item.value)) {
@@ -32,26 +32,20 @@ function uniqByValue<T extends { value: unknown }>(items: T[]) {
   return Array.from(map.values());
 }
 
-// 3.转换为Device格式
-// const convertToDevice = (items: { value: string; text: string }[]): Device[] => {  // 箭头函数不用function关键字
-//   return items.map(item => ({ 
-//     deviceId: item.value, // 使用 value 作为 deviceId
-//     label: item.text      // 使用 text 作为 label
-//   }));
-// }
+// 3. Converts items to Device format
 const convertToDevice = (items: { value: string; text: string }[], kind: MediaDeviceKind): MediaDeviceInfo[] => {
   return items.map(item => ({
-    deviceId: item.value,         // 使用 value 作为 deviceId
-    kind,                         // 使用传入的 kind 参数，比如 "audioinput"
-    label: item.text,             // 使用 text 作为 label
-    groupId: '',                  // groupId 可留空，或者你有对应信息可以填入
-    
+    deviceId: item.value,         // use value as the device ID
+    kind,
+    label: item.text,             // use text as the label
+    groupId: '',
+
   })as MediaDeviceInfo);
 }
 
-export default function DeviceBar(props: { streamId: string }) {  
-                                                                  
-  const [permissionAudio, setPermissionAudio] = useState("")  
+export default function DeviceBar(props: { streamId: string }) {
+
+  const [permissionAudio, setPermissionAudio] = useState("")
   const [permissionVideo, setPermissionVideo] = useState("")
 
   const [loadingAudio, setLoadingAudio] = useState(false)
@@ -68,7 +62,7 @@ export default function DeviceBar(props: { streamId: string }) {
     toggleEnableVideo,
   } = useWhipClient(props.streamId)
 
-  const [deviceAudio, setAudioDevices] = useState<Device[]>([deviceNone])
+  const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
   const permissionsQuery = async () =>
@@ -87,35 +81,25 @@ export default function DeviceBar(props: { streamId: string }) {
       // NOTE:
       // Chrome: audio_capture, video_capture
       // Safari: microphone, camera
-      if (status.name === "audio_capture" || "microphone") { // "microphone"作为string不一直为ture吗？
+      if (status.name === "audio_capture" || status.name === "microphone") {
         setPermissionAudio(status.state)
       }
-      if (status.name === "video_capture" || "camera") {
+      if (status.name === "video_capture" || status.name === "camera") {
         setPermissionVideo(status.state)
       }
     })
 
   const updateDeviceList = async () => {
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(i => !!i.deviceId)
-
-    // 使用 deviceInfoToOption加载设备列表
     const audios = devices.filter(i => i.kind === 'audioinput').map(deviceInfoToOption)
-
-    console.log('this is audios:',audios)
-
     const videos = devices.filter(i => i.kind === 'videoinput').map(deviceInfoToOption);
-    //const audios: Device[] = devices.filter(i => i.kind === 'audioinput')
-    //const videos: Device[] = devices.filter(i => i.kind === 'videoinput')
 
-    // 使用 uniqByValue 去重
-  const uniqueAudios = uniqByValue(audios);
-  console.log('this is uniqueAudios:',uniqueAudios)
-  const uniqueVideos = uniqByValue(videos);
-  console.log('this is currentDeviceAudio:',currentDeviceAudio)
+    const uniqueAudios = uniqByValue(audios);
+    const uniqueVideos = uniqByValue(videos);
 
     if (currentDeviceAudio === deviceNone.deviceId) {
       let device = uniqueAudios[0]
-      if (device) 
+      if (device)
         {
           try {
             await setCurrentDeviceAudio(device.value)
@@ -124,31 +108,28 @@ export default function DeviceBar(props: { streamId: string }) {
           console.error('Failed to set audio device:', error)
         }
       }
-        //await setCurrentDeviceAudio(device.value)
+
     }
 
     if (currentDeviceVideo === deviceNone.deviceId) {
       let device = uniqueVideos[0]
       if (device) {
         try {
-        await setCurrentDeviceVideo(device.value)
+          await setCurrentDeviceVideo(device.value)
         console.log('Video device set successfully')
       } catch (error) {
         console.error('Failed to set video device:', error)
       }
-    }else{
+    } else {
       console.log('no video devices:')
       await setCurrentDeviceVideo(deviceNone.deviceId)
 
     }
     }
 
-    console.log('this is convertToDevice(uniqueAudios):',convertToDevice(uniqueAudios,'audioinput'))
-    
-
-    setAudioDevices(convertToDevice(uniqueAudios,'audioinput'))
+    setDeviceAudio(convertToDevice(uniqueAudios,'audioinput'))
     setDeviceVideo(convertToDevice(uniqueVideos,'videoinput'))
-    
+
   }
 
   const init = async () => {
@@ -189,7 +170,7 @@ export default function DeviceBar(props: { streamId: string }) {
     setLoadingScreen(true)
     await onChangedDeviceVideo(userStatus.screen ? deviceNone.deviceId : deviceScreen.deviceId)
     setLoadingScreen(false)
-  } 
+  }
 
   return (
     <div className='flex flex-row flex-wrap justify-around p-xs'>
