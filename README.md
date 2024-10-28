@@ -8,7 +8,7 @@
     &nbsp;
     <a href="https://t.me/binbatlib"><img src="https://img.shields.io/badge/-Telegram-red?style=social&logo=telegram" height=25></a>
     &nbsp;
-    <a href="https://twitter.com/binbatlab"><img src="https://img.shields.io/badge/-Twitter-red?style=social&logo=twitter" height=25></a>
+    <a href="https://twitter.com/binbatlab"><img src="https://img.shields.io/badge/-Twitter-red?style=social&logo=x" height=25></a>
 </div>
 
 ---
@@ -35,3 +35,11 @@ Server:
 ```bash
 go run .
 ```
+
+
+## Release build
+
+```bash
+make
+```
+
