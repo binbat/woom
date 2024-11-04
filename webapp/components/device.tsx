@@ -122,14 +122,14 @@ export default function DeviceBar(props: { streamId: string }) {
       } catch (error) {
         console.error('Failed to set video device:', error)
       }
-    } else {
-        console.log('no video devices:')
-        await setCurrentDeviceVideo(deviceNone.deviceId)
-    }
+      } else {
+          console.log('no video devices:')
+          await setCurrentDeviceVideo(deviceNone.deviceId)
+        }
     }
 
-    setDeviceAudio(...[convertToDevice(uniqueAudios,'audioinput')])
-    setDeviceVideo([...convertToDevice(uniqueVideos,'videoinput'), deviceScreen])
+    setDeviceAudio(...[convertToDevice(uniqueAudios, 'audioinput')])
+    setDeviceVideo([...convertToDevice(uniqueVideos, 'videoinput'), deviceScreen])
   }
 
   const init = async () => {
