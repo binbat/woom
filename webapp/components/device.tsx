@@ -44,7 +44,6 @@ const convertToDevice = (items: { value: string; text: string }[], kind: MediaDe
 }
 
 export default function DeviceBar(props: { streamId: string }) {
-
   const [permissionAudio, setPermissionAudio] = useState("")
   const [permissionVideo, setPermissionVideo] = useState("")
 
@@ -65,29 +64,36 @@ export default function DeviceBar(props: { streamId: string }) {
   const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
-  const permissionsQuery = async () =>
-    (await Promise.all(["camera", "microphone"].map(
-      // NOTE:
-      // Firefox don't have `camera` and `microphone` in permissions
-      // https://developer.mozilla.org/en-US/docs/Web/API/Permissions/query#name
-      // https://searchfox.org/mozilla-central/source/dom/webidl/Permissions.webidl#10
-      //
-      // NOTE:
-      // PermissionName
-      // https://w3c.github.io/permissions/
-      // Reference: https://developer.mozilla.org/en-US/docs/Web/API/Permissions_API
-      i => navigator.permissions.query({ name: i as PermissionName })
-    ))).map(status => {
-      // NOTE:
-      // Chrome: audio_capture, video_capture
-      // Safari: microphone, camera
-      if (status.name === "audio_capture" || status.name === "microphone") {
-        setPermissionAudio(status.state)
-      }
-      if (status.name === "video_capture" || status.name === "camera") {
-        setPermissionVideo(status.state)
-      }
-    })
+  const permissionsQuery = async () => {
+    const isFirefox = navigator.userAgent.toLowerCase().includes('firefox')
+    if (isFirefox) {
+      await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => {})
+      await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => {})
+    } else {
+      (await Promise.all(["camera", "microphone"].map(
+        // NOTE:
+        // Firefox don't have `camera` and `microphone` in permissions
+        // https://developer.mozilla.org/en-US/docs/Web/API/Permissions/query#name
+        // https://searchfox.org/mozilla-central/source/dom/webidl/Permissions.webidl#10
+        //
+        // NOTE:
+        // PermissionName
+        // https://w3c.github.io/permissions/
+        // Reference: https://developer.mozilla.org/en-US/docs/Web/API/Permissions_API
+        i => navigator.permissions.query({ name: i as PermissionName })
+      ))).map(status => {
+        // NOTE:
+        // Chrome: audio_capture, video_capture
+        // Safari: microphone, camera
+        if (status.name === "audio_capture" || status.name === "microphone") {
+          setPermissionAudio(status.state)
+        }
+        if (status.name === "video_capture" || status.name === "camera") {
+          setPermissionVideo(status.state)
+        }
+      })
+    }
+  }
 
   const updateDeviceList = async () => {
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(i => !!i.deviceId)
@@ -99,16 +105,13 @@ export default function DeviceBar(props: { streamId: string }) {
 
     if (currentDeviceAudio === deviceNone.deviceId) {
       let device = uniqueAudios[0]
-      if (device)
-        {
+      if (device){
           try {
             await setCurrentDeviceAudio(device.value)
-          console.log('Audio device set successfully')
         } catch (error) {
           console.error('Failed to set audio device:', error)
         }
       }
-
     }
 
     if (currentDeviceVideo === deviceNone.deviceId) {
@@ -116,25 +119,28 @@ export default function DeviceBar(props: { streamId: string }) {
       if (device) {
         try {
           await setCurrentDeviceVideo(device.value)
-        console.log('Video device set successfully')
       } catch (error) {
         console.error('Failed to set video device:', error)
       }
     } else {
-      console.log('no video devices:')
-      await setCurrentDeviceVideo(deviceNone.deviceId)
-
+        console.log('no video devices:')
+        await setCurrentDeviceVideo(deviceNone.deviceId)
     }
     }
 
-    setDeviceAudio(convertToDevice(uniqueAudios,'audioinput'))
-    setDeviceVideo(convertToDevice(uniqueVideos,'videoinput'))
-
+    setDeviceAudio(...[convertToDevice(uniqueAudios,'audioinput')])
+    setDeviceVideo([...convertToDevice(uniqueVideos,'videoinput'), deviceScreen])
   }
 
   const init = async () => {
     try {
-      (await navigator.mediaDevices.getUserMedia({ video: true, audio: true })).getTracks().map(track => track.stop())
+      await navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => stream.getTracks().forEach(track => track.stop()))
+      .catch(() => console.warn("No audio device available"))
+
+      await navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => stream.getTracks().forEach(track => track.stop()))
+      .catch(() => console.warn("No video device available"))
       // NOTE:
       // In some device have problem:
       // - Android Web Browser
