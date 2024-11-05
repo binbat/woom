@@ -77,12 +77,12 @@ export default function DeviceBar(props: { streamId: string }) {
 
     if (currentDeviceAudio === deviceNone.deviceId) {
       let device = audios[0]
-      await setCurrentDeviceAudio(device ? device.deviceId : deviceNone.deviceId)
+      if (device) await setCurrentDeviceAudio(device.deviceId)
     }
 
     if (currentDeviceVideo === deviceNone.deviceId) {
       let device = videos[0]
-      await setCurrentDeviceVideo(device ? device.deviceId : deviceNone.deviceId)
+      if (device) await setCurrentDeviceVideo(device.deviceId)
     }
 
     setDeviceAudio([...audios])
