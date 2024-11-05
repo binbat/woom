@@ -4,6 +4,7 @@ import { StreamState, Stream } from '../../lib/api'
 import { WHEPClient } from 'whip-whep/whep'
 
 interface WHIPData extends Data {
+  connStatus: string
   setRemoteStatus: (userStatus: Stream) => void,
 }
 
@@ -32,7 +33,7 @@ class WHEPContext extends Context {
 
   setRemoteStatus = (userStatus: Stream) => this.remoteStatus = userStatus
 
-  clone() {
+  clone(): WHIPData {
     return {
       id: this.id,
       stream: this.stream,
@@ -41,7 +42,6 @@ class WHEPContext extends Context {
       stop: () => this.stop(),
       start: () => this.start(),
       restart: () => this.restart(),
-
       setRemoteStatus: (userStatus: Stream) => this.setRemoteStatus(userStatus),
     }
   }

@@ -8,7 +8,9 @@ interface Room {
   streams: any,
 }
 
-// Reference: https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/connectionState#value
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/connectionState#value
+ */
 enum StreamState {
   New = 'new',
   Signaled = 'signaled',

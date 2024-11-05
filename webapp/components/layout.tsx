@@ -21,7 +21,7 @@ export default function Layout(props: { meetingId: string }) {
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
 
   const localStreamId = getStorageStream()
-  const [remoteUserStatus, setRemoteUserStatus] = useState<{ [_: string]: UserStatus }>({})
+  const [remoteUserStatus, setRemoteUserStatus] = useState<Record<string, UserStatus>>({})
 
   //const [speaker, setSpeaker] = useState<UserStatus | null>(null)
   //const [speakerId, setSpeakerId] = useState<string>("")
