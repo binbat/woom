@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
-import useWhipClient from "./use/whip"
+import useWhipClient from './use/whip'
 import DeviceBar from './device'
-import Loading from "./svg/loading"
+import Loading from './svg/loading'
 import Player from './player/player'
 import {
   meetingJoinedAtom,
@@ -10,10 +10,10 @@ import {
 import { getStorageName, setStorageName, getStorageStream } from '../lib/storage'
 import { setStream } from '../lib/api'
 
-export default function Prepare(props: { meetingId: string }) {
+export default function Prepare(_props: { meetingId: string }) {
   const [loading, setLoading] = useState<boolean>(false)
 
-  const [displayName, setDisplayName] = useState<string>("")
+  const [displayName, setDisplayName] = useState<string>('')
 
   const localStreamId = getStorageStream()
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
@@ -33,37 +33,37 @@ export default function Prepare(props: { meetingId: string }) {
   }
 
   useEffect(() => {
-    setDisplayName(getStorageName() || "")
+    setDisplayName(getStorageName() || '')
   }, [])
 
   return (
-    <div className='flex flex-col justify-around'>
-      <center className='m-xs'>
+    <div className="flex flex-col justify-around">
+      <center className="m-xs">
         <Player stream={stream} muted={true} width="320px" audio={true} video={true} />
       </center>
 
-      <center className='mb-xs'>
-        <label className='text-white'>Your Name: </label>
+      <center className="mb-xs">
+        <label className="text-white">Your Name: </label>
         <input
-          className='text-center'
+          className="text-center"
           value={displayName}
           onChange={e => setDisplayName(e.target.value)}
         />
       </center>
 
-      <div className='flex justify-evenly bg-gray-800/80'>
+      <div className="flex justify-evenly bg-gray-800/80">
         <DeviceBar streamId={localStreamId} />
       </div>
 
-      <center className='m-xs'>
-        <button className='btn-primary flex flex-row justify-center' onClick={() => { join() }}>
+      <center className="m-xs">
+        <button className="btn-primary flex flex-row justify-center" onClick={() => { join() }}>
           {loading
-            ? <center className='m-2px mr-3'><Loading /></center>
+            ? <center className="m-2px mr-3"><Loading /></center>
             : null
           }
           Join
           {loading
-            ? "..."
+            ? '...'
             : null
           }
 

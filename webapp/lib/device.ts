@@ -4,18 +4,18 @@ interface Device {
 }
 
 const deviceNone = {
-  deviceId: "none",
-  label: "none",
+  deviceId: 'none',
+  label: 'none',
 }
 
 const deviceScreen = {
-  deviceId: "screen",
-  label: "screen",
+  deviceId: 'screen',
+  label: 'screen',
 }
 
 async function asyncGetAudioStream(deviceId: string): Promise<MediaStream> {
   let stream: MediaStream = new MediaStream
-  if (deviceId !== "none") {
+  if (deviceId !== 'none') {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: deviceId }, video: false })
   }
   return stream
@@ -23,8 +23,8 @@ async function asyncGetAudioStream(deviceId: string): Promise<MediaStream> {
 
 async function asyncGetVideoStream(deviceId: string): Promise<MediaStream> {
   let stream: MediaStream = new MediaStream
-  if (deviceId === "none") {
-  } else if (deviceId === "screen") {
+  // if (deviceId === 'none') { } else
+  if (deviceId === 'screen') {
     stream = await navigator.mediaDevices.getDisplayMedia({ audio: false, video: { width: 640 } })
   } else {
     stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { width: 320, deviceId: deviceId } })

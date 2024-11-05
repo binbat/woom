@@ -79,13 +79,13 @@ class WHEPContext extends Context {
   }
 
   async stop() {
-    if (!!this.timer) {
+    if (this.timer) {
       clearInterval(this.timer)
       this.timer = null
     }
     try {
       await this.client.stop()
-      this.pc.removeEventListener("connectionstatechange", this.onconnectionstatechange)
+      this.pc.removeEventListener('connectionstatechange', this.onconnectionstatechange)
     } catch (e) {
       console.log(e)
     }

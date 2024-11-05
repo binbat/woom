@@ -13,11 +13,11 @@ interface Data {
 }
 
 class Context extends EventTarget {
-  id: string = ""
+  id: string = ''
   pc: RTCPeerConnection = new RTCPeerConnection()
   stream: MediaStream = new MediaStream()
   userStatus: Stream = {
-    name: "",
+    name: '',
     state: StreamState.New,
     audio: true,
     video: true,

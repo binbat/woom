@@ -1,7 +1,7 @@
 function addSplitSymbol(str: string, symbol = '-'): string {
-  var result = ''
-  for (var i = 0; i < str.length; i++) {
-    result += str.charAt(i);
+  let result = ''
+  for (let i = 0; i < str.length; i++) {
+    result += str.charAt(i)
     if ((i + 1) % 3 === 0 && i !== str.length - 1) {
       result += symbol
     }

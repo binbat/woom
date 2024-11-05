@@ -20,14 +20,14 @@ interface UserStatus {
   screen: boolean
 }
 
-const meetingIdAtom = atom("")
+const meetingIdAtom = atom('')
 meetingIdAtom.debugLabel = 'meetingIdAtom'
 const meetingJoinedAtom = atom(false)
 meetingJoinedAtom.debugLabel = 'meetingJoined'
 
 const presentationStreamAtom = atom<UserStream>({
   stream: new MediaStream,
-  name: "Presentation",
+  name: 'Presentation',
 })
 presentationStreamAtom.debugLabel = 'presentationStream'
 

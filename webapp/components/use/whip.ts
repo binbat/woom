@@ -180,7 +180,7 @@ class WHIPContext extends Context {
   async start() {
     const { id, pc, stream, client, userStatus } = this
     if (stream.getTracks().length === 0) return
-    pc.addEventListener("connectionstatechange", this.onconnectionstatechange)
+    pc.addEventListener('connectionstatechange', this.onconnectionstatechange)
     userStatus.state = StreamState.Signaled
     this.sync()
     this.syncUserStatus(userStatus)
@@ -200,13 +200,13 @@ class WHIPContext extends Context {
   }
 
   async stop() {
-    if (!!this.timer) {
+    if (this.timer) {
       clearInterval(this.timer)
       this.timer = null
     }
     try {
       await this.client.stop()
-      this.pc.removeEventListener("connectionstatechange", this.onconnectionstatechange)
+      this.pc.removeEventListener('connectionstatechange', this.onconnectionstatechange)
     } catch (e) {
       console.log(e)
     }
