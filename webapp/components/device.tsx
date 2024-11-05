@@ -11,6 +11,15 @@ import SvgAudio from './svg/audio'
 import SvgVideo from './svg/video'
 import { SvgPresentCancel, SvgPresentToAll } from './svg/present'
 
+function toDevice(info: MediaDeviceInfo): Device {
+  const deviceId = info.deviceId;
+  let label = info.label;
+  if (label.length <= 0) {
+      label = `${info.kind} (${deviceId.substring(0, 8)})`;
+  }
+  return { deviceId, label };
+}
+
 export default function DeviceBar(props: { streamId: string }) {
   const [permissionAudio, setPermissionAudio] = useState("")
   const [permissionVideo, setPermissionVideo] = useState("")
@@ -48,18 +57,23 @@ export default function DeviceBar(props: { streamId: string }) {
       // NOTE:
       // Chrome: audio_capture, video_capture
       // Safari: microphone, camera
-      if (status.name === "audio_capture" || "microphone") {
+      if (status.name === "audio_capture" || status.name === "microphone") {
         setPermissionAudio(status.state)
       }
-      if (status.name === "video_capture" || "camera") {
+      if (status.name === "video_capture" || status.name === "camera") {
         setPermissionVideo(status.state)
       }
     })
 
   const updateDeviceList = async () => {
+    // to obtain non-empty device label, there needs to be an active media stream or persistent permission
+    // https://developer.mozilla.org/en-US/docs/Web/API/MediaDeviceInfo/label#value
+    await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(i => !!i.deviceId)
-    const audios: Device[] = devices.filter(i => i.kind === 'audioinput')
-    const videos: Device[] = devices.filter(i => i.kind === 'videoinput')
+
+    const audios = devices.filter(i => i.kind === 'audioinput').map(toDevice)
+    const videos = devices.filter(i => i.kind === 'videoinput').map(toDevice)
 
     if (currentDeviceAudio === deviceNone.deviceId) {
       let device = audios[0]
