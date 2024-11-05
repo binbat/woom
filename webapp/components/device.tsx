@@ -42,28 +42,28 @@ export default function DeviceBar(props: { streamId: string }) {
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
   const permissionsQuery = async () =>
-      (await Promise.all(["camera", "microphone"].map(
-        // NOTE:
-        // Firefox don't have `camera` and `microphone` in permissions
-        // https://developer.mozilla.org/en-US/docs/Web/API/Permissions/query#name
-        // https://searchfox.org/mozilla-central/source/dom/webidl/Permissions.webidl#10
-        //
-        // NOTE:
-        // PermissionName
-        // https://w3c.github.io/permissions/
-        // Reference: https://developer.mozilla.org/en-US/docs/Web/API/Permissions_API
-        i => navigator.permissions.query({ name: i as PermissionName })
-      ))).map(status => {
-        // NOTE:
-        // Chrome: audio_capture, video_capture
-        // Safari: microphone, camera
-        if (status.name === "audio_capture" || status.name === "microphone") {
-          setPermissionAudio(status.state)
-        }
-        if (status.name === "video_capture" || status.name === "camera") {
-          setPermissionVideo(status.state)
-        }
-      })
+    (await Promise.all(["camera", "microphone"].map(
+      // NOTE:
+      // Firefox don't have `camera` and `microphone` in permissions
+      // https://developer.mozilla.org/en-US/docs/Web/API/Permissions/query#name
+      // https://searchfox.org/mozilla-central/source/dom/webidl/Permissions.webidl#10
+      //
+      // NOTE:
+      // PermissionName
+      // https://w3c.github.io/permissions/
+      // Reference: https://developer.mozilla.org/en-US/docs/Web/API/Permissions_API
+      i => navigator.permissions.query({ name: i as PermissionName })
+    ))).map(status => {
+      // NOTE:
+      // Chrome: audio_capture, video_capture
+      // Safari: microphone, camera
+      if (status.name === "audio_capture" || status.name === "microphone") {
+        setPermissionAudio(status.state)
+      }
+      if (status.name === "video_capture" || status.name === "camera") {
+        setPermissionVideo(status.state)
+      }
+    })
 
   const updateDeviceList = async () => {
     // to obtain non-empty device label, there needs to be an active media stream or persistent permission
