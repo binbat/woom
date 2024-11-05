@@ -11,36 +11,13 @@ import SvgAudio from './svg/audio'
 import SvgVideo from './svg/video'
 import { SvgPresentCancel, SvgPresentToAll } from './svg/present'
 
-// 1. Converts each device's deviceId and label into a displayable format. If label is empty, uses the device type and deviceId as the display name.
-function deviceInfoToOption(info: MediaDeviceInfo) {
-  const value = info.deviceId;
-  let text = info.label;
-  if (text.length <= 0) {
-      text = `${info.kind} (${info.deviceId})`;
+function toDevice(info: MediaDeviceInfo): Device {
+  const deviceId = info.deviceId;
+  let label = info.label;
+  if (label.length <= 0) {
+      label = `${info.kind} (${deviceId.substring(0, 8)})`;
   }
-  return { value, text };
-}
-
-// 2. Removes duplicate items based on their value.
-function uniqByValue<T extends { value: unknown }>(items: T[]) {
-  const map = new Map<unknown, T>();
-  for (const item of items) {
-      if (!map.has(item.value)) {
-          map.set(item.value, item);
-      }
-  }
-  return Array.from(map.values());
-}
-
-// 3. Converts items to Device format
-const convertToDevice = (items: { value: string; text: string }[], kind: MediaDeviceKind): MediaDeviceInfo[] => {
-  return items.map(item => ({
-    deviceId: item.value,         // use value as the device ID
-    kind,
-    label: item.text,             // use text as the label
-    groupId: '',
-
-  })as MediaDeviceInfo);
+  return { deviceId, label };
 }
 
 export default function DeviceBar(props: { streamId: string }) {
@@ -64,12 +41,7 @@ export default function DeviceBar(props: { streamId: string }) {
   const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
-  const permissionsQuery = async () => {
-    const isFirefox = navigator.userAgent.toLowerCase().includes('firefox')
-    if (isFirefox) {
-      await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => {})
-      await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => {})
-    } else {
+  const permissionsQuery = async () =>
       (await Promise.all(["camera", "microphone"].map(
         // NOTE:
         // Firefox don't have `camera` and `microphone` in permissions
@@ -92,55 +64,34 @@ export default function DeviceBar(props: { streamId: string }) {
           setPermissionVideo(status.state)
         }
       })
-    }
-  }
 
   const updateDeviceList = async () => {
-    const devices = (await navigator.mediaDevices.enumerateDevices()).filter(i => !!i.deviceId)
-    const audios = devices.filter(i => i.kind === 'audioinput').map(deviceInfoToOption)
-    const videos = devices.filter(i => i.kind === 'videoinput').map(deviceInfoToOption);
+    // to obtain non-empty device label, there needs to be an active media stream or persistent permission
+    // https://developer.mozilla.org/en-US/docs/Web/API/MediaDeviceInfo/label#value
+    await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
 
-    const uniqueAudios = uniqByValue(audios);
-    const uniqueVideos = uniqByValue(videos);
+    const devices = (await navigator.mediaDevices.enumerateDevices()).filter(i => !!i.deviceId)
+
+    const audios = devices.filter(i => i.kind === 'audioinput').map(toDevice)
+    const videos = devices.filter(i => i.kind === 'videoinput').map(toDevice)
 
     if (currentDeviceAudio === deviceNone.deviceId) {
-      let device = uniqueAudios[0]
-      if (device){
-          try {
-            await setCurrentDeviceAudio(device.value)
-        } catch (error) {
-          console.error('Failed to set audio device:', error)
-        }
-      }
+      let device = audios[0]
+      await setCurrentDeviceAudio(device ? device.deviceId : deviceNone.deviceId)
     }
 
     if (currentDeviceVideo === deviceNone.deviceId) {
-      let device = uniqueVideos[0]
-      if (device) {
-        try {
-          await setCurrentDeviceVideo(device.value)
-      } catch (error) {
-        console.error('Failed to set video device:', error)
-      }
-      } else {
-          console.log('no video devices:')
-          await setCurrentDeviceVideo(deviceNone.deviceId)
-        }
+      let device = videos[0]
+      await setCurrentDeviceVideo(device ? device.deviceId : deviceNone.deviceId)
     }
 
-    setDeviceAudio(...[convertToDevice(uniqueAudios, 'audioinput')])
-    setDeviceVideo([...convertToDevice(uniqueVideos, 'videoinput'), deviceScreen])
+    setDeviceAudio([...audios])
+    setDeviceVideo([...videos, deviceScreen])
   }
 
   const init = async () => {
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => stream.getTracks().forEach(track => track.stop()))
-      .catch(() => console.warn("No audio device available"))
-
-      await navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => stream.getTracks().forEach(track => track.stop()))
-      .catch(() => console.warn("No video device available"))
+      (await navigator.mediaDevices.getUserMedia({ video: true, audio: true })).getTracks().map(track => track.stop())
       // NOTE:
       // In some device have problem:
       // - Android Web Browser
@@ -244,7 +195,7 @@ export default function DeviceBar(props: { streamId: string }) {
             onChange={e => onChangedDeviceVideo(e.target.value)}
           >
             {deviceVideo.map(device =>
-              <option key={device.label} value={device.label}>{device.label}</option>
+              <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
             )}
           </select>
         </section>
