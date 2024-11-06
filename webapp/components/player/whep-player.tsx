@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import useWhepClient from "../use/whep"
+import useWhepClient from '../use/whep'
 import { useAtom } from 'jotai'
 import Detail from './detail'
 import Player from './player'
@@ -24,13 +24,13 @@ export default function WhepPlayer(props: { streamId: string, userStatus: Stream
 
   useEffect(() => {
     setPresentationStream({
-      name: props.userStatus.name + "Presentation",
+      name: props.userStatus.name + 'Presentation',
       stream: props.userStatus.screen ? stream : new MediaStream(),
     })
   }, [props.userStatus.screen])
 
   return (
-    <center className='flex flex-col'>
+    <center className="flex flex-col">
       <Player stream={stream} muted={false} width={props.width} audio={true} video={props.userStatus.video} />
       <Detail streamId={props.streamId} connStatus={connStatus} userStatus={props.userStatus} restart={restart} />
     </center>

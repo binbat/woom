@@ -11,13 +11,13 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
 
   useEffect(() => {
     setPresentationStream({
-      name: userStatus.name + "Presentation",
+      name: userStatus.name + 'Presentation',
       stream: userStatus.screen ? stream : new MediaStream(),
     })
   }, [userStatus.screen])
 
   return (
-    <center className='flex flex-col'>
+    <center className="flex flex-col">
       <Player stream={stream} muted={true} width={props.width} audio={false} video={userStatus.video} />
       <Detail streamId={props.streamId} connStatus={userStatus.state} userStatus={userStatus} restart={restart} />
     </center>

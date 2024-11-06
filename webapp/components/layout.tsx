@@ -21,7 +21,7 @@ export default function Layout(props: { meetingId: string }) {
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
 
   const localStreamId = getStorageStream()
-  const [remoteUserStatus, setRemoteUserStatus] = useState<{ [_: string]: UserStatus }>({})
+  const [remoteUserStatus, setRemoteUserStatus] = useState<Record<string, UserStatus>>({})
 
   //const [speaker, setSpeaker] = useState<UserStatus | null>(null)
   //const [speakerId, setSpeakerId] = useState<string>("")
@@ -65,29 +65,29 @@ export default function Layout(props: { meetingId: string }) {
   }, [])
 
   return (
-    <div className='flex flex-col justify-between' style={{ height: '100vh' }}>
+    <div className="flex flex-col justify-between" style={{ height: '100vh' }}>
       <div></div>
 
-      { enabledPresentation
-        ? <Player stream={presentationStream.stream} muted={true} width="auto" display="auto" />
+      {enabledPresentation
+        ? <Player stream={presentationStream.stream} muted={true} width="auto" />
         : null
       }
 
-      <div className='flex flex-row flex-wrap justify-evenly'>
+      <div className="flex flex-row flex-wrap justify-evenly">
         <WhipPlayer streamId={localStreamId} width="320px" />
         {Object.keys(remoteUserStatus).map(i => <WhepPlayer key={i} streamId={i} userStatus={remoteUserStatus[i]} width="320px" />)}
       </div>
 
       <center>
-        <div className='flex justify-evenly bg-gray-800/80'>
-          <section className='hidden md:flex md:flex-col md:justify-center'>
-            <button className='flex flex-row text-rose-400 rounded-md bg-inherit p-2' onClick={() => {
+        <div className="flex justify-evenly bg-gray-800/80">
+          <section className="hidden md:flex md:flex-col md:justify-center">
+            <button className="flex flex-row text-rose-400 rounded-md bg-inherit p-2" onClick={() => {
               copy(location.href)
               setCopyStatus(true)
               setTimeout(() => setCopyStatus(false), 3000)
             }}>
-              <code className='mx-sm my-1px'>{props.meetingId}</code>
-              <center className='text-rose-400 rounded-md' style={{ visibility: copyStatus ? 'visible' : 'hidden' }} >
+              <code className="mx-sm my-1px">{props.meetingId}</code>
+              <center className="text-rose-400 rounded-md" style={{ visibility: copyStatus ? 'visible' : 'hidden' }} >
                 <SvgDone />
               </center>
             </button>
@@ -95,8 +95,8 @@ export default function Layout(props: { meetingId: string }) {
 
           <DeviceBar streamId={localStreamId} />
 
-          <section className='flex flex-col justify-center'>
-            <button className='text-white bg-rose-600 hover:bg-rose-700 duration-1000 shadow-xl rounded-3xl w-18 h-10' onClick={() => callEnd()}>
+          <section className="flex flex-col justify-center">
+            <button className="text-white bg-rose-600 hover:bg-rose-700 duration-1000 shadow-xl rounded-3xl w-18 h-10" onClick={() => callEnd()}>
               <center>
                 <SvgEnd />
               </center>

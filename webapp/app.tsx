@@ -8,7 +8,7 @@ export default function WOOM() {
 
   return (
     <div
-      className='min-h-screen'>
+      className="min-h-screen">
       {
         !meetingId
           ? <Welcome />

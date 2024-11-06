@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 interface Room {
   roomId: string,
   locked: false,
@@ -6,15 +8,17 @@ interface Room {
   streams: any,
 }
 
-// Reference: https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/connectionState#value
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/connectionState#value
+ */
 enum StreamState {
-  New = "new",
-  Signaled = "signaled",
-  Connecting = "connecting",
-  Connected = "connected",
-  Disconnected = "disconnected",
-  Failed = "failed",
-  Closed = "closed",
+  New = 'new',
+  Signaled = 'signaled',
+  Connecting = 'connecting',
+  Connected = 'connected',
+  Disconnected = 'disconnected',
+  Failed = 'failed',
+  Closed = 'closed',
 }
 
 interface Stream {
@@ -30,8 +34,8 @@ interface User {
   token: string,
 }
 
-let token = ""
-let roomId = ""
+let token = ''
+let roomId = ''
 
 function setApiToken(str: string) {
   token = str
@@ -42,24 +46,24 @@ function setRoomId(str: string) {
 }
 
 async function newUser(): Promise<User> {
-  return (await fetch(`/user/`, {
-    method: "POST",
+  return (await fetch('/user/', {
+    method: 'POST',
   })).json()
 }
 
 async function newRoom(): Promise<Room> {
-  return (await fetch(`/room/`, {
+  return (await fetch('/room/', {
     headers: {
-      "Authorization": `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
     },
-    method: "POST",
+    method: 'POST',
   })).json()
 }
 
 async function getRoom(roomId: string): Promise<Room> {
   return (await fetch(`/room/${roomId}`, {
     headers: {
-      "Authorization": `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
     },
   })).json()
 }
@@ -67,10 +71,10 @@ async function getRoom(roomId: string): Promise<Room> {
 async function setRoom(roomId: string, data: any): Promise<Room> {
   return (await fetch(`/room/${roomId}`, {
     headers: {
-      "Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
-    method: "PATCH",
+    method: 'PATCH',
     body: JSON.stringify(data),
   })).json()
 }
@@ -78,28 +82,28 @@ async function setRoom(roomId: string, data: any): Promise<Room> {
 async function delRoom(roomId: string): Promise<void> {
   return (await fetch(`/room/${roomId}`, {
     headers: {
-      "Authorization": `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
     },
-    method: "DELETE",
+    method: 'DELETE',
   })).json()
 }
 
 async function newStream(roomId: string): Promise<Stream> {
   return (await fetch(`/room/${roomId}/stream`, {
     headers: {
-      "Authorization": `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
     },
-    method: "POST",
+    method: 'POST',
   })).json()
 }
 
 async function setStream(streamId: string, data: any): Promise<Stream> {
   return (await fetch(`/room/${roomId}/stream/${streamId}`, {
     headers: {
-      "Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
-    method: "PATCH",
+    method: 'PATCH',
     body: JSON.stringify(data),
   })).json()
 }
@@ -107,9 +111,9 @@ async function setStream(streamId: string, data: any): Promise<Stream> {
 async function delStream(roomId: string, streamId: string): Promise<any> {
   return fetch(`/room/${roomId}/stream/${streamId}`, {
     headers: {
-      "Authorization": `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
     },
-    method: "DELETE",
+    method: 'DELETE',
   })
 }
 

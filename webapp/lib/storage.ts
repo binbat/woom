@@ -15,10 +15,10 @@ function setStorageStream(value: string) { localStorage.setItem(StreamKey, value
 function setStorageToken(value: string) { localStorage.setItem(TokenKey, value) }
 function setStorageName(value: string) { localStorage.setItem(NameKey, value) }
 
-function getStorageMeeting(): string { return localStorage.getItem(MeetingKey) || "" }
-function getStorageStream(): string { return localStorage.getItem(StreamKey) || "" }
-function getStorageToken(): string { return localStorage.getItem(TokenKey) || "" }
-function getStorageName(): string { return localStorage.getItem(NameKey) || "" }
+function getStorageMeeting(): string { return localStorage.getItem(MeetingKey) || '' }
+function getStorageStream(): string { return localStorage.getItem(StreamKey) || '' }
+function getStorageToken(): string { return localStorage.getItem(TokenKey) || '' }
+function getStorageName(): string { return localStorage.getItem(NameKey) || '' }
 
 function delStorageMeeting() { localStorage.removeItem(MeetingKey) }
 function delStorageStream() { localStorage.removeItem(StreamKey) }

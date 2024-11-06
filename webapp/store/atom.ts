@@ -1,5 +1,6 @@
 import { atom } from 'jotai'
 import { atomWithLocation } from 'jotai-location'
+import { StreamState } from '../lib/api'
 
 const locationAtom = atomWithLocation()
 locationAtom.debugLabel = 'location'
@@ -10,24 +11,24 @@ interface UserStream {
 }
 
 interface UserStatus {
-  // Nick Name
+  /**
+   * nick name
+   */
   name: string
-
-  // Reference: https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/connectionState#value
-  state: string
+  state: StreamState
   audio: boolean
   video: boolean
   screen: boolean
 }
 
-const meetingIdAtom = atom("")
+const meetingIdAtom = atom('')
 meetingIdAtom.debugLabel = 'meetingIdAtom'
 const meetingJoinedAtom = atom(false)
 meetingJoinedAtom.debugLabel = 'meetingJoined'
 
 const presentationStreamAtom = atom<UserStream>({
   stream: new MediaStream,
-  name: "Presentation",
+  name: 'Presentation',
 })
 presentationStreamAtom.debugLabel = 'presentationStream'
 

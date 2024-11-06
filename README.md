@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="./logo.svg" alt="WOOM" width="200">
+  <img src="./webapp/public/logo.svg" alt="WOOM" width="200">
   <br>WOOM<br>
 </h1>
 

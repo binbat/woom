@@ -29,18 +29,21 @@ function AudioWave(props: { stream: MediaStream }) {
   return <div ref={refWave}></div>
 }
 
-export default function Player(props: { stream: MediaStream, muted: boolean, audio: boolean, video: boolean, width: string }) {
+export default function Player(props: { stream: MediaStream, muted: boolean, audio?: boolean, video?: boolean, width: string }) {
   const refVideo = useRef<HTMLVideoElement>(null)
   const [showAudio, setShowAudio] = useState(false)
   const audioTrack = props.stream.getAudioTracks()[0]
   const videoTrack = props.stream.getVideoTracks()[0]
 
   useEffect(() => {
-    audioTrack && !videoTrack ? setShowAudio(true) : setShowAudio(false)
+    if (audioTrack && !videoTrack) {
+      setShowAudio(true)
+    } else {
+      setShowAudio(false)
+    }
     if (audioTrack && props.audio) {
-      const el = document.createElement("audio")
+      const el = document.createElement('audio')
       el.srcObject = new MediaStream([audioTrack])
-      el.autoplay
       el.play()
 
       return () => {
@@ -68,17 +71,17 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   // NOTE: iOS can't display video
   // https://webkit.org/blog/6784/new-video-policies-for-ios/
   return (
-    <center className='flex flex-col justify-center min-h-60' style={{ width: props.width, pointerEvents: 'none' }}>
-      {!props.stream.getTracks().length ? <center><SvgProgress/></center> : null}
+    <center className="flex flex-col justify-center min-h-60" style={{ width: props.width, pointerEvents: 'none' }}>
+      {!props.stream.getTracks().length ? <center><SvgProgress /></center> : null}
       {props.video
         ? <video
-          className='rounded-xl'
+          className="rounded-xl"
           playsInline={true}
           autoPlay={true}
           controls={false}
           muted={props.muted}
           ref={refVideo}
-          style={!!props.stream?.getVideoTracks().length ? { width: props.width } : { height: '0px' }}
+          style={props.stream?.getVideoTracks().length ? { width: props.width } : { height: '0px' }}
         />
         : null
       }
