@@ -1,11 +1,13 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
-import 'virtual:uno.css'
-import App from './app'
 import { DevTools } from 'jotai-devtools'
 
 import '@unocss/reset/tailwind-compat.css'
+import 'virtual:uno.css'
+import 'jotai-devtools/styles.css'
+
+import App from './app'
+import './index.css'
 
 const container = document.getElementById('root')
 const root = createRoot(container!)
