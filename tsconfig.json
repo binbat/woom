@@ -17,6 +17,9 @@
     "skipLibCheck": false
   },
   "include": ["webapp"],
-  "exclude": ["**/vite.config.ts"],
+  "exclude": [
+    "webapp/vite.config.ts",
+    "webapp/uno.config.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

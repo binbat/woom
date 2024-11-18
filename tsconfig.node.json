@@ -6,5 +6,8 @@
     "allowSyntheticDefaultImports": true,
     "strict": true
   },
-  "include": ["webapp/vite.config.ts"]
+  "include": [
+    "webapp/vite.config.ts",
+    "webapp/uno.config.ts"
+  ]
 }
