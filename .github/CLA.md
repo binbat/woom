@@ -47,3 +47,4 @@ Example:
 - Hongcha Zhang, @hongcha98, 2024/10/24
 - Winter Zhang, @WinterJack002, 2024/10/26
 - Rocket Aaron, @rocka, 2024/11/06
+- xdzqyyds, @xdzqyyds, 2024/11/19
