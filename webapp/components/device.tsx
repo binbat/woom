@@ -38,7 +38,6 @@ export default function DeviceBar(props: { streamId: string }) {
     setCurrentDeviceSpeaker,
     setCurrentDeviceAudio,
     setCurrentDeviceVideo,
-    toggleEnableSpeaker,
     toggleEnableAudio,
     toggleEnableVideo,
   } = useWhipClient(props.streamId)
@@ -93,8 +92,8 @@ export default function DeviceBar(props: { streamId: string }) {
     const videos = devices.filter(i => i.kind === 'videoinput').map(toDevice)
 
     if ( currentDeviceSpeaker === deviceNone.deviceId) {
-      let device = speakers[0];
-      if (device) await setCurrentDeviceSpeaker(device.deviceId);
+      const device = speakers[0]
+      if (device) await setCurrentDeviceSpeaker(device.deviceId)
     } 
 
     if (currentDeviceAudio === deviceNone.deviceId) {
@@ -170,7 +169,7 @@ export default function DeviceBar(props: { streamId: string }) {
   return (
     <div className="flex flex-row flex-wrap justify-around p-xs">
       <center className="flex flex-row flex-wrap justify-around">
-      <section className="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
+        <section className="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
           <button className="text-rose-400 rounded-md w-8 h-8" onClick={async () => {
           }}>
             <center>{ loadingSpeaker ? <Loading/> : <SvgSpeaker/> }</center>

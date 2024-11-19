@@ -38,7 +38,7 @@ class WHIPContext extends Context {
 
   constructor(id: string) {
     super(id)
-    this.audioElement = document.createElement("audio")
+    this.audioElement = document.createElement('audio')
     this.cache = this.clone()
   }
 
@@ -109,36 +109,36 @@ class WHIPContext extends Context {
   }
 
   async setCurrentDeviceSpeaker(current: string) {
-    const { userStatus, currentDeviceSpeaker } = this;
+    const { userStatus, currentDeviceSpeaker } = this
 
-      // 检查是否需要切换设备
-      if (current !== currentDeviceSpeaker || !userStatus.speaker) {
-        if (!this.audioElement) {
-          // 使用全局或共享的 audioElement
-          this.audioElement = document.createElement("audio");
-          document.body.appendChild(this.audioElement);
-        }
+    // 检查是否需要切换设备
+    if (current !== currentDeviceSpeaker || !userStatus.speaker) {
+      if (!this.audioElement) {
+        // 使用全局或共享的 audioElement
+        this.audioElement = document.createElement('audio')
+        document.body.appendChild(this.audioElement)
+      }
   
-    // 设置新的扬声器设备
+      // 设置新的扬声器设备
       if (this.audioElement.setSinkId) {
         try {
-          await this.audioElement.setSinkId(current);
-          console.log(`扬声器切换到设备: ${current}`);
+          await this.audioElement.setSinkId(current)
+          console.log(`扬声器切换到设备: ${current}`)
         } catch (error) {
-          console.error("切换音频输出设备失败:", error);
+          console.error('切换音频输出设备失败:', error)
         }
       } else {
-        console.error("当前浏览器不支持 setSinkId");
+        console.error('当前浏览器不支持 setSinkId')
       }
   
-        // 更新状态
-        userStatus.speaker = current === deviceNone.deviceId ? false : true
-        this.currentDeviceSpeaker = current === deviceNone.deviceId ? this.currentDeviceSpeaker : current
+      // 更新状态
+      userStatus.speaker = current === deviceNone.deviceId ? false : true
+      this.currentDeviceSpeaker = current === deviceNone.deviceId ? this.currentDeviceSpeaker : current
   
-        // 同步状态并触发相关回调
-        this.sync();
-        this.syncUserStatus(userStatus);
-      }
+      // 同步状态并触发相关回调
+      this.sync()
+      this.syncUserStatus(userStatus)
+    }
   }
 
   onChangedDeviceAudio() {
