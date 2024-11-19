@@ -13,25 +13,32 @@ interface WHIPData extends Data {
   setUserName: (name: string) => void,
   setSyncUserStatus: (callback: (userStatus: Stream) => void) => void,
 
+  currentDeviceSpeaker: string,
   currentDeviceAudio: string,
   currentDeviceVideo: string,
+  setCurrentDeviceSpeaker: (current: string) => Promise<void>,
   setCurrentDeviceAudio: (current: string) => Promise<void>,
   setCurrentDeviceVideo: (current: string) => Promise<void>,
+  toggleEnableSpeaker: () => Promise<void>,
   toggleEnableAudio: () => Promise<void>,
   toggleEnableVideo: () => Promise<void>,
 }
 
 class WHIPContext extends Context {
+  private audioElement: HTMLAudioElement
   client: WHIPClient = new WHIPClient()
   cache: WHIPData
 
+  currentDeviceSpeaker = deviceNone.deviceId
   currentDeviceAudio = deviceNone.deviceId
   currentDeviceVideo = deviceNone.deviceId
+  toggleEnableSpeaker = async () => this.setCurrentDeviceSpeaker(this.userStatus.speaker ? deviceNone.deviceId : this.currentDeviceSpeaker)
   toggleEnableAudio = async () => this.setCurrentDeviceAudio(this.userStatus.audio ? deviceNone.deviceId : this.currentDeviceAudio)
   toggleEnableVideo = async () => this.setCurrentDeviceVideo(this.userStatus.video ? deviceNone.deviceId : this.currentDeviceVideo)
 
   constructor(id: string) {
     super(id)
+    this.audioElement = document.createElement("audio")
     this.cache = this.clone()
   }
 
@@ -64,10 +71,13 @@ class WHIPContext extends Context {
       setUserName: (name: string) => this.setUserName(name),
       setSyncUserStatus: (callback: (userStatus: Stream) => void) => this.setSyncUserStatus(callback),
 
+      currentDeviceSpeaker: this.currentDeviceSpeaker,
       currentDeviceAudio: this.currentDeviceAudio,
       currentDeviceVideo: this.currentDeviceVideo,
+      setCurrentDeviceSpeaker: (current: string) => this.setCurrentDeviceSpeaker(current),
       setCurrentDeviceAudio: (current: string) => this.setCurrentDeviceAudio(current),
       setCurrentDeviceVideo: (current: string) => this.setCurrentDeviceVideo(current),
+      toggleEnableSpeaker: () => this.toggleEnableSpeaker(),
       toggleEnableAudio: () => this.toggleEnableAudio(),
       toggleEnableVideo: () => this.toggleEnableVideo(),
     }
@@ -96,6 +106,39 @@ class WHIPContext extends Context {
     } else {
       stream.getVideoTracks().map(track => pc.addTrack(track))
     }
+  }
+
+  async setCurrentDeviceSpeaker(current: string) {
+    const { userStatus, currentDeviceSpeaker } = this;
+
+      // 检查是否需要切换设备
+      if (current !== currentDeviceSpeaker || !userStatus.speaker) {
+        if (!this.audioElement) {
+          // 使用全局或共享的 audioElement
+          this.audioElement = document.createElement("audio");
+          document.body.appendChild(this.audioElement);
+        }
+  
+    // 设置新的扬声器设备
+      if (this.audioElement.setSinkId) {
+        try {
+          await this.audioElement.setSinkId(current);
+          console.log(`扬声器切换到设备: ${current}`);
+        } catch (error) {
+          console.error("切换音频输出设备失败:", error);
+        }
+      } else {
+        console.error("当前浏览器不支持 setSinkId");
+      }
+  
+        // 更新状态
+        userStatus.speaker = current === deviceNone.deviceId ? false : true
+        this.currentDeviceSpeaker = current === deviceNone.deviceId ? this.currentDeviceSpeaker : current
+  
+        // 同步状态并触发相关回调
+        this.sync();
+        this.syncUserStatus(userStatus);
+      }
   }
 
   onChangedDeviceAudio() {
