@@ -68,8 +68,18 @@ export default function DeviceBar(props: { streamId: string }) {
   const updateDeviceList = async () => {
     // to obtain non-empty device label, there needs to be an active media stream or persistent permission
     // https://developer.mozilla.org/en-US/docs/Web/API/MediaDeviceInfo/label#value
-    await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+    } catch {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true })
+      } catch { /* empty */ }
+    
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true })
+      } catch { /* empty */ }
+    }
+    
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(i => !!i.deviceId)
 
     const audios = devices.filter(i => i.kind === 'audioinput').map(toDevice)
@@ -97,7 +107,16 @@ export default function DeviceBar(props: { streamId: string }) {
       // - Android Web Browser
       // - Wechat WebView
       await permissionsQuery()
-    } catch { /* empty */ }
+    } catch {
+      try {
+        (await navigator.mediaDevices.getUserMedia({ audio: true })).getTracks().map(track => track.stop())
+        await permissionsQuery()
+      } catch { /* empty */ }
+      try {
+        (await navigator.mediaDevices.getUserMedia({ video: true })).getTracks().map(track => track.stop())
+        await permissionsQuery()
+      } catch { /* empty */ }
+    }
     await updateDeviceList()
   }
 
