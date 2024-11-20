@@ -29,7 +29,7 @@ function AudioWave(props: { stream: MediaStream }) {
   return <div ref={refWave}></div>
 }
 
-export default function Player(props: { stream: MediaStream, muted: boolean, audio?: boolean, video?: boolean, width: string }) {
+export default function Player(props: { stream: MediaStream, muted: boolean, audio?: boolean, video?: boolean, width: string, currentDeviceSpeaker: string}) {
   const refVideo = useRef<HTMLVideoElement>(null)
   const [showAudio, setShowAudio] = useState(false)
   const audioTrack = props.stream.getAudioTracks()[0]
@@ -44,6 +44,10 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
     if (audioTrack && props.audio) {
       const el = document.createElement('audio')
       el.srcObject = new MediaStream([audioTrack])
+      
+      if (el.setSinkId) {
+        el.setSinkId(props.currentDeviceSpeaker) 
+      } 
       el.play()
 
       return () => {
@@ -52,7 +56,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
         el.remove()
       }
     }
-  }, [audioTrack, videoTrack])
+  }, [audioTrack, videoTrack, props.currentDeviceSpeaker])
 
   useEffect(() => {
     if (refVideo.current && videoTrack) {

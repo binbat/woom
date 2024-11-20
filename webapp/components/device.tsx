@@ -174,8 +174,7 @@ export default function DeviceBar(props: { streamId: string }) {
           }}>
             <center>{ loadingSpeaker ? <Loading/> : <SvgSpeaker/> }</center>
           </button>
-          <div className="flex flex-col justify-between w-1 pointer-events-none">
-          </div>
+          <div className="flex flex-col justify-between w-1 pointer-events-none"></div>
           <select
             className="w-3.5 h-8 rounded-sm rotate-180"
             value={currentDeviceSpeaker}

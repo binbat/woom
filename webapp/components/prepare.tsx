@@ -18,7 +18,7 @@ export default function Prepare(_props: { meetingId: string }) {
   const localStreamId = getStorageStream()
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
 
-  const { id, stream, setUserName, setSyncUserStatus, start } = useWhipClient(localStreamId)
+  const { id, stream, currentDeviceSpeaker,setUserName, setSyncUserStatus, start } = useWhipClient(localStreamId)
 
   const join = async () => {
     setLoading(true)
@@ -39,7 +39,7 @@ export default function Prepare(_props: { meetingId: string }) {
   return (
     <div className="flex flex-col justify-around">
       <center className="m-xs">
-        <Player stream={stream} muted={true} width="320px" audio={true} video={true} />
+        <Player stream={stream} muted={true} width="320px" audio={true} video={true} currentDeviceSpeaker={currentDeviceSpeaker}/>
       </center>
 
       <center className="mb-xs">

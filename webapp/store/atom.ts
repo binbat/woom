@@ -16,6 +16,7 @@ interface UserStatus {
    */
   name: string
   state: StreamState
+  speaker: boolean
   audio: boolean
   video: boolean
   screen: boolean

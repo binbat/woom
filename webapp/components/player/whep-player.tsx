@@ -5,9 +5,13 @@ import Detail from './detail'
 import Player from './player'
 import { presentationStreamAtom } from '../../store/atom'
 import { Stream } from '../../lib/api'
+import useWhipClient from '../use/whip'
+import {getStorageStream } from '../../lib/storage'
 
 export default function WhepPlayer(props: { streamId: string, userStatus: Stream, width: string }) {
   const refEnabled = useRef(false)
+  const localStreamId = getStorageStream()
+  const { currentDeviceSpeaker} = useWhipClient(localStreamId)
   const { stream, restart, start, connStatus, setRemoteStatus } = useWhepClient(props.streamId)
   const [, setPresentationStream] = useAtom(presentationStreamAtom)
 
@@ -31,7 +35,7 @@ export default function WhepPlayer(props: { streamId: string, userStatus: Stream
 
   return (
     <center className="flex flex-col">
-      <Player stream={stream} muted={false} width={props.width} audio={true} video={props.userStatus.video} />
+      <Player stream={stream} muted={false} width={props.width} audio={true} video={props.userStatus.video} currentDeviceSpeaker={currentDeviceSpeaker}/>
       <Detail streamId={props.streamId} connStatus={connStatus} userStatus={props.userStatus} restart={restart} />
     </center>
   )
