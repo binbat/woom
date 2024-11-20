@@ -70,15 +70,23 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
 
   // NOTE: iOS can't display video
   // https://webkit.org/blog/6784/new-video-policies-for-ios/
+  //
+  // TODO:
+  // We need customs video element
+  // - disable default `controls`
+  // - we don't need button play / pause
+  // - we don't need button progress bar
+  // - NOTE: video element don't has `audioTrack`, So volume button is unavailable
+  // - NOTE: `pointerEvents: 'none'` (I forget why has this in video element. removed)
   return (
-    <center className="flex flex-col justify-center min-h-60" style={{ width: props.width, pointerEvents: 'none' }}>
+    <center className="flex flex-col justify-center min-h-60" style={{ width: props.width }}>
       {!props.stream.getTracks().length ? <center><SvgProgress /></center> : null}
       {props.video
         ? <video
           className="rounded-xl"
           playsInline={true}
           autoPlay={true}
-          controls={false}
+          controls={true}
           muted={props.muted}
           ref={refVideo}
           style={props.stream?.getVideoTracks().length ? { width: props.width } : { height: '0px' }}
