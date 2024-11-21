@@ -38,7 +38,6 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   const videoTrack = props.stream.getVideoTracks()[0]
   const [currentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
 
-
   useEffect(() => {
     if (audioTrack && !videoTrack) {
       setShowAudio(true)
