@@ -36,6 +36,8 @@ presentationStreamAtom.debugLabel = 'presentationStream'
 const enabledPresentationAtom = atom(get => get(presentationStreamAtom).stream.getVideoTracks().length !== 0)
 enabledPresentationAtom.debugLabel = 'enabledPresentation'
 
+const deviceSpeakerAtom = atom<string>('default')
+
 export {
   locationAtom,
   presentationStreamAtom,
@@ -43,6 +45,7 @@ export {
   meetingIdAtom,
   meetingJoinedAtom,
   enabledPresentationAtom,
+  deviceSpeakerAtom,
 }
 
 export type {

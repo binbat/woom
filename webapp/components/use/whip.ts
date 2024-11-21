@@ -13,13 +13,10 @@ interface WHIPData extends Data {
   setUserName: (name: string) => void,
   setSyncUserStatus: (callback: (userStatus: Stream) => void) => void,
 
-  currentDeviceSpeaker: string,
   currentDeviceAudio: string,
   currentDeviceVideo: string,
-  setCurrentDeviceSpeaker: (current: string) => Promise<void>,
   setCurrentDeviceAudio: (current: string) => Promise<void>,
   setCurrentDeviceVideo: (current: string) => Promise<void>,
-  toggleEnableSpeaker: () => Promise<void>,
   toggleEnableAudio: () => Promise<void>,
   toggleEnableVideo: () => Promise<void>,
 }
@@ -28,10 +25,8 @@ class WHIPContext extends Context {
   client: WHIPClient = new WHIPClient()
   cache: WHIPData
 
-  currentDeviceSpeaker = deviceNone.deviceId
   currentDeviceAudio = deviceNone.deviceId
   currentDeviceVideo = deviceNone.deviceId
-  toggleEnableSpeaker = async () => this.setCurrentDeviceSpeaker(this.userStatus.speaker ? deviceNone.deviceId : this.currentDeviceSpeaker)
   toggleEnableAudio = async () => this.setCurrentDeviceAudio(this.userStatus.audio ? deviceNone.deviceId : this.currentDeviceAudio)
   toggleEnableVideo = async () => this.setCurrentDeviceVideo(this.userStatus.video ? deviceNone.deviceId : this.currentDeviceVideo)
 
@@ -69,13 +64,10 @@ class WHIPContext extends Context {
       setUserName: (name: string) => this.setUserName(name),
       setSyncUserStatus: (callback: (userStatus: Stream) => void) => this.setSyncUserStatus(callback),
 
-      currentDeviceSpeaker: this.currentDeviceSpeaker,
       currentDeviceAudio: this.currentDeviceAudio,
       currentDeviceVideo: this.currentDeviceVideo,
-      setCurrentDeviceSpeaker: (current: string) => this.setCurrentDeviceSpeaker(current),
       setCurrentDeviceAudio: (current: string) => this.setCurrentDeviceAudio(current),
       setCurrentDeviceVideo: (current: string) => this.setCurrentDeviceVideo(current),
-      toggleEnableSpeaker: () => this.toggleEnableSpeaker(),
       toggleEnableAudio: () => this.toggleEnableAudio(),
       toggleEnableVideo: () => this.toggleEnableVideo(),
     }
@@ -103,18 +95,6 @@ class WHIPContext extends Context {
       pc.addTransceiver('video', { 'direction': 'sendonly' })
     } else {
       stream.getVideoTracks().map(track => pc.addTrack(track))
-    }
-  }
-
-  async setCurrentDeviceSpeaker(current: string) {
-    const { userStatus, currentDeviceSpeaker } = this
-
-    if (current !== currentDeviceSpeaker || !userStatus.speaker) {
-      userStatus.speaker = current === deviceNone.deviceId ? false : true
-      this.currentDeviceSpeaker = current === deviceNone.deviceId ? this.currentDeviceSpeaker : current
-  
-      this.sync()
-      this.syncUserStatus(userStatus)
     }
   }
 

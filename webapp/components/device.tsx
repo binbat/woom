@@ -1,10 +1,12 @@
 import useWhipClient from './use/whip'
+import { useAtom } from 'jotai'
 import { useEffect, useState } from 'react'
 import {
   Device,
   deviceNone,
   deviceScreen,
 } from '../lib/device'
+import { deviceSpeakerAtom } from './../store/atom'
 
 import Loading from './svg/loading'
 import SvgSpeaker from './svg/speaker'
@@ -30,12 +32,12 @@ export default function DeviceBar(props: { streamId: string }) {
   const [loadingVideo, setLoadingVideo] = useState(false)
   const [loadingScreen, setLoadingScreen] = useState(false)
 
+  const [currentDeviceSpeaker, setCurrentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
+
   const {
     userStatus,
-    currentDeviceSpeaker,
     currentDeviceAudio,
     currentDeviceVideo,
-    setCurrentDeviceSpeaker,
     setCurrentDeviceAudio,
     setCurrentDeviceVideo,
     toggleEnableAudio,
@@ -91,9 +93,9 @@ export default function DeviceBar(props: { streamId: string }) {
     const audios = devices.filter(i => i.kind === 'audioinput').map(toDevice)
     const videos = devices.filter(i => i.kind === 'videoinput').map(toDevice)
 
-    if ( currentDeviceSpeaker === deviceNone.deviceId) {
+    if (currentDeviceSpeaker === deviceNone.deviceId) {
       const device = speakers[0]
-      if (device) await setCurrentDeviceSpeaker(device.deviceId)
+      if (device) setCurrentDeviceSpeaker(device.deviceId)
     } 
 
     if (currentDeviceAudio === deviceNone.deviceId) {
@@ -144,7 +146,7 @@ export default function DeviceBar(props: { streamId: string }) {
 
   const onChangedDeviceSpeaker = async (current: string) => {
     setLoadingSpeaker(true)
-    await setCurrentDeviceSpeaker(current)
+    setCurrentDeviceSpeaker(current)
     setLoadingSpeaker(false)
   }
 
