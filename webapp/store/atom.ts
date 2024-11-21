@@ -16,7 +16,6 @@ interface UserStatus {
    */
   name: string
   state: StreamState
-  speaker: boolean
   audio: boolean
   video: boolean
   screen: boolean
@@ -36,7 +35,8 @@ presentationStreamAtom.debugLabel = 'presentationStream'
 const enabledPresentationAtom = atom(get => get(presentationStreamAtom).stream.getVideoTracks().length !== 0)
 enabledPresentationAtom.debugLabel = 'enabledPresentation'
 
-const deviceSpeakerAtom = atom<string>('default')
+const deviceSpeakerAtom = atom<string>('')
+const SpeakerStatusAtom = atom<boolean>(false)
 
 export {
   locationAtom,
@@ -46,6 +46,7 @@ export {
   meetingJoinedAtom,
   enabledPresentationAtom,
   deviceSpeakerAtom,
+  SpeakerStatusAtom,
 }
 
 export type {

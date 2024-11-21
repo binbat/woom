@@ -24,7 +24,6 @@ enum StreamState {
 interface Stream {
   name: string,
   state: StreamState
-  speaker: boolean,
   audio: boolean,
   video: boolean,
   screen: boolean,

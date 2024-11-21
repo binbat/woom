@@ -6,7 +6,7 @@ import {
   deviceNone,
   deviceScreen,
 } from '../lib/device'
-import { deviceSpeakerAtom } from './../store/atom'
+import { deviceSpeakerAtom, SpeakerStatusAtom } from './../store/atom'
 
 import Loading from './svg/loading'
 import SvgSpeaker from './svg/speaker'
@@ -33,6 +33,7 @@ export default function DeviceBar(props: { streamId: string }) {
   const [loadingScreen, setLoadingScreen] = useState(false)
 
   const [currentDeviceSpeaker, setCurrentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
+  const [SpeakerStatus, setSpeakerStatus] = useAtom(SpeakerStatusAtom)
 
   const {
     userStatus,
@@ -173,10 +174,24 @@ export default function DeviceBar(props: { streamId: string }) {
       <center className="flex flex-row flex-wrap justify-around">
         <section className="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
           <button className="text-rose-400 rounded-md w-8 h-8" onClick={async () => {
+            setLoadingSpeaker(true)
+            setSpeakerStatus((prev) => !prev)
+            setLoadingSpeaker(false)
           }}>
             <center>{ loadingSpeaker ? <Loading/> : <SvgSpeaker/> }</center>
           </button>
-          <div className="flex flex-col justify-between w-1 pointer-events-none"></div>
+          <div className="flex flex-col justify-between w-1 pointer-events-none">
+            <div></div>
+            {!SpeakerStatus
+              ? <div></div>
+              : <div className="w-8 h-1 bg-red-500 rounded-full rotate-45"
+                style={{
+                  position: 'relative',
+                  right: '32px',
+                  bottom: '14px',
+                }}></div>
+            }
+          </div>
           <select
             className="w-3.5 h-8 rounded-sm rotate-180"
             value={currentDeviceSpeaker}

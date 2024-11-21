@@ -19,7 +19,6 @@ class Context extends EventTarget {
   userStatus: Stream = {
     name: '',
     state: StreamState.New,
-    speaker: true,
     audio: true,
     video: true,
     screen: false,
