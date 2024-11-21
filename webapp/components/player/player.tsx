@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAtom } from 'jotai'
 import WaveSurfer from 'wavesurfer.js'
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record'
 import { isWechat } from '../../lib/util'
 import SvgProgress from '../svg/progress'
+import { deviceSpeakerAtom, SpeakerStatusAtom } from '../../store/atom'
 
 function AudioWave(props: { stream: MediaStream }) {
   const refWave = useRef<HTMLDivElement>(null)
@@ -34,6 +36,8 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   const [showAudio, setShowAudio] = useState(false)
   const audioTrack = props.stream.getAudioTracks()[0]
   const videoTrack = props.stream.getVideoTracks()[0]
+  const [currentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
+  const [SpeakerStatus] = useAtom(SpeakerStatusAtom)
 
   useEffect(() => {
     if (audioTrack && !videoTrack) {
@@ -44,6 +48,12 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
     if (audioTrack && props.audio) {
       const el = document.createElement('audio')
       el.srcObject = new MediaStream([audioTrack])
+
+      if (el.setSinkId) {
+        el.setSinkId(currentDeviceSpeaker)
+      }
+
+      el.muted = !SpeakerStatus
       el.play()
 
       return () => {
@@ -52,7 +62,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
         el.remove()
       }
     }
-  }, [audioTrack, videoTrack])
+  }, [audioTrack, videoTrack, currentDeviceSpeaker, SpeakerStatus])
 
   useEffect(() => {
     if (refVideo.current && videoTrack) {

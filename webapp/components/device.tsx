@@ -1,12 +1,15 @@
 import useWhipClient from './use/whip'
+import { useAtom } from 'jotai'
 import { useEffect, useState } from 'react'
 import {
   Device,
   deviceNone,
   deviceScreen,
 } from '../lib/device'
+import { deviceSpeakerAtom, SpeakerStatusAtom } from './../store/atom'
 
 import Loading from './svg/loading'
+import SvgSpeaker from './svg/speaker'
 import SvgAudio from './svg/audio'
 import SvgVideo from './svg/video'
 import { SvgPresentCancel, SvgPresentToAll } from './svg/present'
@@ -24,9 +27,13 @@ export default function DeviceBar(props: { streamId: string }) {
   const [permissionAudio, setPermissionAudio] = useState('')
   const [permissionVideo, setPermissionVideo] = useState('')
 
+  const [loadingSpeaker, setLoadingSpeaker] = useState(false)
   const [loadingAudio, setLoadingAudio] = useState(false)
   const [loadingVideo, setLoadingVideo] = useState(false)
   const [loadingScreen, setLoadingScreen] = useState(false)
+
+  const [currentDeviceSpeaker, setCurrentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
+  const [SpeakerStatus, setSpeakerStatus] = useAtom(SpeakerStatusAtom)
 
   const {
     userStatus,
@@ -38,6 +45,7 @@ export default function DeviceBar(props: { streamId: string }) {
     toggleEnableVideo,
   } = useWhipClient(props.streamId)
 
+  const [deviceSpeaker, setDeviceSpeaker] = useState<Device[]>([deviceNone])
   const [deviceAudio, setDeviceAudio] = useState<Device[]>([deviceNone])
   const [deviceVideo, setDeviceVideo] = useState<Device[]>([deviceNone])
 
@@ -82,8 +90,14 @@ export default function DeviceBar(props: { streamId: string }) {
 
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(i => !!i.deviceId)
 
+    const speakers = devices.filter(i => i.kind === 'audiooutput').map(toDevice)
     const audios = devices.filter(i => i.kind === 'audioinput').map(toDevice)
     const videos = devices.filter(i => i.kind === 'videoinput').map(toDevice)
+
+    if (currentDeviceSpeaker === deviceNone.deviceId) {
+      const device = speakers[0]
+      if (device) setCurrentDeviceSpeaker(device.deviceId)
+    }
 
     if (currentDeviceAudio === deviceNone.deviceId) {
       const device = audios[0]
@@ -95,6 +109,7 @@ export default function DeviceBar(props: { streamId: string }) {
       if (device) await setCurrentDeviceVideo(device.deviceId)
     }
 
+    setDeviceSpeaker([...speakers])
     setDeviceAudio([...audios])
     setDeviceVideo([...videos, deviceScreen])
   }
@@ -130,6 +145,12 @@ export default function DeviceBar(props: { streamId: string }) {
     return () => { navigator.mediaDevices.removeEventListener('devicechange', updateDeviceList) }
   }, [])
 
+  const onChangedDeviceSpeaker = async (current: string) => {
+    setLoadingSpeaker(true)
+    setCurrentDeviceSpeaker(current)
+    setLoadingSpeaker(false)
+  }
+
   const onChangedDeviceAudio = async (current: string) => {
     setLoadingAudio(true)
     await setCurrentDeviceAudio(current)
@@ -151,6 +172,37 @@ export default function DeviceBar(props: { streamId: string }) {
   return (
     <div className="flex flex-row flex-wrap justify-around p-xs">
       <center className="flex flex-row flex-wrap justify-around">
+        <section className="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
+          <button className="text-rose-400 rounded-md w-8 h-8" onClick={async () => {
+            setLoadingSpeaker(true)
+            setSpeakerStatus((prev) => !prev)
+            setLoadingSpeaker(false)
+          }}>
+            <center>{ loadingSpeaker ? <Loading/> : <SvgSpeaker/> }</center>
+          </button>
+          <div className="flex flex-col justify-between w-1 pointer-events-none">
+            <div></div>
+            {SpeakerStatus
+              ? <div></div>
+              : <div className="w-8 h-1 bg-red-500 rounded-full rotate-45"
+                style={{
+                  position: 'relative',
+                  right: '32px',
+                  bottom: '14px',
+                }}></div>
+            }
+          </div>
+          <select
+            className="w-3.5 h-8 rounded-sm rotate-180"
+            value={currentDeviceSpeaker}
+            onChange={e => onChangedDeviceSpeaker(e.target.value)}
+          >
+            {deviceSpeaker.map(device =>
+              <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
+            )}
+          </select>
+        </section>
+
         <section className="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
           <button className="text-rose-400 rounded-md w-8 h-8" onClick={async () => {
             setLoadingAudio(true)
