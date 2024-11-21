@@ -48,10 +48,10 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
     if (audioTrack && props.audio) {
       const el = document.createElement('audio')
       el.srcObject = new MediaStream([audioTrack])
-      
+
       if (el.setSinkId) {
-        el.setSinkId(currentDeviceSpeaker) 
-      } 
+        el.setSinkId(currentDeviceSpeaker)
+      }
       el.play()
 
       return () => {

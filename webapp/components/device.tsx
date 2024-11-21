@@ -96,7 +96,7 @@ export default function DeviceBar(props: { streamId: string }) {
     if (currentDeviceSpeaker === deviceNone.deviceId) {
       const device = speakers[0]
       if (device) setCurrentDeviceSpeaker(device.deviceId)
-    } 
+    }
 
     if (currentDeviceAudio === deviceNone.deviceId) {
       const device = audios[0]
