@@ -74,12 +74,12 @@ export default function DeviceBar(props: { streamId: string }) {
       try {
         await navigator.mediaDevices.getUserMedia({ audio: true })
       } catch { /* empty */ }
-    
+
       try {
         await navigator.mediaDevices.getUserMedia({ video: true })
       } catch { /* empty */ }
     }
-    
+
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(i => !!i.deviceId)
 
     const audios = devices.filter(i => i.kind === 'audioinput').map(toDevice)
