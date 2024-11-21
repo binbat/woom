@@ -182,7 +182,7 @@ export default function DeviceBar(props: { streamId: string }) {
           </button>
           <div className="flex flex-col justify-between w-1 pointer-events-none">
             <div></div>
-            {!SpeakerStatus
+            {SpeakerStatus
               ? <div></div>
               : <div className="w-8 h-1 bg-red-500 rounded-full rotate-45"
                 style={{

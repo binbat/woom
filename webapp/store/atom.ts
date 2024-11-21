@@ -36,7 +36,7 @@ const enabledPresentationAtom = atom(get => get(presentationStreamAtom).stream.g
 enabledPresentationAtom.debugLabel = 'enabledPresentation'
 
 const deviceSpeakerAtom = atom<string>('')
-const SpeakerStatusAtom = atom<boolean>(false)
+const SpeakerStatusAtom = atom<boolean>(true)
 
 export {
   locationAtom,

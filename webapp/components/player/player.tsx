@@ -53,7 +53,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
         el.setSinkId(currentDeviceSpeaker)
       }
 
-      el.muted = SpeakerStatus
+      el.muted = !SpeakerStatus
       el.play()
 
       return () => {
