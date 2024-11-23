@@ -36,7 +36,13 @@ const enabledPresentationAtom = atom(get => get(presentationStreamAtom).stream.g
 enabledPresentationAtom.debugLabel = 'enabledPresentation'
 
 const deviceSpeakerAtom = atom<string>('')
-const SpeakerStatusAtom = atom<boolean>(true)
+deviceSpeakerAtom.debugLabel = 'deviceSpeaker'
+const speakerStatusAtom = atom<boolean>(true)
+speakerStatusAtom.debugLabel = 'speakerStatus'
+
+// Mobile device don't support share screen, For Mobile device default disabled
+const settingsEnabledScreenAtom = atom<boolean>(/Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(navigator.userAgent))
+settingsEnabledScreenAtom.debugLabel = 'settingsEnabledScreen'
 
 export {
   locationAtom,
@@ -46,7 +52,9 @@ export {
   meetingJoinedAtom,
   enabledPresentationAtom,
   deviceSpeakerAtom,
-  SpeakerStatusAtom,
+  speakerStatusAtom,
+
+  settingsEnabledScreenAtom,
 }
 
 export type {

@@ -4,7 +4,7 @@ import WaveSurfer from 'wavesurfer.js'
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record'
 import { isWechat } from '../../lib/util'
 import SvgProgress from '../svg/progress'
-import { deviceSpeakerAtom, SpeakerStatusAtom } from '../../store/atom'
+import { deviceSpeakerAtom, speakerStatusAtom } from '../../store/atom'
 
 function AudioWave(props: { stream: MediaStream }) {
   const refWave = useRef<HTMLDivElement>(null)
@@ -37,7 +37,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   const audioTrack = props.stream.getAudioTracks()[0]
   const videoTrack = props.stream.getVideoTracks()[0]
   const [currentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
-  const [SpeakerStatus] = useAtom(SpeakerStatusAtom)
+  const [speakerStatus] = useAtom(speakerStatusAtom)
 
   useEffect(() => {
     if (audioTrack && !videoTrack) {
@@ -53,7 +53,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
         el.setSinkId(currentDeviceSpeaker)
       }
 
-      el.muted = !SpeakerStatus
+      el.muted = !speakerStatus
       el.play()
 
       return () => {
@@ -62,7 +62,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
         el.remove()
       }
     }
-  }, [audioTrack, videoTrack, currentDeviceSpeaker, SpeakerStatus])
+  }, [audioTrack, videoTrack, currentDeviceSpeaker, speakerStatus])
 
   useEffect(() => {
     if (refVideo.current && videoTrack) {
