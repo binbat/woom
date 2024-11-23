@@ -35,7 +35,7 @@ export default function DeviceBar(props: { streamId: string }) {
   const [currentDeviceSpeaker, setCurrentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
   const [SpeakerStatus, setSpeakerStatus] = useAtom(SpeakerStatusAtom)
 
-  const [mobileDevice, setMobileDevice] = useState(false)
+  const [mobileDevice, setMobileDevice] = useState<boolean | null>(null)
 
   const {
     userStatus,
@@ -113,7 +113,7 @@ export default function DeviceBar(props: { streamId: string }) {
 
     setDeviceSpeaker([...speakers])
     setDeviceAudio([...audios])
-    setDeviceVideo([...videos, deviceScreen])
+    setDeviceVideo(mobileDevice ? [...videos] : [...videos, deviceScreen])
   }
 
   const init = async () => {
@@ -138,8 +138,11 @@ export default function DeviceBar(props: { streamId: string }) {
   }
 
   useEffect(() => {
+    if (mobileDevice === null) {
+      return
+    }
     init()
-  }, [])
+  }, [mobileDevice])
 
   useEffect(() => {
     // Reference: https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/devicechange_event
