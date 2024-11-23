@@ -35,6 +35,8 @@ export default function DeviceBar(props: { streamId: string }) {
   const [currentDeviceSpeaker, setCurrentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
   const [SpeakerStatus, setSpeakerStatus] = useAtom(SpeakerStatusAtom)
 
+  const [mobileDevice, setMobileDevice] = useState(false)
+
   const {
     userStatus,
     currentDeviceAudio,
@@ -143,6 +145,11 @@ export default function DeviceBar(props: { streamId: string }) {
     // Reference: https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/devicechange_event
     navigator.mediaDevices.addEventListener('devicechange', updateDeviceList)
     return () => { navigator.mediaDevices.removeEventListener('devicechange', updateDeviceList) }
+  }, [])
+
+  useEffect(() => {
+    const isMobile = /Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(navigator.userAgent)
+    setMobileDevice(isMobile)
   }, [])
 
   const onChangedDeviceSpeaker = async (current: string) => {
@@ -271,19 +278,20 @@ export default function DeviceBar(props: { streamId: string }) {
           </select>
         </section>
       </center>
-      <center>
-        <section className="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
-          <button className="text-rose-400 rounded-md w-8 h-8" onClick={() => toggleEnableScreen()}>
-            <center>
-              {loadingScreen
-                ? <Loading />
-                : userStatus.screen ? <SvgPresentCancel /> : <SvgPresentToAll />
-              }
-            </center>
-          </button>
-        </section>
-
-      </center>
+      {!mobileDevice && (
+        <center>
+          <section className="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
+            <button className="text-rose-400 rounded-md w-8 h-8" onClick={() => toggleEnableScreen()}>
+              <center>
+                {loadingScreen
+                  ? <Loading />
+                  : userStatus.screen ? <SvgPresentCancel /> : <SvgPresentToAll />
+                }
+              </center>
+            </button>
+          </section>
+        </center>
+      )}
     </div>
   )
 }
