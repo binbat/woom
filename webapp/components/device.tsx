@@ -6,7 +6,7 @@ import {
   deviceNone,
   deviceScreen,
 } from '../lib/device'
-import { deviceSpeakerAtom, SpeakerStatusAtom } from './../store/atom'
+import { deviceSpeakerAtom, speakerStatusAtom, settingsEnabledScreenAtom } from './../store/atom'
 
 import Loading from './svg/loading'
 import SvgSpeaker from './svg/speaker'
@@ -33,9 +33,9 @@ export default function DeviceBar(props: { streamId: string }) {
   const [loadingScreen, setLoadingScreen] = useState(false)
 
   const [currentDeviceSpeaker, setCurrentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
-  const [SpeakerStatus, setSpeakerStatus] = useAtom(SpeakerStatusAtom)
+  const [speakerStatus, setSpeakerStatus] = useAtom(speakerStatusAtom)
 
-  const [mobileDevice, setMobileDevice] = useState<boolean | null>(null)
+  const [settingsEnabledScreen] = useAtom(settingsEnabledScreenAtom)
 
   const {
     userStatus,
@@ -113,7 +113,7 @@ export default function DeviceBar(props: { streamId: string }) {
 
     setDeviceSpeaker([...speakers])
     setDeviceAudio([...audios])
-    setDeviceVideo(mobileDevice ? [...videos] : [...videos, deviceScreen])
+    setDeviceVideo(settingsEnabledScreen ? [...videos] : [...videos, deviceScreen])
   }
 
   const init = async () => {
@@ -138,21 +138,13 @@ export default function DeviceBar(props: { streamId: string }) {
   }
 
   useEffect(() => {
-    if (mobileDevice === null) {
-      return
-    }
     init()
-  }, [mobileDevice])
+  }, [])
 
   useEffect(() => {
     // Reference: https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/devicechange_event
     navigator.mediaDevices.addEventListener('devicechange', updateDeviceList)
     return () => { navigator.mediaDevices.removeEventListener('devicechange', updateDeviceList) }
-  }, [])
-
-  useEffect(() => {
-    const isMobile = /Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(navigator.userAgent)
-    setMobileDevice(isMobile)
   }, [])
 
   const onChangedDeviceSpeaker = async (current: string) => {
@@ -192,7 +184,7 @@ export default function DeviceBar(props: { streamId: string }) {
           </button>
           <div className="flex flex-col justify-between w-1 pointer-events-none">
             <div></div>
-            {SpeakerStatus
+            {speakerStatus
               ? <div></div>
               : <div className="w-8 h-1 bg-red-500 rounded-full rotate-45"
                 style={{
@@ -281,7 +273,7 @@ export default function DeviceBar(props: { streamId: string }) {
           </select>
         </section>
       </center>
-      {!mobileDevice && (
+      {!settingsEnabledScreen && (
         <center>
           <section className="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
             <button className="text-rose-400 rounded-md w-8 h-8" onClick={() => toggleEnableScreen()}>
