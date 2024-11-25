@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { event, Context, Data } from './whxp'
-import { Stream, StreamState } from '../../lib/api'
+import { Stream, StreamState, token} from '../../lib/api'
 import { WHIPClient } from 'whip-whep/whip'
 import {
   deviceNone,
@@ -8,6 +8,7 @@ import {
   asyncGetAudioStream,
   asyncGetVideoStream,
 } from '../../lib/device'
+
 
 interface WHIPData extends Data {
   setUserName: (name: string) => void,
@@ -188,7 +189,7 @@ class WHIPContext extends Context {
 
     try {
       const url = location.origin + `/whip/${id}`
-      await client.publish(pc, url)
+      await client.publish(pc, url, token)
     } catch (e) {
       console.log(e)
       userStatus.state = StreamState.Failed
