@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	woomMiddleware "woom/server/api/middleware"
-	"woom/server/api/v1"
+	v1 "woom/server/api/v1"
 	"woom/server/helper"
 	"woom/static"
 
@@ -49,15 +49,14 @@ func NewApi(rdb *redis.Client, secret string, live777Url string, live777Token st
 		r.Post("/room/{roomId}/stream", handle.CreateRoomStream)
 		r.Patch("/room/{roomId}/stream/{streamId}", handle.UpdateRoomStream)
 		r.Delete("/room/{roomId}/stream/{streamId}", handle.DestroyRoomStream)
+		r.HandleFunc("/whip/{uuid}", handler(proxy, live777Url, live777Token))
+		r.HandleFunc("/whep/{uuid}", handler(proxy, live777Url, live777Token))
 	})
 
 	r.Post("/user/", handle.CreateUser)
 
 	//r.Post("/room/{roomId}/message", handle.CreateMessage)
 	//r.Get("/room/{roomId}/message", handle.ShowMessage)
-
-	r.HandleFunc("/whip/{uuid}", handler(proxy, live777Url, live777Token))
-	r.HandleFunc("/whep/{uuid}", handler(proxy, live777Url, live777Token))
 
 	r.Handle("/*", http.StripPrefix("/", http.FileServer(helper.NewSinglePageApp("index.html", http.FS(static.Dist)))))
 	return r
