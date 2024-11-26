@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { event, Context, Data } from './whxp'
-import { Stream, StreamState, token} from '../../lib/api'
+import { Stream, StreamState, token } from '../../lib/api'
 import { WHIPClient } from 'whip-whep/whip'
 import {
   deviceNone,
@@ -8,7 +8,6 @@ import {
   asyncGetAudioStream,
   asyncGetVideoStream,
 } from '../../lib/device'
-
 
 interface WHIPData extends Data {
   setUserName: (name: string) => void,
