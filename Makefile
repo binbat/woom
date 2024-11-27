@@ -16,7 +16,7 @@ webapp:
 
 .PHONY: webapp-clean
 webapp-clean:
-	rm -r dist
+	rm -r static/dist
 
 .PHONY: clean
 clean: webapp-clean
