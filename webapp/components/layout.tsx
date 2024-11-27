@@ -46,6 +46,19 @@ export default function Layout(props: { meetingId: string }) {
     setMeetingJoined(false)
   }
 
+  useEffect(() => {
+    const cleanup = () => {
+      delStream(props.meetingId, localStreamId)
+    }
+    // Need to set separate Browser Events Parameters for Firefox refresh and browser termination
+    window.addEventListener('beforeunload', cleanup) // Used to monitor the browser termination of Firefox event
+    window.addEventListener('unload', cleanup) // Used to monitor Firefox refresh event
+    return () => {
+      window.removeEventListener('beforeunload', cleanup)
+      window.removeEventListener('unload', cleanup)
+    }
+  }, [props.meetingId, localStreamId])
+
   //useEffect(() => {
   //  let shareScreenId = ""
   //  const setShareScreenId = (id: string) => shareScreenId = id
