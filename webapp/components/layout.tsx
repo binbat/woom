@@ -46,6 +46,29 @@ export default function Layout(props: { meetingId: string }) {
     setMeetingJoined(false)
   }
 
+  useEffect(() => {
+    const cleanup = () => {
+      delStream(props.meetingId, localStreamId)
+    }
+    // NOTE:
+    // https://github.com/binbat/woom/pull/27
+    // https://developer.mozilla.org/en-US/docs/Web/API/Window/unload_event
+    // `unload` event is Deprecated, But Firefox need `unload`
+    //
+    // event                        | Chrome                    | Firefox                   | Safari
+    // ---------------------------- | ------------------------- | ------------------------- | -----
+    // `beforeunload`               | ok                        | console error, no request | console error, request ok
+    // `unload`                     | console error, no request | ok                        | console no request log, no request
+    // `beforeunload` + `keepalive` | ok                        | console error, no request | console error, request ok
+    // `unload` +  `keepalive`      | console error, request ok | ok                        | console no request log, request ok
+    window.addEventListener('beforeunload', cleanup)
+    window.addEventListener('unload', cleanup)
+    return () => {
+      window.removeEventListener('beforeunload', cleanup)
+      window.removeEventListener('unload', cleanup)
+    }
+  }, [props.meetingId, localStreamId])
+
   //useEffect(() => {
   //  let shareScreenId = ""
   //  const setShareScreenId = (id: string) => shareScreenId = id

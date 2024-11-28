@@ -114,6 +114,7 @@ async function delStream(roomId: string, streamId: string): Promise<any> {
       'Authorization': `Bearer ${token}`,
     },
     method: 'DELETE',
+    keepalive: true,
   })
 }
 
