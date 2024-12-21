@@ -8,7 +8,7 @@ services:
       - "6379:6379/tcp"
 
   live777:
-    image: ghcr.io/binbat/live777-server:0.5.1
+    image: ghcr.io/binbat/live777-server:0.7.3
     container_name: live777
     hostname: live777
     ports:
