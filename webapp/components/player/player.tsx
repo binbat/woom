@@ -91,18 +91,17 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   return (
     <center className="flex flex-col justify-center min-h-60" style={{ width: props.width }}>
       {!props.stream.getTracks().length ? <center><SvgProgress /></center> : null}
-      {props.video
-        ? <video
-          className="rounded-xl"
-          playsInline={true}
-          autoPlay={true}
-          controls={true}
-          muted={props.muted}
-          ref={refVideo}
-          style={props.stream?.getVideoTracks().length ? { width: props.width } : { height: '0px' }}
-        />
-        : null
-      }
+      <video
+        className="rounded-xl"
+        playsInline={true}
+        autoPlay={true}
+        controls={true}
+        muted={props.muted}
+        ref={refVideo}
+        style={props.stream?.getVideoTracks().length
+          ? { width: props.width, display: props.video ? "inline" : "none"}
+          : { height: '0px' }}
+      />
       {!props.video || showAudio
         ? <AudioWave stream={props.stream} />
         : null
