@@ -99,7 +99,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
         muted={props.muted}
         ref={refVideo}
         style={props.stream?.getVideoTracks().length
-          ? { width: props.width, display: props.video ? "inline" : "none"}
+          ? { width: props.width, display: props.video ? 'inline' : 'none'}
           : { height: '0px' }}
       />
       {!props.video || showAudio
