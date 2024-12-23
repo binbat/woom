@@ -30,14 +30,16 @@ export default function Layout(props: { meetingId: string }) {
 
   const refresh = async () => {
     const data = (await getRoom(props.meetingId)).streams
-    const r = Object.keys(data)
-      .filter(i => i !== localStreamId)
-      .filter(i => !!i)
-      .reduce((map, i) => {
-        map[i] = data[i]
-        return map
-      }, {} as { [_: string]: Stream })
-    setRemoteUserStatus(r)
+    if (data) {
+      const r = Object.keys(data)
+        .filter(i => i !== localStreamId)
+        .filter(i => !!i)
+        .reduce((map, i) => {
+          map[i] = data[i]
+          return map
+        }, {} as { [_: string]: Stream })
+      setRemoteUserStatus(r)
+    }
   }
 
   const callEnd = async () => {
