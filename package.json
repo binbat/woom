@@ -11,6 +11,7 @@
     "preview": "vite preview -c webapp/vite.config.ts"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.21",
     "copy-to-clipboard": "^3.3.3",
     "jotai": "^2.10.2",
     "jotai-devtools": "^0.10.1",
