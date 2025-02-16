@@ -13,6 +13,7 @@ import SvgSpeaker from './svg/speaker'
 import SvgAudio from './svg/audio'
 import SvgVideo from './svg/video'
 import { SvgPresentCancel, SvgPresentToAll } from './svg/present'
+import { SvgBackgroundCancel, SvgBackground } from './svg/background'
 
 function toDevice(info: MediaDeviceInfo): Device {
   const deviceId = info.deviceId
@@ -31,11 +32,13 @@ export default function DeviceBar(props: { streamId: string }) {
   const [loadingAudio, setLoadingAudio] = useState(false)
   const [loadingVideo, setLoadingVideo] = useState(false)
   const [loadingScreen, setLoadingScreen] = useState(false)
+  const [loadingBackground, setLoadingBackground] = useState(false)
 
   const [currentDeviceSpeaker, setCurrentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
   const [speakerStatus, setSpeakerStatus] = useAtom(speakerStatusAtom)
 
   const [settingsEnabledScreen] = useAtom(settingsEnabledScreenAtom)
+  const [virtualBackgroundEnabled, setVirtualBackgroundEnabled] = useState(false)
 
   const {
     userStatus,
@@ -45,6 +48,7 @@ export default function DeviceBar(props: { streamId: string }) {
     setCurrentDeviceVideo,
     toggleEnableAudio,
     toggleEnableVideo,
+    toggleEnableVirtualBackground,
   } = useWhipClient(props.streamId)
 
   const [deviceSpeaker, setDeviceSpeaker] = useState<Device[]>([deviceNone])
@@ -162,6 +166,9 @@ export default function DeviceBar(props: { streamId: string }) {
   const onChangedDeviceVideo = async (current: string) => {
     setLoadingVideo(true)
     await setCurrentDeviceVideo(current)
+    if (userStatus.screen) {
+      setVirtualBackgroundEnabled(false)
+    }
     setLoadingVideo(false)
   }
 
@@ -243,6 +250,9 @@ export default function DeviceBar(props: { streamId: string }) {
           <button className="text-rose-400 rounded-md w-8 h-8" onClick={async () => {
             setLoadingVideo(true)
             await toggleEnableVideo()
+            if (!userStatus.video && virtualBackgroundEnabled) {
+              setVirtualBackgroundEnabled(false)
+            }
             setLoadingVideo(false)
           }}>
             <center>{ loadingVideo ? <Loading/> : <SvgVideo/> }</center>
@@ -271,6 +281,22 @@ export default function DeviceBar(props: { streamId: string }) {
               <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
             )}
           </select>
+        </section>
+
+        <section className="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
+          <button className="text-rose-400 rounded-md w-8 h-8" disabled={!userStatus.video || userStatus.screen} onClick={async () => {
+            setLoadingBackground(true)
+            await toggleEnableVirtualBackground()
+            setVirtualBackgroundEnabled(s => !s)
+            setLoadingBackground(false)
+          }}>
+            <center>
+              { loadingBackground
+                ? <Loading/>
+                : virtualBackgroundEnabled ? <SvgBackgroundCancel/> : <SvgBackground/>
+              }
+            </center>
+          </button>
         </section>
       </center>
       {!settingsEnabledScreen && (

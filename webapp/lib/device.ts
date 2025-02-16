@@ -13,6 +13,11 @@ const deviceScreen = {
   label: 'screen',
 }
 
+const deviceSegmenter = {
+  deviceId: 'segmenter',
+  lable: 'segmenter'
+}
+
 async function asyncGetAudioStream(deviceId: string): Promise<MediaStream> {
   let stream: MediaStream = new MediaStream()
   if (deviceId !== 'none') {
@@ -38,6 +43,7 @@ export {
   asyncGetVideoStream,
   deviceNone,
   deviceScreen,
+  deviceSegmenter,
 }
 
 export type {
