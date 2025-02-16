@@ -9,7 +9,7 @@ import {
   asyncGetAudioStream,
   asyncGetVideoStream,
 } from '../../lib/device'
-import { disableSegmentation, asyncGetStreamForVirtualBackground } from './imageSegmentation'
+import { VirtualBackgroundStream } from './imageSegmentation'
 
 interface WHIPData extends Data {
   setUserName: (name: string) => void,
@@ -35,6 +35,7 @@ class WHIPContext extends Context {
   toggleEnableVideo = async () => this.setCurrentDeviceVideo(this.userStatus.video ? deviceNone.deviceId : this.currentDeviceVideo)
   toggleEnableVirtualBackground = async () => this.setCurrentDeviceVideo(this.virtualBackgroundEnabled ? this.currentDeviceVideo : deviceSegmenter.deviceId)
   virtualBackgroundEnabled = false
+  segmentation: VirtualBackgroundStream | null = null
 
   constructor(id: string) {
     super(id)
@@ -165,10 +166,13 @@ class WHIPContext extends Context {
       let mediaStream: MediaStream
       if (current === deviceSegmenter.deviceId) {
         this.virtualBackgroundEnabled = true
-        mediaStream = await asyncGetStreamForVirtualBackground(current)
+        this.segmentation = new VirtualBackgroundStream(current)
+        mediaStream = await this.segmentation.startStream()
       } else {
         this.virtualBackgroundEnabled = false
-        await disableSegmentation()
+        if (this.segmentation) {
+          this.segmentation.destroyStream()
+        }
         mediaStream = await asyncGetVideoStream(current)
       }
       const audioTracks = stream.getAudioTracks()

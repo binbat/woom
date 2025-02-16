@@ -29,6 +29,11 @@ export default defineConfig({
   },
   plugins: [
     UnoCSS(resolve(WebAppRoot, 'uno.config.ts')),
-    React()
-  ]
+    React(),
+  ],
+  resolve: {
+    alias: {
+      '@': ProjectRoot,
+    }
+  }
 })
