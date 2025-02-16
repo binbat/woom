@@ -292,8 +292,8 @@ export default function DeviceBar(props: { streamId: string }) {
           }}>
             <center>
               { loadingBackground
-                  ? <Loading/>
-                  : virtualBackgroundEnabled ? <SvgBackgroundCancel/> : <SvgBackground/>
+                ? <Loading/>
+                : virtualBackgroundEnabled ? <SvgBackgroundCancel/> : <SvgBackground/>
               }
             </center>
           </button>
