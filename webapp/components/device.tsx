@@ -163,18 +163,34 @@ export default function DeviceBar(props: { streamId: string }) {
     setLoadingAudio(false)
   }
 
-  const onChangedDeviceVideo = async (current: string) => {
+  const onChangedDeviceVideo = async (current: string, constraints?: MediaTrackConstraints) => {
     setLoadingVideo(true)
-    await setCurrentDeviceVideo(current)
+    await setCurrentDeviceVideo(current, constraints)
     if (userStatus.screen) {
       setVirtualBackgroundEnabled(false)
     }
     setLoadingVideo(false)
   }
 
+  const screenResolutions = [
+    { label: '720p (Default)', value: '720' },
+    { label: '1080p', value: '1080' },
+    { label: 'Native', value: 'native' }
+  ]
+  const [currentScreenResolution, setCurrentScreenResolution] = useState('720')
+
   const toggleEnableScreen = async () => {
     setLoadingScreen(true)
     await onChangedDeviceVideo(userStatus.screen ? deviceNone.deviceId : deviceScreen.deviceId)
+    setLoadingScreen(false)
+  }
+
+  const onChangeScreenShareResolution = async (resolution: string) => {
+    setCurrentScreenResolution(resolution)
+    const height = Number.parseInt(resolution)
+    const constraints = Number.isNaN(height) ? {} : { height }
+    setLoadingScreen(true)
+    await onChangedDeviceVideo(deviceScreen.deviceId, constraints)
     setLoadingScreen(false)
   }
 
@@ -187,7 +203,7 @@ export default function DeviceBar(props: { streamId: string }) {
             setSpeakerStatus((prev) => !prev)
             setLoadingSpeaker(false)
           }}>
-            <center>{ loadingSpeaker ? <Loading/> : <SvgSpeaker/> }</center>
+            <center>{loadingSpeaker ? <Loading /> : <SvgSpeaker />}</center>
           </button>
           <div className="flex flex-col justify-between w-1 pointer-events-none">
             <div></div>
@@ -218,7 +234,7 @@ export default function DeviceBar(props: { streamId: string }) {
             toggleEnableAudio()
             setLoadingAudio(false)
           }}>
-            <center>{ loadingAudio ? <Loading/> : <SvgAudio/> }</center>
+            <center>{loadingAudio ? <Loading /> : <SvgAudio />}</center>
           </button>
           <div className="flex flex-col justify-between w-1 pointer-events-none">
             {permissionAudio === 'granted'
@@ -255,7 +271,7 @@ export default function DeviceBar(props: { streamId: string }) {
             }
             setLoadingVideo(false)
           }}>
-            <center>{ loadingVideo ? <Loading/> : <SvgVideo/> }</center>
+            <center>{loadingVideo ? <Loading /> : <SvgVideo />}</center>
           </button>
           <div className="flex flex-col justify-between w-1 pointer-events-none">
             {permissionVideo === 'granted'
@@ -291,9 +307,9 @@ export default function DeviceBar(props: { streamId: string }) {
             setLoadingBackground(false)
           }}>
             <center>
-              { loadingBackground
-                ? <Loading/>
-                : virtualBackgroundEnabled ? <SvgBackgroundCancel/> : <SvgBackground/>
+              {loadingBackground
+                ? <Loading />
+                : virtualBackgroundEnabled ? <SvgBackgroundCancel /> : <SvgBackground />
               }
             </center>
           </button>
@@ -310,6 +326,16 @@ export default function DeviceBar(props: { streamId: string }) {
                 }
               </center>
             </button>
+            <div className="w-1"></div>
+            <select
+              className="w-3.5 h-8 rounded-sm rotate-180"
+              value={currentScreenResolution}
+              onChange={e => onChangeScreenShareResolution(e.target.value)}
+            >
+              {screenResolutions.map(r =>
+                <option key={r.label} value={r.value}>{r.label}</option>
+              )}
+            </select>
           </section>
         </center>
       )}

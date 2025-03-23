@@ -18,7 +18,7 @@ interface WHIPData extends Data {
   currentDeviceAudio: string,
   currentDeviceVideo: string,
   setCurrentDeviceAudio: (current: string) => Promise<void>,
-  setCurrentDeviceVideo: (current: string) => Promise<void>,
+  setCurrentDeviceVideo: (current: string, constraints?: MediaTrackConstraints) => Promise<void>,
   toggleEnableAudio: () => Promise<void>,
   toggleEnableVideo: () => Promise<void>,
 
@@ -31,6 +31,7 @@ class WHIPContext extends Context {
 
   currentDeviceAudio = deviceNone.deviceId
   currentDeviceVideo = deviceNone.deviceId
+  currentVideoConstraints: MediaTrackConstraints | undefined = undefined
   toggleEnableAudio = async () => this.setCurrentDeviceAudio(this.userStatus.audio ? deviceNone.deviceId : this.currentDeviceAudio)
   toggleEnableVideo = async () => this.setCurrentDeviceVideo(this.userStatus.video ? deviceNone.deviceId : this.currentDeviceVideo)
   toggleEnableVirtualBackground = async () => this.setCurrentDeviceVideo(this.virtualBackgroundEnabled ? this.currentDeviceVideo : deviceSegmenter.deviceId)
@@ -74,7 +75,7 @@ class WHIPContext extends Context {
       currentDeviceAudio: this.currentDeviceAudio,
       currentDeviceVideo: this.currentDeviceVideo,
       setCurrentDeviceAudio: (current: string) => this.setCurrentDeviceAudio(current),
-      setCurrentDeviceVideo: (current: string) => this.setCurrentDeviceVideo(current),
+      setCurrentDeviceVideo: (current: string, constraints?: MediaTrackConstraints) => this.setCurrentDeviceVideo(current, constraints),
       toggleEnableAudio: () => this.toggleEnableAudio(),
       toggleEnableVideo: () => this.toggleEnableVideo(),
 
@@ -154,10 +155,10 @@ class WHIPContext extends Context {
     })
   }
 
-  async setCurrentDeviceVideo(current: string) {
-    const { stream, setStream, userStatus, currentDeviceVideo } = this
+  async setCurrentDeviceVideo(current: string, constraints?: MediaTrackConstraints) {
+    const { stream, setStream, userStatus, currentDeviceVideo, currentVideoConstraints } = this
 
-    if (current !== currentDeviceVideo || !userStatus.video || this.virtualBackgroundEnabled) {
+    if (current !== currentDeviceVideo || currentVideoConstraints !== constraints || !userStatus.video || this.virtualBackgroundEnabled) {
       // Closed old tracks
       stream.getVideoTracks().map(track => {
         track.stop()
@@ -173,7 +174,7 @@ class WHIPContext extends Context {
         if (this.segmentation) {
           this.segmentation.destroyStream()
         }
-        mediaStream = await asyncGetVideoStream(current)
+        mediaStream = await asyncGetVideoStream(current, constraints)
       }
       const audioTracks = stream.getAudioTracks()
       const videoTracks = mediaStream.getVideoTracks()
