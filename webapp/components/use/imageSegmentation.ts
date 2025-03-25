@@ -32,8 +32,13 @@ export class VirtualBackgroundStream {
     this.segmenter = null
     this.backgroundImage = new Image()
     this.backgroundImage.src = backgroundImgSrc
-    this.videoWidth = 480
-    this.videoHeight = 360
+    if (window.matchMedia('(orientation: portrait)').matches) {
+      this.videoWidth = 480
+      this.videoHeight = 640
+    } else {
+      this.videoWidth = 640
+      this.videoHeight = 480
+    }
 
     this.video = document.createElement('video')
 
@@ -65,7 +70,7 @@ export class VirtualBackgroundStream {
 
   private callbackForVideo = (segmentationResult: ImageSegmenterResult) => {
     if (!segmentationResult || !segmentationResult.categoryMask) return
-    const imageData = this.tempCtx.getImageData(0, 0, this.videoWidth, this.videoHeight).data
+    const imageData = this.tempCtx.getImageData(0, 0, this.video.videoWidth, this.video.videoHeight).data
     // get results of segmentation
     // 0 - background
     // 1 - hair
@@ -73,7 +78,7 @@ export class VirtualBackgroundStream {
     // 3 - face-skin
     // 4 - clothes
     // 5 - others (accessories)
-    const maskData = segmentationResult.categoryMask.getAsUint8Array()
+    const maskData = segmentationResult.categoryMask.getAsFloat32Array()
 
     for (let i = 0; i < maskData.length; ++i) {
       const maskVal = maskData[i]
@@ -88,7 +93,7 @@ export class VirtualBackgroundStream {
 
     // draw background image
     if (this.backgroundImage.complete && this.backgroundImage.naturalHeight !== 0) {
-      this.canvasCtx.drawImage(this.backgroundImage, 0, 0, this.videoWidth, this.videoHeight)
+      this.canvasCtx.drawImage(this.backgroundImage, 0, 0, this.video.videoWidth, this.video.videoHeight)
     }
 
     const uint8Array = new Uint8ClampedArray(imageData.buffer)
@@ -109,7 +114,7 @@ export class VirtualBackgroundStream {
     if (!this.segmenter || !this.webcamRunning) return
     try {
       // draw video frame on tempCanvas
-      this.tempCtx.drawImage(this.video, 0, 0, this.videoWidth, this.videoHeight)
+      this.tempCtx.drawImage(this.video, 0, 0, this.video.videoWidth, this.video.videoHeight)
       this.segmenter.segmentForVideo(this.video, performance.now(), this.callbackForVideo)
     } catch (error) {
       console.error('error when processing frame:', error)
@@ -124,8 +129,6 @@ export class VirtualBackgroundStream {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
-          width: this.videoWidth,
-          height: this.videoHeight,
           deviceId: this.deviceId
         }
       })
