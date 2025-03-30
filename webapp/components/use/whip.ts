@@ -184,6 +184,7 @@ class WHIPContext extends Context {
       // NOTE: screen share
       userStatus.screen = current !== deviceScreen.deviceId ? false : true
       this.currentDeviceVideo = (current === deviceNone.deviceId || current === deviceSegmenter.deviceId) ? this.currentDeviceVideo : current
+      this.currentVideoConstraints = constraints
 
       this.sync()
       this.syncUserStatus(userStatus)

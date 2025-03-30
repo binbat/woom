@@ -7,14 +7,24 @@ import { presentationStreamAtom } from '../../store/atom'
 
 export default function WhipPlayer(props: { streamId: string, width: string }) {
   const { stream, userStatus, restart } = useWhipClient(props.streamId)
-  const [, setPresentationStream] = useAtom(presentationStreamAtom)
+  // TODO: refactor "presentation stream" handling for more precise control
+  const [presentationStream, setPresentationStream] = useAtom(presentationStreamAtom)
 
   useEffect(() => {
-    setPresentationStream({
-      name: userStatus.name + 'Presentation',
-      stream: userStatus.screen ? stream : new MediaStream(),
-    })
-  }, [userStatus.screen])
+    // set/clear "presentation stream" when self starts/stops sharing
+    const selfStreamName = `${userStatus.name}_Presentation`
+    if (userStatus.screen && presentationStream.stream !== stream) {
+      setPresentationStream({
+        name: selfStreamName,
+        stream: stream,
+      })
+    } else if (!userStatus.screen && presentationStream.name === selfStreamName) {
+      setPresentationStream({
+        name: '',
+        stream: new MediaStream(),
+      })
+    }
+  }, [userStatus.screen, stream])
 
   return (
     <center className="flex flex-col">
