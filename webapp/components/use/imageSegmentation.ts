@@ -78,33 +78,56 @@ export class VirtualBackgroundStream {
     // 3 - face-skin
     // 4 - clothes
     // 5 - others (accessories)
-    const maskData = segmentationResult.categoryMask.getAsFloat32Array()
+    const maskData = segmentationResult.categoryMask.getAsFloat32Array().map(val => Math.round(val * 255.0))
+    const categoryChosen = 0
 
-    for (let i = 0; i < maskData.length; ++i) {
-      const maskVal = maskData[i]
-      const j = i * 4
-      // set chosen pixels to transparent
-      if (maskVal == 0) {
-        imageData[j + 3] = 0 // alpha channel
+    // draw the top layer on tempCanvas
+    {
+      for (let i = 0; i < maskData.length; i++) {
+        if (maskData[i] != categoryChosen) {
+          maskData[i] = 255
+        } else {
+          maskData[i] = 0
+        }
+      }
+      const w = this.videoWidth
+      const h = this.videoHeight
+      const getPixelIndex = (x: number, y: number) => (y * w + x)
+      for (let i = 0; i < h; i++) {
+        for (let j = 0; j < w; j++) {
+          let sum = 0
+          let neighborNum = 0
+          for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+              if (i + dy > -1 && i + dy < h && j + dx > -1 && j + dx < w) {
+                neighborNum++
+                sum += maskData[getPixelIndex(j + dx, i + dy)]
+              }
+            }
+          }
+          imageData[getPixelIndex(j, i) * 4 + 3] = sum / neighborNum
+        }
+      }
+
+      const uint8Array = new Uint8ClampedArray(imageData.buffer)
+      const dataNew = new ImageData(
+        uint8Array,
+        this.video.videoWidth,
+        this.video.videoHeight
+      )
+
+      this.tempCtx.putImageData(dataNew, 0, 0)
+    }
+
+    // draw the bottom layer on canvas
+    {
+      this.canvasCtx.clearRect(0, 0, this.videoWidth, this.videoHeight)
+      if (this.backgroundImage.complete && this.backgroundImage.naturalHeight !== 0) {
+        this.canvasCtx.drawImage(this.backgroundImage, 0, 0, this.video.videoWidth, this.video.videoHeight)
       }
     }
 
-    this.canvasCtx.clearRect(0, 0, this.videoWidth, this.videoHeight)
-
-    // draw background image
-    if (this.backgroundImage.complete && this.backgroundImage.naturalHeight !== 0) {
-      this.canvasCtx.drawImage(this.backgroundImage, 0, 0, this.video.videoWidth, this.video.videoHeight)
-    }
-
-    const uint8Array = new Uint8ClampedArray(imageData.buffer)
-    const dataNew = new ImageData(
-      uint8Array,
-      this.video.videoWidth,
-      this.video.videoHeight
-    )
-
-    // put segmented frame onto canvas
-    this.tempCtx.putImageData(dataNew, 0, 0)
+    // put two layers together
     this.canvasCtx.drawImage(this.tempCanvas, 0, 0)
 
     window.requestAnimationFrame(this.predictWebcam)
