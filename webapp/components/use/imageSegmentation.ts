@@ -84,11 +84,7 @@ export class VirtualBackgroundStream {
     // draw the top layer on tempCanvas
     {
       for (let i = 0; i < maskData.length; i++) {
-        if (maskData[i] != categoryChosen) {
-          maskData[i] = 255
-        } else {
-          maskData[i] = 0
-        }
+        maskData[i] = maskData[i] === categoryChosen ? 0 : 255
       }
       const w = this.videoWidth
       const h = this.videoHeight
@@ -109,9 +105,8 @@ export class VirtualBackgroundStream {
         }
       }
 
-      const uint8Array = new Uint8ClampedArray(imageData.buffer)
       const dataNew = new ImageData(
-        uint8Array,
+        imageData,
         this.video.videoWidth,
         this.video.videoHeight
       )
