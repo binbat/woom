@@ -18,7 +18,7 @@ export default function Prepare(_props: { meetingId: string }) {
   const localStreamId = getStorageStream()
   const [_, setMeetingJoined] = useAtom(meetingJoinedAtom)
 
-  const { id, stream, setUserName, setSyncUserStatus, start } = useWhipClient(localStreamId)
+  const { id, stream, setUserName, setSyncUserStatus, restart } = useWhipClient(localStreamId)
 
   const join = async () => {
     setLoading(true)
@@ -27,7 +27,7 @@ export default function Prepare(_props: { meetingId: string }) {
 
     setMeetingJoined(true)
     setStorageName(displayName)
-    await start()
+    await restart()
     setSyncUserStatus((status) => setStream(id, status))
     setLoading(false)
   }

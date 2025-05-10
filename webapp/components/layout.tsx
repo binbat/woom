@@ -15,6 +15,7 @@ import SvgDone from './svg/done'
 import SvgEnd from './svg/end'
 import { getRoom, delStream, Stream } from '../lib/api'
 import { getStorageStream } from '../lib/storage'
+import useWhipClient from './use/whip'
 
 export default function Layout(props: { meetingId: string }) {
   const [copyStatus, setCopyStatus] = useState(false)
@@ -27,6 +28,8 @@ export default function Layout(props: { meetingId: string }) {
   //const [speakerId, setSpeakerId] = useState<string>("")
   const [enabledPresentation] = useAtom(enabledPresentationAtom)
   const [presentationStream] = useAtom(presentationStreamAtom)
+
+  const {stop} = useWhipClient(localStreamId)
 
   const refresh = async () => {
     const data = (await getRoom(props.meetingId)).streams
@@ -46,6 +49,7 @@ export default function Layout(props: { meetingId: string }) {
     delStream(props.meetingId, localStreamId)
 
     setMeetingJoined(false)
+    stop()
   }
 
   useEffect(() => {
