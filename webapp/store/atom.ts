@@ -37,7 +37,7 @@ enabledPresentationAtom.debugLabel = 'enabledPresentation'
 
 const deviceSpeakerAtom = atom<string>('')
 deviceSpeakerAtom.debugLabel = 'deviceSpeaker'
-const speakerStatusAtom = atom<boolean>(true)
+const speakerStatusAtom = atom<boolean>(false)
 speakerStatusAtom.debugLabel = 'speakerStatus'
 
 // Mobile device don't support share screen, For Mobile device default disabled
