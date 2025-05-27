@@ -38,6 +38,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   const videoTrack = props.stream.getVideoTracks()[0]
   const [currentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
   const [speakerStatus] = useAtom(speakerStatusAtom)
+  const refPlayPromise = useRef<Promise<void> | null>(null)
 
   useEffect(() => {
     if (audioTrack && !videoTrack) {
@@ -54,12 +55,15 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
       }
 
       el.muted = !speakerStatus
+      refPlayPromise.current = el.play()
       el.play()
 
       return () => {
-        el.pause()
-        el.srcObject = null
-        el.remove()
+        refPlayPromise.current?.finally(() => {
+          el.pause()
+          el.srcObject = null
+          el.remove()
+        })
       }
     }
   }, [audioTrack, videoTrack, currentDeviceSpeaker, speakerStatus])

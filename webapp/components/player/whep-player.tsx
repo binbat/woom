@@ -10,7 +10,9 @@ export default function WhepPlayer(props: { streamId: string, userStatus: Stream
   const refEnabled = useRef(false)
   const { stream, restart, start, connStatus, setRemoteStatus } = useWhepClient(props.streamId)
   const [presentationStream, setPresentationStream] = useAtom(presentationStreamAtom)
-
+  const refPresentationStream = useRef(presentationStream)
+  refPresentationStream.current = presentationStream
+  
   useEffect(() => {
     if (!refEnabled.current) {
       refEnabled.current = true
@@ -20,7 +22,7 @@ export default function WhepPlayer(props: { streamId: string, userStatus: Stream
     // TODO: manage users entering/exiting globally
     return () => {
       const selfStreamName = `${props.userStatus.name}_Presentation`
-      if (presentationStream.name === selfStreamName) {
+      if (refPresentationStream.current.name === selfStreamName) {
         setPresentationStream({
           name: '',
           stream: new MediaStream(),
@@ -36,12 +38,12 @@ export default function WhepPlayer(props: { streamId: string, userStatus: Stream
   useEffect(() => {
     // set/clear "presentation stream" when remote user starts/stops sharing
     const selfStreamName = `${props.userStatus.name}_Presentation`
-    if (props.userStatus.screen && presentationStream.stream !== stream) {
+    if (props.userStatus.screen && refPresentationStream.current.stream !== stream) {
       setPresentationStream({
         name: selfStreamName,
         stream: stream,
       })
-    } else if (!props.userStatus.screen && presentationStream.name === selfStreamName) {
+    } else if (!props.userStatus.screen && refPresentationStream.current.name === selfStreamName) {
       setPresentationStream({
         name: '',
         stream: new MediaStream(),
