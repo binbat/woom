@@ -29,7 +29,7 @@ export default function Layout(props: { meetingId: string }) {
   const [enabledPresentation] = useAtom(enabledPresentationAtom)
   const [presentationStream] = useAtom(presentationStreamAtom)
 
-  const {stop} = useWhipClient(localStreamId)
+  const {stop, setSyncUserStatus} = useWhipClient(localStreamId)
 
   const refresh = async () => {
     const data = (await getRoom(props.meetingId)).streams
@@ -50,6 +50,7 @@ export default function Layout(props: { meetingId: string }) {
 
     setMeetingJoined(false)
     stop()
+    setSyncUserStatus(() => {})
   }
 
   useEffect(() => {
