@@ -11,7 +11,7 @@ export default function WhipPlayer(props: { streamId: string, width: string }) {
   const [presentationStream, setPresentationStream] = useAtom(presentationStreamAtom)
   const refPresentationStream = useRef(presentationStream)
   refPresentationStream.current = presentationStream
-    
+
   useEffect(() => {
     // set/clear "presentation stream" when self starts/stops sharing
     const selfStreamName = `${userStatus.name}_Presentation`

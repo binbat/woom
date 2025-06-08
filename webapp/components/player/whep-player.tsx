@@ -12,7 +12,7 @@ export default function WhepPlayer(props: { streamId: string, userStatus: Stream
   const [presentationStream, setPresentationStream] = useAtom(presentationStreamAtom)
   const refPresentationStream = useRef(presentationStream)
   refPresentationStream.current = presentationStream
-  
+
   useEffect(() => {
     if (!refEnabled.current) {
       refEnabled.current = true
