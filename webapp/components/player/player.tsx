@@ -188,10 +188,10 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   // NOTE: iOS can't display video
   // https://webkit.org/blog/6784/new-video-policies-for-ios/
   return (
-    <center className="relative flex flex-col justify-center min-h-60" style={{ width: props.width }}>
+    <center className="relative flex flex-col justify-center min-h-60 rounded-xl bg-black m-8" style={{ width: props.width }}>
       {!props.stream.getTracks().length ? <center><SvgProgress /></center> : null}
       <video
-        className="rounded-xl w-full h-full"
+        className="aspect-ratio-[4/3] w-full h-full object-contain"
         playsInline={true}
         autoPlay={true}
         controls={false}
@@ -212,14 +212,14 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
         ref={refControls}
       >
         <button
-          className="rounded-md disabled:bg-gray-400 disabled:opacity-70"
+          className={`rounded-md ${!props.audio ? 'disabled:opacity-0 pointer-events-none' : 'disabled:bg-gray-400 disabled:opacity-70'}`}
           onClick={toggleMute}
           disabled={!props.audio || !speakerStatus}
         >
           {isMuted ? <SvgMuted /> : <SvgUnmuted />}
         </button>
         <div
-          className="space-x-2"
+          className="flex items-center space-x-2"
         >
           <button
             className="rounded-md disabled:hidden"
@@ -231,7 +231,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
           <button
             className="rounded-md disabled:hidden"
             onClick={togglePictureInPicture}
-            disabled={!isPictureInPictureSupported()}
+            disabled={!isPictureInPictureSupported() || !props.video || showAudio}
           >
             {isPictureInPictured ? <SvgExitPictureInPicture /> : <SvgPictureInPicture />}
           </button>

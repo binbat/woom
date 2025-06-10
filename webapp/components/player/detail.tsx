@@ -3,7 +3,7 @@ import { UserStatus } from '../../store/atom'
 export default function Detail(props: { streamId: string, connStatus: string, userStatus: UserStatus, restart: () => void }) {
   const { streamId, connStatus, userStatus, restart } = props
   return (
-    <details className="text-white mx-2 text-sm font-border" style={{ position: 'absolute' }}>
+    <details className="absolute left-8 top-8 text-white text-sm font-border">
       <summary className="text-center rounded-lg px-xs" style={{ backgroundColor: connStatus === 'connected' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(244, 63, 94, 0.6)' }}>{userStatus.name}</summary>
       <center>
         <div className="flex flex-row flex-wrap justify-around">

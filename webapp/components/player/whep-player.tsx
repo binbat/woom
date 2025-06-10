@@ -52,7 +52,7 @@ export default function WhepPlayer(props: { streamId: string, userStatus: Stream
   }, [props.userStatus.screen, stream])
 
   return (
-    <center className="flex flex-col">
+    <center className="relative flex flex-col">
       <Player stream={stream} muted={false} width={props.width} audio={true} video={props.userStatus.video && !props.userStatus.screen} />
       <Detail streamId={props.streamId} connStatus={connStatus} userStatus={props.userStatus} restart={restart} />
     </center>
