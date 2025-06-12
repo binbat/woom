@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import WaveSurfer from 'wavesurfer.js'
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record'
-import { isWechat } from '../../lib/util'
+import {
+  isWechat,
+  isFullscreenSupported,
+  isPictureInPictureSupported,
+} from '../../lib/util'
 import SvgProgress from '../svg/progress'
 import { deviceSpeakerAtom, speakerStatusAtom } from '../../store/atom'
 import {
@@ -65,14 +69,6 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
 
   const toggleMute = () => isMuted ? setIsMuted(false) : setIsMuted(true)
 
-  const isFullscreenSupported = () => {
-    const container = refVideo.current?.parentElement
-    return (
-      typeof document.exitFullscreen === 'function' &&
-    typeof container?.requestFullscreen === 'function'
-    )
-  }
-
   const toggleFullscreen = () => {
     const container = refVideo.current!.parentElement!
     if (document.fullscreenElement) {
@@ -80,14 +76,6 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
     } else {
       container.requestFullscreen()
     }
-  }
-
-  const isPictureInPictureSupported = () => {
-    const container = refVideo.current!
-    return (
-      typeof document.exitPictureInPicture === 'function' &&
-    typeof container?.requestPictureInPicture === 'function'
-    )
   }
 
   const togglePictureInPicture = () => {
@@ -101,7 +89,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
 
   useEffect(() => {
     const onFullScreenChange = () => document.fullscreenElement ? setIsFullscreened(true) : setIsFullscreened(false)
-    if (isFullscreenSupported()) document.addEventListener('fullscreenchange', onFullScreenChange)
+    if (isFullscreenSupported) document.addEventListener('fullscreenchange', onFullScreenChange)
     return () => {
       document.removeEventListener('fullscreenchange', onFullScreenChange)
     }
@@ -111,7 +99,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
     const onEnterPictureInPicture = () => setIsPictureInPictured(true)
     const onLeavePictureInPicture = () => setIsPictureInPictured(false)
     const video = refVideo.current
-    if (isPictureInPictureSupported()) {
+    if (isPictureInPictureSupported) {
       video?.addEventListener('enterpictureinpicture', onEnterPictureInPicture)
       video?.addEventListener('leavepictureinpicture', onLeavePictureInPicture)
     }
@@ -224,14 +212,14 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
           <button
             className="rounded-md disabled:hidden"
             onClick={toggleFullscreen}
-            disabled={!isFullscreenSupported() || isPictureInPictured}
+            disabled={!isFullscreenSupported || isPictureInPictured}
           >
             {isFullscreened ? <SvgExitFullscreen /> : <SvgFullscreen />}
           </button>
           <button
             className="rounded-md disabled:hidden"
             onClick={togglePictureInPicture}
-            disabled={!isPictureInPictureSupported() || !props.video || showAudio}
+            disabled={!isPictureInPictureSupported || !props.video || showAudio}
           >
             {isPictureInPictured ? <SvgExitPictureInPicture /> : <SvgPictureInPicture />}
           </button>

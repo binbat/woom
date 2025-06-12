@@ -18,8 +18,16 @@ function isWechat() {
   return /MicroMessenger/i.test(window.navigator.userAgent)
 }
 
+const isFullscreenSupported = typeof document.exitFullscreen === 'function' &&
+    typeof document.body.requestFullscreen === 'function'
+
+const isPictureInPictureSupported = typeof document.exitPictureInPicture === 'function' &&
+    typeof HTMLVideoElement.prototype.requestPictureInPicture === 'function'
+
 export {
   addSplitSymbol,
   delSplitSymbol,
   isWechat,
+  isFullscreenSupported,
+  isPictureInPictureSupported,
 }
