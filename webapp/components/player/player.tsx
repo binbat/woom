@@ -179,7 +179,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
     <center className="relative flex flex-col justify-center min-h-60 rounded-xl bg-black m-8" style={{ width: props.width }}>
       {!props.stream.getTracks().length ? <center><SvgProgress /></center> : null}
       <video
-        className="aspect-ratio-[4/3] w-full h-full object-contain"
+        className="aspect-ratio-[4/3] w-full h-full object-contain rounded-xl"
         playsInline={true}
         autoPlay={true}
         controls={false}
