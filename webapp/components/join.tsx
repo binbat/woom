@@ -59,16 +59,13 @@ export default function Join() {
     <div className="flex flex-col justify-around bg-gray-800/80 p-6 my-4">
       <center className="flex flex-row flex-wrap justify-center">
         <button className="btn-primary my-2" disabled={!!tmpId} onClick={() => { newMeeting() }}>New Meeting</button>
-        <div className="mx-2 my-2">
-          <input
-            className="text-center text-4xl"
-            placeholder="Enter Meeting id"
-            value={tmpId}
-            onChange={e => setTmpId(e.target.value)}
-            maxLength={11}
-          />
-        </div>
-
+        <input
+          className="text-center text-4xl mx-2 my-2 max-w-full"
+          placeholder="Enter Meeting id"
+          value={tmpId}
+          onChange={e => setTmpId(e.target.value)}
+          maxLength={11}
+        />
         <button className="btn-primary my-2" disabled={!tmpId} onClick={() => { joinMeeting() }}>Join</button>
       </center>
       <center className="flex flex-row flex-wrap justify-center text-white">
