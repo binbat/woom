@@ -16,6 +16,7 @@ import {
   SvgExitFullscreen,
   SvgPictureInPicture,
   SvgExitPictureInPicture,
+  SvgMic,
 } from '../svg/player'
 
 function AudioWave(props: { stream: MediaStream }) {
@@ -41,6 +42,57 @@ function AudioWave(props: { stream: MediaStream }) {
   }, [refWave.current, props.stream])
 
   return <div ref={refWave}></div>
+}
+
+function Mic(props: { stream: MediaStream }) {
+  const [volumeValue, setVolumeValue] = useState(0)
+  const rest = 100 - volumeValue
+  useEffect(() => {
+    let done = false
+    let audioContext: AudioContext
+    let source: MediaStreamAudioSourceNode
+    let analyser: AnalyserNode
+    if (props.stream.getAudioTracks().length) {
+      audioContext = new AudioContext()
+      source = audioContext.createMediaStreamSource(props.stream)
+      analyser = audioContext.createAnalyser()
+      analyser.fftSize = 512
+      const bufferLength = analyser.frequencyBinCount
+      const dataArray = new Uint8Array(bufferLength)
+      source.connect(analyser)
+      function calculateVolume(rms: number) {
+        const normalized = rms / 127
+        const perceptual = Math.log10(1 + 9 * normalized)
+        return Math.round(perceptual * 100)
+      }
+      function getVolume() {
+        analyser.getByteTimeDomainData(dataArray)
+        let sum = 0
+        for (let i = 0; i < bufferLength; i++) {
+          const val = dataArray[i] - 128
+          sum += val * val
+        }
+        const rms = Math.sqrt(sum / bufferLength)
+        setVolumeValue(calculateVolume(rms))
+        if (!done) requestAnimationFrame(getVolume)
+      }
+      getVolume()
+    }
+    return(() => {
+      done = true
+    })
+  }, [props.stream])
+  return (
+    <div
+      className="absolute top-0 right-0 rounded-xl p-1 m-2 transition-opacity duration-300"
+      style={{
+        background: `linear-gradient(to bottom, white ${rest}%, red ${volumeValue}%)`,
+        opacity: volumeValue > 3 ? '1' : '0'
+      }}
+    >
+      <SvgMic />
+    </div>
+  )
 }
 
 export default function Player(props: { stream: MediaStream, muted: boolean, audio?: boolean, video?: boolean, width: string }) {
@@ -193,6 +245,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
         ? <AudioWave stream={props.stream} />
         : null
       }
+      <Mic stream={props.stream} />
       <div
         className={`absolute bottom-0 left-0 right-0 rounded-b-xl px-4 py-3 flex justify-between items-center transition-opacity duration-300 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
