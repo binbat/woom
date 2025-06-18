@@ -18,6 +18,7 @@ import {
   SvgExitPictureInPicture,
   SvgMic,
 } from '../svg/player'
+import VolumeExtractor from '../use/volumeExtraction'
 
 function AudioWave(props: { stream: MediaStream }) {
   const refWave = useRef<HTMLDivElement>(null)
@@ -49,34 +50,14 @@ function Mic(props: { stream: MediaStream }) {
   const rest = 100 - volumeValue
   useEffect(() => {
     let done = false
-    let audioContext: AudioContext
-    let source: MediaStreamAudioSourceNode
-    let analyser: AnalyserNode
     if (props.stream.getAudioTracks().length) {
-      audioContext = new AudioContext()
-      source = audioContext.createMediaStreamSource(props.stream)
-      analyser = audioContext.createAnalyser()
-      analyser.fftSize = 512
-      const bufferLength = analyser.frequencyBinCount
-      const dataArray = new Uint8Array(bufferLength)
-      source.connect(analyser)
-      function calculateVolume(rms: number) {
-        const normalized = rms / 127
-        const perceptual = Math.log10(1 + 9 * normalized)
-        return Math.round(perceptual * 100)
+      const extractor = new VolumeExtractor(props.stream)
+      function updateVolume() {
+        const value = extractor.calculateVolume()
+        setVolumeValue(value)
+        if (!done) requestAnimationFrame(updateVolume)
       }
-      function getVolume() {
-        analyser.getByteTimeDomainData(dataArray)
-        let sum = 0
-        for (let i = 0; i < bufferLength; i++) {
-          const val = dataArray[i] - 128
-          sum += val * val
-        }
-        const rms = Math.sqrt(sum / bufferLength)
-        setVolumeValue(calculateVolume(rms))
-        if (!done) requestAnimationFrame(getVolume)
-      }
-      getVolume()
+      updateVolume()
     }
     return(() => {
       done = true
