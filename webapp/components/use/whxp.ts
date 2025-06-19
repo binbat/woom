@@ -24,7 +24,7 @@ class Context extends EventTarget {
     screen: false,
   }
 
-  timer: ReturnType<typeof setInterval> | null = null
+  timer?: number
 
   constructor(id: string) {
     super()

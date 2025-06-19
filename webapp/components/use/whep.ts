@@ -81,7 +81,7 @@ class WHEPContext extends Context {
   async stop() {
     if (this.timer) {
       clearInterval(this.timer)
-      this.timer = null
+      this.timer = undefined
     }
     try {
       await this.client.stop()

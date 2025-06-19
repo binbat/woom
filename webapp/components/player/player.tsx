@@ -83,10 +83,10 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   const videoTrack = props.stream.getVideoTracks()[0]
   const [currentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
   const [speakerStatus] = useAtom(speakerStatusAtom)
-  const refPlayPromise = useRef<Promise<void> | null>(null)
+  const refPlayPromise = useRef<Promise<void>>()
   const refControls = useRef<HTMLDivElement>(null)
   const [showControls, setShowControls] = useState(false)
-  const refTimeoutId = useRef<NodeJS.Timeout | null>(null)
+  const refTimeoutId = useRef<number>()
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreened, setIsFullscreened] = useState(false)
   const [isPictureInPictured, setIsPictureInPictured] = useState(false)
