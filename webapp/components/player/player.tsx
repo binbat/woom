@@ -16,7 +16,9 @@ import {
   SvgExitFullscreen,
   SvgPictureInPicture,
   SvgExitPictureInPicture,
+  SvgMic,
 } from '../svg/player'
+import VolumeExtractor from '../use/volumeExtraction'
 
 function AudioWave(props: { stream: MediaStream }) {
   const refWave = useRef<HTMLDivElement>(null)
@@ -41,6 +43,37 @@ function AudioWave(props: { stream: MediaStream }) {
   }, [refWave.current, props.stream])
 
   return <div ref={refWave}></div>
+}
+
+function Mic(props: { stream: MediaStream }) {
+  const [volumeValue, setVolumeValue] = useState(0)
+  const rest = 100 - volumeValue
+  useEffect(() => {
+    let done = false
+    if (props.stream.getAudioTracks().length) {
+      const extractor = new VolumeExtractor(props.stream)
+      function updateVolume() {
+        const value = extractor.calculateVolume()
+        setVolumeValue(value)
+        if (!done) requestAnimationFrame(updateVolume)
+      }
+      updateVolume()
+    }
+    return(() => {
+      done = true
+    })
+  }, [props.stream])
+  return (
+    <div
+      className="absolute top-0 right-0 rounded-xl p-1 m-2 transition-opacity duration-300"
+      style={{
+        background: `linear-gradient(to bottom, white ${rest}%, red ${volumeValue}%)`,
+        opacity: volumeValue > 3 ? '1' : '0'
+      }}
+    >
+      <SvgMic />
+    </div>
+  )
 }
 
 export default function Player(props: { stream: MediaStream, muted: boolean, audio?: boolean, video?: boolean, width: string }) {
@@ -193,6 +226,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
         ? <AudioWave stream={props.stream} />
         : null
       }
+      <Mic stream={props.stream} />
       <div
         className={`absolute bottom-0 left-0 right-0 rounded-b-xl px-4 py-3 flex justify-between items-center transition-opacity duration-300 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
