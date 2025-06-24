@@ -24,10 +24,13 @@ const isFullscreenSupported = typeof document.exitFullscreen === 'function' &&
 const isPictureInPictureSupported = typeof document.exitPictureInPicture === 'function' &&
     typeof HTMLVideoElement.prototype.requestPictureInPicture === 'function'
 
+const isScreenShareSupported = !(/Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(navigator.userAgent))
+
 export {
   addSplitSymbol,
   delSplitSymbol,
   isWechat,
   isFullscreenSupported,
   isPictureInPictureSupported,
+  isScreenShareSupported,
 }

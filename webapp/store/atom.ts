@@ -21,6 +21,9 @@ interface UserStatus {
   screen: boolean
 }
 
+const languageAtom = atom('English')
+languageAtom.debugLabel = 'languageAtom'
+
 const meetingIdAtom = atom('')
 meetingIdAtom.debugLabel = 'meetingIdAtom'
 const meetingJoinedAtom = atom(false)
@@ -44,7 +47,14 @@ speakerStatusAtom.debugLabel = 'speakerStatus'
 const settingsEnabledScreenAtom = atom<boolean>(/Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(navigator.userAgent))
 settingsEnabledScreenAtom.debugLabel = 'settingsEnabledScreen'
 
+const videoResolutionAtom = atom('480')
+videoResolutionAtom.debugLabel = 'videoResolutionAtom'
+const screenShareResolutionAtom = atom('720')
+screenShareResolutionAtom.debugLabel = 'screenShareResolutionAtom'
+
 export {
+  languageAtom,
+
   locationAtom,
   presentationStreamAtom,
 
@@ -55,6 +65,9 @@ export {
   speakerStatusAtom,
 
   settingsEnabledScreenAtom,
+
+  videoResolutionAtom,
+  screenShareResolutionAtom,
 }
 
 export type {
