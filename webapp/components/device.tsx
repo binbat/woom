@@ -10,8 +10,6 @@ import { isScreenShareSupported } from '../lib/util'
 import {
   deviceSpeakerAtom,
   speakerStatusAtom,
-  settingsEnabledScreenAtom,
-  screenShareResolutionAtom,
 } from './../store/atom'
 
 import Loading from './svg/loading'
@@ -22,6 +20,8 @@ import { SvgPresentCancel, SvgPresentToAll } from './svg/present'
 import { SvgBackgroundCancel, SvgBackground } from './svg/background'
 import { SvgSetting } from './svg/setting'
 import Settings from './settings'
+
+import {useSettingStore} from '../store/settingStore'
 
 function toDevice(info: MediaDeviceInfo): Device {
   const deviceId = info.deviceId
@@ -45,7 +45,7 @@ export default function DeviceBar(props: { streamId: string }) {
   const [currentDeviceSpeaker, setCurrentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
   const [speakerStatus, setSpeakerStatus] = useAtom(speakerStatusAtom)
 
-  const [settingsEnabledScreen] = useAtom(settingsEnabledScreenAtom)
+  const screenShareButtonShowed = useSettingStore(state => state.screenShareButtonShowed)
   const [virtualBackgroundEnabled, setVirtualBackgroundEnabled] = useState(false)
 
   const {
@@ -187,10 +187,11 @@ export default function DeviceBar(props: { streamId: string }) {
     { label: '1080p', value: '1080' },
     { label: 'Native', value: 'native' }
   ]
-  const [currentScreenResolution, setCurrentScreenResolution] = useAtom(screenShareResolutionAtom)
+  const screenShareResolution = useSettingStore(state => state.screenShareResolution)
+  const setScreenShareResolution = useSettingStore(state => state.setScreenShareResolution)
 
   const toggleEnableScreen = async () => {
-    const height = Number.parseInt(currentScreenResolution)
+    const height = Number.parseInt(screenShareResolution)
     const constraints = Number.isNaN(height) ? {} : { height }
     setLoadingScreen(true)
     await onChangedDeviceVideo(userStatus.screen ? deviceNone.deviceId : deviceScreen.deviceId, constraints)
@@ -198,7 +199,7 @@ export default function DeviceBar(props: { streamId: string }) {
   }
 
   const onChangeScreenShareResolution = async (resolution: string) => {
-    setCurrentScreenResolution(resolution)
+    setScreenShareResolution(resolution)
     const height = Number.parseInt(resolution)
     const constraints = Number.isNaN(height) ? {} : { height }
     setLoadingScreen(true)
@@ -327,7 +328,7 @@ export default function DeviceBar(props: { streamId: string }) {
           </button>
         </section>
       </center>
-      {!settingsEnabledScreen && (
+      {!screenShareButtonShowed && (
         <center>
           <section className="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
             <button className="text-rose-400 rounded-md w-8 h-8" onClick={() => toggleEnableScreen()} disabled={!isScreenShareSupported}>
@@ -341,7 +342,7 @@ export default function DeviceBar(props: { streamId: string }) {
             <div className="w-1"></div>
             <select
               className="w-3.5 h-8 rounded-sm rotate-180"
-              value={currentScreenResolution}
+              value={screenShareResolution}
               onChange={e => onChangeScreenShareResolution(e.target.value)}
               disabled={!isScreenShareSupported}
             >

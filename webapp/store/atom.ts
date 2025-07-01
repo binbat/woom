@@ -21,9 +21,6 @@ interface UserStatus {
   screen: boolean
 }
 
-const languageAtom = atom('English')
-languageAtom.debugLabel = 'languageAtom'
-
 const meetingIdAtom = atom('')
 meetingIdAtom.debugLabel = 'meetingIdAtom'
 const meetingJoinedAtom = atom(false)
@@ -43,18 +40,7 @@ deviceSpeakerAtom.debugLabel = 'deviceSpeaker'
 const speakerStatusAtom = atom<boolean>(false)
 speakerStatusAtom.debugLabel = 'speakerStatus'
 
-// Mobile device don't support share screen, For Mobile device default disabled
-const settingsEnabledScreenAtom = atom<boolean>(/Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(navigator.userAgent))
-settingsEnabledScreenAtom.debugLabel = 'settingsEnabledScreen'
-
-const videoResolutionAtom = atom('480')
-videoResolutionAtom.debugLabel = 'videoResolutionAtom'
-const screenShareResolutionAtom = atom('720')
-screenShareResolutionAtom.debugLabel = 'screenShareResolutionAtom'
-
 export {
-  languageAtom,
-
   locationAtom,
   presentationStreamAtom,
 
@@ -63,11 +49,6 @@ export {
   enabledPresentationAtom,
   deviceSpeakerAtom,
   speakerStatusAtom,
-
-  settingsEnabledScreenAtom,
-
-  videoResolutionAtom,
-  screenShareResolutionAtom,
 }
 
 export type {

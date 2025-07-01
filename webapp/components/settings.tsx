@@ -1,13 +1,7 @@
 import { useAtom } from 'jotai'
 import { useState } from 'react'
 import { deviceNone } from '../lib/device'
-import {
-  languageAtom,
-  videoResolutionAtom,
-  screenShareResolutionAtom,
-  meetingIdAtom,
-  settingsEnabledScreenAtom,
-} from './../store/atom'
+import { meetingIdAtom } from './../store/atom'
 
 import {
   SvgClose,
@@ -17,6 +11,7 @@ import {
   SvgTip,
 } from './svg/setting'
 import { delStorage } from '../lib/storage'
+import { useSettingStore } from '../store/settingStore'
 
 interface SettingsProps {
   onClose: () => void
@@ -82,7 +77,8 @@ function SettingItem(props: SettingItemProps) {
 }
 
 function SettingGeneral() {
-  const [language, setLanguage] = useAtom(languageAtom)
+  const language = useSettingStore(state => state.language)
+  const setLanguage = useSettingStore(state => state.setLanguage)
   const languageOptions = ['English']
   const onChangeLanguage = (language: string) => {
     setLanguage(language)
@@ -112,8 +108,10 @@ function SettingGeneral() {
 }
 
 function SettingMedia(props: SettingMediaProps) {
-  const [videoResolution, setVideoResolution] = useAtom(videoResolutionAtom)
-  const [screenShareResolution, setScreenShareResolution] = useAtom(screenShareResolutionAtom)
+  const videoResolution = useSettingStore(state => state.videoResolution)
+  const setVideoResolution = useSettingStore(state => state.setVideoResolution)
+  const screenShareResolution = useSettingStore(state => state.screenShareResolution)
+  const setScreenShareResolution = useSettingStore(state => state.setScreenShareResolution)
   const videoResolutionOptions = [
     { label: '480p (Default)', value: '480' },
   ]
@@ -174,7 +172,8 @@ function SettingMedia(props: SettingMediaProps) {
 
 function SettingAdvanced() {
   const [meetingId] = useAtom(meetingIdAtom)
-  const [settingsEnabledScreen, setsettingsEnabledScreen] = useAtom(settingsEnabledScreenAtom)
+  const screenShareButtonShowed = useSettingStore(state => state.screenShareButtonShowed)
+  const setScreenShareButtonShowed = useSettingStore(state => state.setScreenShareButtonShowed)
   const [isReset, setIsReset] = useState(false)
 
   return (
@@ -199,14 +198,14 @@ function SettingAdvanced() {
         '2. Changable only on the homepage.'
       ]}>
         <button
-          onClick={() => setsettingsEnabledScreen(!settingsEnabledScreen)}
+          onClick={() => setScreenShareButtonShowed(!screenShareButtonShowed)}
           className={`relative flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
-            settingsEnabledScreen ? 'bg-blue-400' : 'bg-gray-300'
+            screenShareButtonShowed ? 'bg-blue-400' : 'bg-gray-300'
           }`}
         >
           <span
             className={`h-4 w-5 transform rounded-full bg-white transition-transform duration-300 ${
-              settingsEnabledScreen ? 'translate-x-5' : 'translate-x-1'
+              screenShareButtonShowed ? 'translate-x-5' : 'translate-x-1'
             }`}
           />
         </button>
