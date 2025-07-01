@@ -76,7 +76,7 @@ export default function Join() {
         <p>If have some problems, Please click this:</p>
         <a className="mx-2 text-red-300 underline" onClick={delStorage}>Reset</a>
       </center>
-      {isSetting && <Settings onClose={() => setIsSetting(false)} onChangedDeviceVideo={() => {}} isScreenSharing={false}/>}
+      {isSetting && <Settings onClose={() => setIsSetting(false)} />}
     </div>
   )
 }

@@ -190,6 +190,12 @@ export default function DeviceBar(props: { streamId: string }) {
   const screenShareResolution = useSettingStore(state => state.screenShareResolution)
   const setScreenShareResolution = useSettingStore(state => state.setScreenShareResolution)
 
+  useEffect(() => {
+    if (userStatus.screen) {
+      onChangedDeviceVideo(deviceNone.deviceId)
+    }
+  }, [screenShareResolution])
+
   const toggleEnableScreen = async () => {
     const height = Number.parseInt(screenShareResolution)
     const constraints = Number.isNaN(height) ? {} : { height }
@@ -358,7 +364,7 @@ export default function DeviceBar(props: { streamId: string }) {
           <SvgSetting />
         </button>
       </div>
-      {isSetting && <Settings onClose={() => setIsSetting(false)} onChangedDeviceVideo={onChangedDeviceVideo} isScreenSharing={userStatus.screen}/>}
+      {isSetting && <Settings onClose={() => setIsSetting(false)} />}
     </div>
   )
 }

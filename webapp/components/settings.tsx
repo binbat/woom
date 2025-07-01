@@ -1,6 +1,5 @@
 import { useAtom } from 'jotai'
 import { useState } from 'react'
-import { deviceNone } from '../lib/device'
 import { meetingIdAtom } from './../store/atom'
 
 import {
@@ -15,19 +14,12 @@ import { useSettingStore } from '../store/settingStore'
 
 interface SettingsProps {
   onClose: () => void
-  onChangedDeviceVideo: (current: string, constraints?: MediaTrackConstraints) => void
-  isScreenSharing: boolean
 }
 
 interface SettingItemProps {
   children?: React.ReactNode;
   label: string;
   tooltips?: string[];
-}
-
-interface SettingMediaProps {
-  onChangedDeviceVideo: (current: string, constraints?: MediaTrackConstraints) => void
-  isScreenSharing: boolean
 }
 
 function SettingItem(props: SettingItemProps) {
@@ -107,7 +99,7 @@ function SettingGeneral() {
   )
 }
 
-function SettingMedia(props: SettingMediaProps) {
+function SettingMedia() {
   const videoResolution = useSettingStore(state => state.videoResolution)
   const setVideoResolution = useSettingStore(state => state.setVideoResolution)
   const screenShareResolution = useSettingStore(state => state.screenShareResolution)
@@ -127,7 +119,6 @@ function SettingMedia(props: SettingMediaProps) {
   }
   const onChangeScreenShareResolution = async (resolution: string) => {
     setScreenShareResolution(resolution)
-    if (props.isScreenSharing) props.onChangedDeviceVideo(deviceNone.deviceId)
   }
   return (
     <div className="flex flex-col space-y-2">
@@ -251,7 +242,7 @@ export default function Settings(props: SettingsProps) {
           <main className="w-[80%] p-1 overflow-auto">
             <h2 className="text-xl text-center font-bold my-4">{activeTab}</h2>
             {activeTab === 'General' && <SettingGeneral />}
-            {activeTab === 'Media' && <SettingMedia onChangedDeviceVideo={props.onChangedDeviceVideo} isScreenSharing={props.isScreenSharing}/>}
+            {activeTab === 'Media' && <SettingMedia />}
             {activeTab === 'Advanced' && <SettingAdvanced />}
           </main>
         </div>
