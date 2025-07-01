@@ -18,6 +18,69 @@ import {
 } from './svg/setting'
 import { delStorage } from '../lib/storage'
 
+interface SettingsProps {
+  onClose: () => void
+  onChangedDeviceVideo: (current: string, constraints?: MediaTrackConstraints) => void
+  isScreenSharing: boolean
+}
+
+interface SettingItemProps {
+  children?: React.ReactNode;
+  label: string;
+  tooltips?: string[];
+}
+
+interface SettingMediaProps {
+  onChangedDeviceVideo: (current: string, constraints?: MediaTrackConstraints) => void
+  isScreenSharing: boolean
+}
+
+function SettingItem(props: SettingItemProps) {
+  const [tooltipVisible, setTooltipVisible] = useState(false)
+  return (
+    <div className="hover:bg-blue-200 rounded p-3">
+      <div className="flex flex-row justify-between space-x-1 items-center">
+        <div className="flex flex-row justify-start items-center space-x-1 pr-3 max-w-[50%]">
+          <label className="text-base font-semibold p-1 text-left w-max">
+            {props.label}
+          </label>
+          {props.tooltips && (
+            <div
+              className={`relative ${
+                tooltipVisible ? 'text-blue' : 'text-black'
+              }`}
+              onMouseEnter={() => setTooltipVisible(true)}
+              onMouseLeave={() => setTooltipVisible(false)}
+            >
+              <SvgTip />
+              {tooltipVisible && (
+                <div className="absolute top-full mt-3 z-10 hidden md:block">
+                  <div className="absolute z-50 -top-2 border-l-8 border-r-8 border-b-8 border-transparent border-b-black"></div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        {props.children}
+      </div>
+      {props.tooltips && tooltipVisible && (
+        <div className="relative flex justify-start items-center px-3">
+          <div className="flex flex-col items-start absolute z-50 top-1 bg-black text-white text-sm px-3 py-1 space-y-1 rounded shadow-lg w-max max-w-[90%]">
+            {props.tooltips.map((tip, index) => (
+              <p
+                className="text-left"
+                key={index}
+              >
+                {tip}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SettingGeneral() {
   const [language, setLanguage] = useAtom(languageAtom)
   const languageOptions = ['English']
@@ -27,32 +90,30 @@ function SettingGeneral() {
     // todo: add support of more languages
   }
   return (
-    <div className="flex flex-row justify-between hover:bg-blue-200 rounded p-3 space-x-1">
-      <p className="text-base font-semibold p-1">
-        Language
-      </p>
-      <select
-        className="text-base bg-gray-200 rounded p-1"
-        value={language}
-        onChange={e => onChangeLanguage(e.target.value)}
-      >
-        {languageOptions.map(option => (
-          <option
-            key={option}
-            value={option}
-          >
-            {option}
-          </option>
-        ))}
-      </select>
+    <div className="flex flex-col space-y-2">
+      <SettingItem label="Language">
+        <select
+          className="bg-gray-200 rounded max-w-[50%] ml-2 p-1"
+          value={language}
+          onChange={e => onChangeLanguage(e.target.value)}
+        >
+          {languageOptions.map(option => (
+            <option
+              key={option}
+              value={option}
+            >
+              {option}
+            </option>
+          ))}
+        </select>
+      </SettingItem>
     </div>
   )
 }
 
-function SettingMedia(props: { isScreenSharing: boolean, onChangedDeviceVideo: (current: string, constraints?: MediaTrackConstraints) => void }) {
+function SettingMedia(props: SettingMediaProps) {
   const [videoResolution, setVideoResolution] = useAtom(videoResolutionAtom)
   const [screenShareResolution, setScreenShareResolution] = useAtom(screenShareResolutionAtom)
-  const [isTipShowed, setIsTipShowed] = useState(false)
   const videoResolutionOptions = [
     { label: '480p (Default)', value: '480' },
   ]
@@ -72,10 +133,7 @@ function SettingMedia(props: { isScreenSharing: boolean, onChangedDeviceVideo: (
   }
   return (
     <div className="flex flex-col space-y-2">
-      <div className="flex flex-row justify-between hover:bg-blue-200 rounded p-3 space-x-1">
-        <p className="text-base font-semibold p-1">
-          Video Resolution
-        </p>
+      <SettingItem label="Video Resolution">
         <select
           className="bg-gray-200 rounded max-w-[50%] ml-2 p-1"
           value={videoResolution}
@@ -90,163 +148,74 @@ function SettingMedia(props: { isScreenSharing: boolean, onChangedDeviceVideo: (
             </option>
           ))}
         </select>
-      </div>
-      <div className="hover:bg-blue-200 rounded p-3 ">
-        <div className="flex flex-row justify-between space-x-1">
-          <div className="flex flex-row items-center space-x-1 pr-3">
-            <p className="text-base font-semibold p-1">
-              Screen Share Resolution
-            </p>
-            <div
-              className={`relative ${
-                isTipShowed ? 'text-blue' : 'text-black'
-              }`}
-              onMouseEnter={() => setIsTipShowed(true)}
-              onMouseLeave={() => setIsTipShowed(false)}
+      </SettingItem>
+      <SettingItem label="Screen Share Resolution" tooltips={[
+        '1. Meaningless for mobile devices;',
+        '2. If screen is sharing, any changes on this property will stop sharing.'
+      ]}>
+        <select
+          className="bg-gray-200 rounded max-w-[50%] ml-2 p-1"
+          value={screenShareResolution}
+          onChange={e => onChangeScreenShareResolution(e.target.value)}
+        >
+          {screenShareResolutionOptions.map(option => (
+            <option
+              key={option.label}
+              value={option.value}
             >
-              <SvgTip />
-              {isTipShowed && (
-                <div className="absolute top-full mt-3 z-10 hidden md:block">
-                  <div className="absolute -top-2 border-l-8 border-r-8 border-b-8 border-transparent border-b-black"></div>
-                </div>
-              )}
-            </div>
-          </div>
-          <select
-            className="bg-gray-200 rounded max-w-[50%] ml-2 p-1"
-            value={screenShareResolution}
-            onChange={e => onChangeScreenShareResolution(e.target.value)}
-          >
-            {screenShareResolutionOptions.map(option => (
-              <option
-                key={option.label}
-                value={option.value}
-              >
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="relative flex justify-start items-center px-3">
-          {isTipShowed && (
-            <div className="flex flex-col items-start absolute top-1 bg-black text-white text-sm px-3 py-1 rounded shadow-lg w-max max-w-[90%]">
-              <p>
-                1. Meaningless for mobile devices;
-              </p>
-              <p>
-                2. If screen is sharing, any changes on this property will stop sharing.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </SettingItem>
     </div>
   )
 }
 
 function SettingAdvanced() {
-  const [isTipShowed, setIsTipShowed] = useState(false)
-  const [isTipShowed2, setIsTipShowed2] = useState(false)
   const [meetingId] = useAtom(meetingIdAtom)
   const [settingsEnabledScreen, setsettingsEnabledScreen] = useAtom(settingsEnabledScreenAtom)
   const [isReset, setIsReset] = useState(false)
 
   return (
     <div className="flex flex-col space-y-2">
-      <div className="hover:bg-blue-200 rounded p-3">
-        <div className="flex flex-row justify-between space-x-1">
-          <div className="flex flex-row items-center space-x-1 pr-3">
-            <p className="text-base font-semibold p-1">
-              Local Storage
-            </p>
-            <div
-              className={`relative ${
-                isTipShowed ? 'text-blue' : 'text-black'
-              }`}
-              onMouseEnter={() => setIsTipShowed(true)}
-              onMouseLeave={() => setIsTipShowed(false)}
-            >
-              <SvgTip />
-              {isTipShowed && (
-                <div className="absolute top-full mt-3 z-10 hidden md:block">
-                  <div className="absolute z-50 -top-2 border-l-8 border-r-8 border-b-8 border-transparent border-b-black"></div>
-                </div>
-              )}
-            </div>
-          </div>
-          <button
-            className="bg-blue-400 disabled:bg-gray-400 rounded text-white max-w-[50%] ml-2 px-2"
-            disabled={isReset || !!meetingId}
-            onClick={() => {
-              delStorage()
-              setIsReset(true)
-            }}
-          >
-            Reset
-          </button>
-        </div>
-        <div className="relative flex justify-start items-center px-3">
-          {isTipShowed && (
-            <div className="flex flex-col items-start absolute z-50 top-1 bg-black text-white text-sm px-3 py-1 rounded shadow-lg w-max max-w-[90%]">
-              <p>
-                1. Local storage only can be reset on the homepage.
-              </p>
-              <p>
-                2. Single use only.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="hover:bg-blue-200 rounded p-3">
-        <div className="flex flex-row justify-between space-x-1">
-          <div className="flex flex-row items-center space-x-1 pr-3">
-            <label className="flex flex-row items-center text-base font-semibold p-1 space-x-1">
-              <input
-                className="form-checkbox h-4 w-4"
-                type="checkbox"
-                checked={settingsEnabledScreen}
-                disabled={!!meetingId}
-                onChange={e => setsettingsEnabledScreen(e.target.checked)}
-              />
-              <p>
-                Hide Share Screen Button
-              </p>
-            </label>
-            <div
-              className={`relative ${
-                isTipShowed2 ? 'text-blue' : 'text-black'
-              }`}
-              onMouseEnter={() => setIsTipShowed2(true)}
-              onMouseLeave={() => setIsTipShowed2(false)}
-            >
-              <SvgTip />
-              {isTipShowed2 && (
-                <div className="absolute top-full mt-3 z-10 hidden md:block">
-                  <div className="absolute z-50 -top-2 border-l-8 border-r-8 border-b-8 border-transparent border-b-black"></div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="relative flex justify-start items-center px-3">
-          {isTipShowed2 && (
-            <div className="flex flex-col items-start absolute z-50 top-1 bg-black text-white text-sm px-3 py-1 rounded shadow-lg w-max max-w-[90%]">
-              <p>
-                1. Defaults to checked on mobile devices;
-              </p>
-              <p>
-                2. Changable only on the homepage.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      <SettingItem label="Local Storage" tooltips={[
+        '1. Local storage only can be reset on the homepage;',
+        '2. Single use only.'
+      ]}>
+        <button
+          className="bg-blue-400 disabled:bg-gray-400 rounded text-white max-w-[50%] ml-2 py-1 px-2"
+          disabled={isReset || !!meetingId}
+          onClick={() => {
+            delStorage()
+            setIsReset(true)
+          }}
+        >
+          Reset
+        </button>
+      </SettingItem>
+      <SettingItem label="Hide Share Screen Button" tooltips={[
+        '1. Defaults to checked on mobile devices;',
+        '2. Changable only on the homepage.'
+      ]}>
+        <button
+          onClick={() => setsettingsEnabledScreen(!settingsEnabledScreen)}
+          className={`relative flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
+            settingsEnabledScreen ? 'bg-blue-400' : 'bg-gray-300'
+          }`}
+        >
+          <span
+            className={`h-4 w-5 transform rounded-full bg-white transition-transform duration-300 ${
+              settingsEnabledScreen ? 'translate-x-5' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </SettingItem>
     </div>
   )
 }
 
-export default function Settings(props: { onClose: () => void, onChangedDeviceVideo: (current: string, constraints?: MediaTrackConstraints) => void, isScreenSharing: boolean }) {
+export default function Settings(props: SettingsProps) {
   const [activeTab, setActiveTab] = useState('General')
   const settingsOptions = [
     { label: 'General', icon: SvgGeneral },
