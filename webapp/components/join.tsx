@@ -6,11 +6,14 @@ import {
 } from '../store/atom'
 import { getStorage, setStorage, delStorage, setStorageStream, setStorageMeeting } from '../lib/storage'
 import { newRoom, newUser, setApiToken, setRoomId } from '../lib/api'
+import { SvgSetting } from './svg/setting'
+import Settings from './settings'
 
 export default function Join() {
   const [loc, setLoc] = useAtom(locationAtom)
   const [__, setAtomMeetingId] = useAtom(meetingIdAtom)
   const [tmpId, setTmpId] = useState<string>('')
+  const [isSetting, setIsSetting] = useState(false)
 
   const getLoginStatus = async () => {
     const user = getStorage()
@@ -67,11 +70,13 @@ export default function Join() {
           maxLength={11}
         />
         <button className="btn-primary my-2" disabled={!tmpId} onClick={() => { joinMeeting() }}>Join</button>
+        <button className="btn-primary my-2 ml-2" onClick={() => setIsSetting(true)}><SvgSetting /></button>
       </center>
       <center className="flex flex-row flex-wrap justify-center text-white">
         <p>If have some problems, Please click this:</p>
         <a className="mx-2 text-red-300 underline" onClick={delStorage}>Reset</a>
       </center>
+      {isSetting && <Settings onClose={() => setIsSetting(false)} />}
     </div>
   )
 }
