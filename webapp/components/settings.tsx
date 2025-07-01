@@ -180,7 +180,8 @@ function SettingAdvanced() {
     <div className="flex flex-col space-y-2">
       <SettingItem label="Local Storage" tooltips={[
         '1. Local storage only can be reset on the homepage;',
-        '2. Single use only.'
+        '2. Single use only;',
+        '3. Not used to restore settings.'
       ]}>
         <button
           className="bg-blue-400 disabled:bg-gray-400 rounded text-white max-w-[50%] ml-2 py-1 px-2"
@@ -195,7 +196,7 @@ function SettingAdvanced() {
       </SettingItem>
       <SettingItem label="Hide Share Screen Button" tooltips={[
         '1. Defaults to checked on mobile devices;',
-        '2. Changable only on the homepage.'
+        '2. This button is diabled on mobile devices even though it is showed.'
       ]}>
         <button
           onClick={() => setScreenShareButtonShowed(!screenShareButtonShowed)}
