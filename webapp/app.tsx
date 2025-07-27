@@ -5,7 +5,6 @@ import { meetingIdAtom } from './store/atom'
 
 export default function WOOM() {
   const [meetingId] = useAtom(meetingIdAtom)
-
   return (
     <div
       className="min-h-screen">
