@@ -99,7 +99,7 @@ export default function Layout(props: { meetingId: string }) {
       <div></div>
 
       {enabledPresentation
-        ? <Player stream={presentationStream.stream} muted={true} video={true} audio={false} width="auto" />
+        ? <Player stream={presentationStream.stream} muted={true} video={true} audio={false} width="auto" self={false}/>
         : null
       }
 

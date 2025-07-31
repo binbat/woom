@@ -76,9 +76,8 @@ function Mic(props: { stream: MediaStream }) {
   )
 }
 
-export default function Player(props: { stream: MediaStream, muted: boolean, audio?: boolean, video?: boolean, width: string }) {
+export default function Player(props: { stream: MediaStream, muted: boolean, audio?: boolean, video?: boolean, width: string, self: boolean }) {
   const refVideo = useRef<HTMLVideoElement>(null)
-  const [showAudio, setShowAudio] = useState(false)
   const audioTrack = props.stream.getAudioTracks()[0]
   const videoTrack = props.stream.getVideoTracks()[0]
   const [currentDeviceSpeaker] = useAtom(deviceSpeakerAtom)
@@ -90,6 +89,10 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreened, setIsFullscreened] = useState(false)
   const [isPictureInPictured, setIsPictureInPictured] = useState(false)
+  const hasTracks = props.stream.getTracks().length > 0
+  const mediaEnabled = props.audio || props.video
+  const showAudio = props.audio && !props.video
+  const mediaDisabledTip = `All ${props.self ? 'your' : 'their'} media are disabled`
 
   const handleMouseMove = () => {
     setShowControls(true)
@@ -164,13 +167,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   }, [])
 
   useEffect(() => {
-    if (audioTrack && !videoTrack) {
-      setShowAudio(true)
-    } else {
-      setShowAudio(false)
-    }
-    if (!props.audio) setIsMuted(true)
-    if (audioTrack && props.audio) {
+    if (audioTrack && props.audio && !props.muted) {
       const el = document.createElement('audio')
       el.srcObject = new MediaStream([audioTrack])
 
@@ -209,21 +206,26 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
   // NOTE: iOS can't display video
   // https://webkit.org/blog/6784/new-video-policies-for-ios/
   return (
-    <center className="relative flex flex-col justify-center min-h-60 rounded-xl bg-black m-8" style={{ width: props.width }}>
-      {!props.stream.getTracks().length ? <center><SvgProgress /></center> : null}
+    <div className="relative flex flex-col justify-center items-center min-h-60 rounded-xl bg-black m-8" style={{ width: props.width }}>
+      {!mediaEnabled ? <p
+        className={`text-white transition-opacity duration-300 ${
+          showControls ? 'opacity-100' : 'opacity-0'
+        }`}
+      >{mediaDisabledTip}</p> : null}
+      {mediaEnabled && !hasTracks ? <SvgProgress /> : null}
       <video
         className="aspect-ratio-[4/3] w-full h-full object-contain rounded-xl"
         playsInline={true}
         autoPlay={true}
         controls={false}
-        muted={props.muted}
+        muted={true}
         ref={refVideo}
         style={props.stream?.getVideoTracks().length
           ? { display: props.video ? 'inline' : 'none'}
           : { height: '0px' }}
       />
-      {!props.video || showAudio
-        ? <AudioWave stream={props.stream} />
+      {showAudio
+        ? <div className="w-full"><AudioWave stream={props.stream} /></div>
         : null
       }
       <Mic stream={props.stream} />
@@ -234,9 +236,9 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
         ref={refControls}
       >
         <button
-          className={`rounded-md ${!props.audio ? 'disabled:opacity-0 pointer-events-none' : 'disabled:bg-gray-400 disabled:opacity-70'}`}
+          className={`rounded-md ${ props.muted ? 'opacity-0 pointer-events-none' : 'disabled:bg-gray-400 disabled:opacity-70'}`}
           onClick={toggleMute}
-          disabled={!props.audio || !speakerStatus}
+          disabled={!speakerStatus}
         >
           {isMuted ? <SvgMuted /> : <SvgUnmuted />}
         </button>
@@ -253,12 +255,12 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
           <button
             className="rounded-md disabled:hidden"
             onClick={togglePictureInPicture}
-            disabled={!isPictureInPictureSupported || !props.video || showAudio}
+            disabled={!isPictureInPictureSupported || !props.video}
           >
             {isPictureInPictured ? <SvgExitPictureInPicture /> : <SvgPictureInPicture />}
           </button>
         </div>
       </div>
-    </center>
+    </div>
   )
 }
