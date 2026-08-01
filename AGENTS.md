@@ -7,17 +7,19 @@ Guidance for AI agents working on this repository.
 WOOM is a self-hosted meeting service built on the
 [Live777](https://github.com/binbat/live777) WebRTC engine (WHIP/WHEP).
 
-- `server/` — Go backend (chi router). Serves the REST API (`/user/`, `/room/*`),
+- `src/` — Rust backend (axum). Serves the REST API (`/user/`, `/room/*`),
   reverse-proxies `/whip/*` and `/whep/*` to Live777, and serves the webapp as an
-  SPA (unknown paths fall back to `index.html`). Room state lives in Redis.
-  Config is via env vars, see `server/config.go` (`PORT` 4000, `REDIS_URL`,
-  `LIVE777_URL`, `LIVE777_TOKEN`, `SECRET`).
+  SPA (unknown paths fall back to `index.html`). Room state lives in Redis
+  (hashes with JSON values, see `src/model.rs`). Config is via env vars, see
+  `src/config.rs` (`PORT` 4000, `REDIS_URL`, `LIVE777_URL`, `LIVE777_TOKEN`,
+  `SECRET`).
 - `webapp/` — React 18 + TypeScript + Vite + UnoCSS frontend. State: jotai
   (`webapp/store/atom.ts`), zustand for persisted settings, localStorage for
   user/token (`webapp/lib/storage.ts`). There is no router library; the
   Welcome/Meeting views are switched by `meetingIdAtom` in `webapp/app.tsx`.
-- `static/` — webapp build output embedded into the Go binary. Default build
-  serves a placeholder; the real app requires the `release` build tag.
+- `static/` — webapp build output embedded into the Rust binary via rust-embed
+  (`src/spa.rs`). `static/dist` is produced by `npm run build` and must exist
+  before compiling.
 - `tests/` — Playwright e2e tests, see below.
 
 ## Build and run
@@ -27,16 +29,15 @@ External dependencies: Redis (:6379) and Live777 (:7777) — `docker compose up 
 ```bash
 npm install          # install webapp deps
 npm run dev          # Vite dev server on :5173 (proxies API/WHIP/WHEP)
-go run .             # backend on :4000 (dev, no embedded webapp)
+cargo run            # backend on :4000 (dev; requires static/dist, see below)
 
-make                 # release build: webapp -> static/dist, then
-                     # CGO_ENABLED=0 go build -tags release -trimpath -o woom
-./woom               # serves webapp + API + WHIP/WHEP proxy on :4000
+make                 # release build: webapp -> static/dist, then cargo build --release
+./target/release/woom  # serves webapp + API + WHIP/WHEP proxy on :4000
 ```
 
 ## Testing
 
-- Go unit tests: `go test ./...` (currently only `server/helper/`).
+- Rust unit tests: `cargo test` (currently `src/helper.rs`).
 - E2E (Playwright, Chromium only):
 
 ```bash

@@ -9,7 +9,7 @@
     "build": "npm run lint && vite build -c webapp/vite.config.ts",
     "build-refresh": "npm run lint && cross-env USE_REFRESH=true npm run build",
     "preview": "vite preview -c webapp/vite.config.ts",
-    "test:e2e": "npm run build && CGO_ENABLED=0 go build -tags release -trimpath -o woom . && playwright test"
+    "test:e2e": "npm run build && cargo build --release && playwright test"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.21",

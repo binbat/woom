@@ -1,4 +1,4 @@
-FROM node:20-alpine as builder-node
+FROM node:20-alpine AS builder-node
 
 WORKDIR /app
 
@@ -10,24 +10,24 @@ COPY . .
 
 RUN npm run build
 
-FROM golang:1.21-alpine AS builder
+FROM rust:1-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+RUN apk add --no-cache musl-dev
 
-RUN go mod download
+COPY Cargo.toml Cargo.lock ./
 
 COPY . .
 
 COPY --from=builder-node /app/static/dist /app/static/dist
 
-RUN go build -tags release -o woom
+RUN cargo build --release
 
 # Bin
 FROM alpine AS bin
 
-COPY --from=builder /app/woom /usr/bin/woom
+COPY --from=builder /app/target/release/woom /usr/bin/woom
 
 EXPOSE 4000/tcp
 

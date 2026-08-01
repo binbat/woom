@@ -19,10 +19,8 @@ jobs:
         run: npm ci
       - name: Build WebApp
         run: npm run build
-      - name: Install golang
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
       - name: Build Woom
-        run: go build -tags release -trimpath
+        run: cargo build --release
 

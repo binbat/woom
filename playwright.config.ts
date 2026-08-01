@@ -35,10 +35,10 @@ export default defineConfig({
   ],
   webServer: {
     // Release binary serves webapp + API + WHIP/WHEP proxy on one origin.
-    // Build it first: `npm run build && go build -tags release -o woom`
+    // Build it first: `npm run build && cargo build --release`
     // (or just use `npm run test:e2e`). Redis and Live777 must be running,
     // see tests/global-setup.ts.
-    command: './woom',
+    command: './target/release/woom',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
