@@ -59,6 +59,17 @@ pub struct Presence {
     pub screen: bool,
 }
 
+/// One chat message inside a meeting.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Message {
+    pub id: String,
+    pub user_id: String,
+    pub name: String,
+    pub content: String,
+    pub ts: i64,
+}
+
 /// Archived meeting: the "meeting record" listed in history.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -69,4 +80,5 @@ pub struct Record {
     pub ended_at: i64,
     pub max_concurrent: usize,
     pub participants: Vec<Participant>,
+    pub messages: Vec<Message>,
 }

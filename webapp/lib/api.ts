@@ -42,6 +42,15 @@ interface MeetingRecord {
   endedAt: number,
   maxConcurrent: number,
   participants: Participant[],
+  messages: Message[],
+}
+
+interface Message {
+  id: string,
+  userId: string,
+  name: string,
+  content: string,
+  ts: number,
 }
 
 /**
@@ -71,13 +80,22 @@ interface User {
 }
 
 /** Snapshot pushed over SSE, same shape for the initial event and updates */
-interface RoomEvent {
+interface RoomSnapshot {
+  type: 'snapshot',
   meetingNo: string | null,
   streams: Record<string, Stream>,
   presenter: string,
   locked: boolean,
   participants: Participant[],
+  messages: Message[],
 }
+
+interface RoomMessageEvent {
+  type: 'message',
+  message: Message,
+}
+
+type RoomEvent = RoomSnapshot | RoomMessageEvent
 
 let token = ''
 
@@ -172,6 +190,16 @@ async function getMyRecords(): Promise<MeetingRecord[]> {
   })).json()
 }
 
+async function sendMessage(id: string, content: string): Promise<Message> {
+  const res = await fetch(`/room/${id}/message`, {
+    headers: authHeaders(),
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
 /** room-state stream; EventSource cannot set headers so the token goes in the query */
 function openRoomEvents(id: string): EventSource {
   return new EventSource(`/room/${id}/events?token=${encodeURIComponent(token)}`)
@@ -191,6 +219,7 @@ export {
   endMeeting,
   setPresence,
   getMyRecords,
+  sendMessage,
   openRoomEvents,
 
   StreamState,
@@ -206,5 +235,7 @@ export type {
   MeetingRecord,
   JoinResponse,
   Stream,
+  Message,
   RoomEvent,
+  RoomSnapshot,
 }

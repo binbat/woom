@@ -15,13 +15,16 @@ import {
 import copy from 'copy-to-clipboard'
 import SvgDone from './svg/done.vue'
 import SvgEnd from './svg/end.vue'
+import SvgChat from './svg/chat.vue'
+import Chat from './chat.vue'
 import {
   getRoom,
   leaveMeeting,
   leaveMeetingKeepalive,
   setPresence,
   openRoomEvents,
-  RoomEvent,
+  Message,
+  RoomSnapshot,
   Stream,
 } from '../lib/api'
 import { getStorageStream } from '../lib/storage'
@@ -49,9 +52,19 @@ const hiddenRemoteIds = computed(() =>
   Object.keys(remoteUserStatus.value).slice(MAX_VISIBLE_TILES - 1)
 )
 
-const applySnapshot = (data: RoomEvent) => {
+const chatOpen = ref(false)
+const unread = ref(0)
+const messages = ref<Message[]>([])
+
+const toggleChat = () => {
+  chatOpen.value = !chatOpen.value
+  if (chatOpen.value) unread.value = 0
+}
+
+const applySnapshot = (data: RoomSnapshot) => {
   roomInfo.value = { owner: roomInfo.value.owner, presenter: data.presenter, locked: data.locked }
   roomParticipants.value = data.participants
+  messages.value = data.messages
   // the meeting was ended (by the owner, or everyone else left): hang up locally
   if (meetingNoSeen && !data.meetingNo) {
     callEnd()
@@ -66,6 +79,16 @@ const applySnapshot = (data: RoomEvent) => {
       return map
     }, {} as { [_: string]: Stream })
   remoteUserStatus.value = r
+}
+
+const onRoomEvent = (raw: string) => {
+  const data = JSON.parse(raw)
+  if (data.type === 'message') {
+    messages.value.push(data.message)
+    if (!chatOpen.value) unread.value++
+  } else {
+    applySnapshot(data)
+  }
 }
 
 let meetingNoSeen = false
@@ -108,7 +131,7 @@ onMounted(async () => {
   } catch { /* room may be gone */ }
 
   events = openRoomEvents(props.meetingId)
-  events.onmessage = (e) => applySnapshot(JSON.parse(e.data))
+  events.onmessage = (e) => onRoomEvent(e.data)
 
   // presence heartbeat: the server expires entries after 45s without one
   heartbeat = window.setInterval(() => {
@@ -126,33 +149,39 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col h-screen">
-    <div class="flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row' : 'flex-col'">
-      <!-- presenter mode: shared screen takes the main stage -->
-      <div v-if="enabledPresentation" class="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
-        <Player
-          :stream="presentationStream.stream"
-          :muted="true"
-          :video="true"
-          :audio="false"
-          width="100%"
-          :self="false"
-          class="h-full max-w-full"
-        />
+    <div class="flex-1 min-h-0 flex overflow-hidden">
+      <div class="flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row' : 'flex-col'">
+        <!-- presenter mode: shared screen takes the main stage -->
+        <div v-if="enabledPresentation" class="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+          <Player
+            :stream="presentationStream.stream"
+            :muted="true"
+            :video="true"
+            :audio="false"
+            width="100%"
+            :self="false"
+            class="h-full max-w-full"
+          />
+        </div>
+
+        <!-- the tiles never change parent across layout switches: remounting
+             a WhepPlayer would clear the presentation stream and restart the
+             WHEP connection, which flips the layout back and loops -->
+        <div :class="enabledPresentation
+          ? 'flex lg:flex-col flex-row gap-3 shrink-0 overflow-auto lg:w-48'
+          : 'flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-center content-center overflow-y-auto'">
+          <WhipPlayer :stream-id="localStreamId" :width="enabledPresentation ? '160px' : '320px'" />
+          <WhepPlayer v-for="i in visibleRemoteIds" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" :width="enabledPresentation ? '160px' : '320px'" />
+
+          <div v-if="hiddenRemoteIds.length" class="flex flex-col justify-center items-center rounded-2xl bg-white/5 ring-1 ring-white/10" :class="enabledPresentation ? 'min-h-30' : 'min-h-60'" :style="{ width: enabledPresentation ? '160px' : '320px' }" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')">
+            <p class="text-3xl font-bold text-slate-300">+{{ hiddenRemoteIds.length }}</p>
+            <p class="mt-1 text-sm text-slate-400">{{ hiddenRemoteIds.length === 1 ? 'other' : 'others' }}</p>
+          </div>
+        </div>
       </div>
 
-      <!-- the tiles never change parent across layout switches: remounting
-           a WhepPlayer would clear the presentation stream and restart the
-           WHEP connection, which flips the layout back and loops -->
-      <div :class="enabledPresentation
-        ? 'flex lg:flex-col flex-row gap-3 shrink-0 overflow-auto lg:w-48'
-        : 'flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-center content-center overflow-y-auto'">
-        <WhipPlayer :stream-id="localStreamId" :width="enabledPresentation ? '160px' : '320px'" />
-        <WhepPlayer v-for="i in visibleRemoteIds" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" :width="enabledPresentation ? '160px' : '320px'" />
-
-        <div v-if="hiddenRemoteIds.length" class="flex flex-col justify-center items-center rounded-2xl bg-white/5 ring-1 ring-white/10" :class="enabledPresentation ? 'min-h-30' : 'min-h-60'" :style="{ width: enabledPresentation ? '160px' : '320px' }" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')">
-          <p class="text-3xl font-bold text-slate-300">+{{ hiddenRemoteIds.length }}</p>
-          <p class="mt-1 text-sm text-slate-400">{{ hiddenRemoteIds.length === 1 ? 'other' : 'others' }}</p>
-        </div>
+      <div v-if="chatOpen" class="shrink-0 py-4 pr-4">
+        <Chat :meeting-id="meetingId" :messages="messages" @close="chatOpen = false" />
       </div>
     </div>
 
@@ -166,6 +195,11 @@ onUnmounted(() => {
         </button>
 
         <DeviceBar :stream-id="localStreamId" />
+
+        <button class="icon-btn" aria-label="Chat" data-testid="chat-toggle" @click="toggleChat">
+          <SvgChat />
+          <span v-if="unread" class="absolute -top-1 -right-1 inline-grid place-items-center min-w-4 h-4 px-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold" data-testid="chat-unread">{{ unread }}</span>
+        </button>
 
         <button class="inline-grid place-items-center w-14 h-10 rounded-full text-white bg-rose-600 shadow-lg shadow-rose-950/40 transition-colors hover:bg-rose-500" data-testid="hang-up" aria-label="Hang up" @click="callEnd()">
           <SvgEnd />

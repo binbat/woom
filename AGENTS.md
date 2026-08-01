@@ -9,8 +9,9 @@ WOOM is a self-hosted meeting service built on the
 
 - `src/` — Rust backend (axum). Serves the REST API (`/user/`, `/room/*`),
   reverse-proxies `/whip/*` and `/whep/*` to Live777, pushes room state over
-  SSE (`/room/{id}/events`), and serves the webapp as an SPA (unknown paths
-  fall back to `index.html`). State lives in memory behind a `Store` trait
+  SSE (`/room/{id}/events`, two event types: `snapshot` for room/presence/
+  recent-chat state and `message` for live chat delivery), and serves the
+  webapp as an SPA (unknown paths fall back to `index.html`). State lives in memory behind a `Store` trait
   (`src/store.rs`, `MemoryStore` now; PostgreSQL later): rooms, meeting
   instances, participants and archived meeting records (`src/model.rs`).
   Presence (media state) is ephemeral with a 45s TTL, refreshed by client

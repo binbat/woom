@@ -20,7 +20,7 @@ use crate::{
     config::Config,
     events::{self, EventBus},
     helper,
-    model::{Meeting, Participant, Presence, Record, Role, Room},
+    model::{Meeting, Message, Participant, Presence, Record, Role, Room},
     proxy, spa,
     store::{now_secs, Store},
 };
@@ -48,6 +48,7 @@ pub fn router(store: Arc<dyn Store>, bus: EventBus, cfg: Config) -> Router {
         .route("/room/{roomId}/leave", post(leave_meeting))
         .route("/room/{roomId}/end", post(end_meeting))
         .route("/room/{roomId}/presence", patch(set_presence))
+        .route("/room/{roomId}/message", post(create_message))
         .route("/room/{roomId}/records", get(room_records))
         .route("/user/records", get(user_records))
         .route_layer(middleware::from_fn_with_state(state.clone(), jwt_auth));
@@ -373,6 +374,7 @@ async fn end_and_archive(state: &AppState, room_id: &str, meeting: &Meeting) {
         return;
     };
     let participants = state.store.participants(&meeting.meeting_no).await;
+    let messages = state.store.take_messages(&meeting.meeting_no).await;
     state
         .store
         .archive_record(Record {
@@ -382,6 +384,7 @@ async fn end_and_archive(state: &AppState, room_id: &str, meeting: &Meeting) {
             ended_at,
             max_concurrent: ended.max_concurrent,
             participants,
+            messages,
         })
         .await;
 }
@@ -443,6 +446,56 @@ async fn set_presence(
         .await;
     events::publish_room(&state.store, &state.bus, &room_id).await;
     StatusCode::NO_CONTENT.into_response()
+}
+
+// ---------- chat ----------
+
+const MAX_MESSAGE_LEN: usize = 500;
+
+#[derive(Deserialize)]
+struct MessageRequest {
+    content: Option<String>,
+}
+
+async fn create_message(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
+    Json(body): Json<MessageRequest>,
+) -> Response {
+    let content = body
+        .content
+        .unwrap_or_default()
+        .trim()
+        .chars()
+        .take(MAX_MESSAGE_LEN)
+        .collect::<String>();
+    if content.is_empty() {
+        return error(StatusCode::BAD_REQUEST, "empty message");
+    }
+    let Some(meeting) = state.store.current_meeting(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "no ongoing meeting");
+    };
+    // display name comes from the participant record (what others see),
+    // falling back to the user id
+    let name = state
+        .store
+        .participants(&meeting.meeting_no)
+        .await
+        .iter()
+        .find(|p| p.user_id == user.0)
+        .map(|p| p.name.clone())
+        .unwrap_or_else(|| user.0.clone());
+    let msg = Message {
+        id: uuid::Uuid::new_v4().to_string(),
+        user_id: user.0,
+        name,
+        content,
+        ts: now_secs(),
+    };
+    state.store.add_message(&meeting.meeting_no, msg.clone()).await;
+    events::publish_message(&state.bus, &room_id, &msg);
+    (StatusCode::CREATED, Json(msg)).into_response()
 }
 
 // ---------- browser log intake ----------

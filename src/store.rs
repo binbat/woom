@@ -4,10 +4,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 
-use crate::model::{Meeting, Participant, Presence, Record, Room};
+use crate::model::{Meeting, Message, Participant, Presence, Record, Room};
 
 /// Presence entries older than this are swept (client heartbeat is 15s).
 pub const PRESENCE_TTL_SECS: u64 = 45;
+
+/// Chat history kept per meeting (oldest dropped beyond this).
+pub const MAX_MESSAGES_PER_MEETING: usize = 500;
 
 pub fn now_secs() -> i64 {
     SystemTime::now()
@@ -41,6 +44,11 @@ pub trait Store: Send + Sync {
     /// Drop expired presence entries. Returns room ids whose snapshot changed.
     async fn sweep_presence(&self, ttl_secs: u64) -> Vec<String>;
 
+    async fn add_message(&self, meeting_no: &str, msg: Message);
+    /// The most recent `limit` messages, oldest first.
+    async fn messages(&self, meeting_no: &str, limit: usize) -> Vec<Message>;
+    async fn take_messages(&self, meeting_no: &str) -> Vec<Message>;
+
     async fn archive_record(&self, record: Record);
     async fn records_for_user(&self, user_id: &str) -> Vec<Record>;
     async fn records_for_room(&self, room_id: &str) -> Vec<Record>;
@@ -57,6 +65,8 @@ pub struct MemoryStore {
     participants: RwLock<HashMap<String, Vec<Participant>>>,
     /// meeting_no -> user_id -> (presence, updated_at)
     presence: RwLock<HashMap<String, HashMap<String, (Presence, i64)>>>,
+    /// meeting_no -> chat messages, oldest first
+    messages: RwLock<HashMap<String, Vec<Message>>>,
     records: RwLock<Vec<Record>>,
 }
 
@@ -201,6 +211,33 @@ impl Store for MemoryStore {
             .into_iter()
             .filter_map(|no| meetings.get(&no).map(|m| m.room_id.clone()))
             .collect()
+    }
+
+    async fn add_message(&self, meeting_no: &str, msg: Message) {
+        let mut messages = self.messages.write().unwrap();
+        let list = messages.entry(meeting_no.to_string()).or_default();
+        list.push(msg);
+        if list.len() > MAX_MESSAGES_PER_MEETING {
+            let overflow = list.len() - MAX_MESSAGES_PER_MEETING;
+            list.drain(..overflow);
+        }
+    }
+
+    async fn messages(&self, meeting_no: &str, limit: usize) -> Vec<Message> {
+        self.messages
+            .read()
+            .unwrap()
+            .get(meeting_no)
+            .map(|list| list.iter().rev().take(limit).rev().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    async fn take_messages(&self, meeting_no: &str) -> Vec<Message> {
+        self.messages
+            .write()
+            .unwrap()
+            .remove(meeting_no)
+            .unwrap_or_default()
     }
 
     async fn archive_record(&self, record: Record) {
