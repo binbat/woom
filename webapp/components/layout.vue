@@ -21,6 +21,7 @@ import Chat from './chat.vue'
 import Members from './members.vue'
 import {
   getRoom,
+  joinMeeting,
   leaveMeeting,
   leaveMeetingKeepalive,
   setPresence,
@@ -28,6 +29,7 @@ import {
   Message,
   RoomSnapshot,
   Stream,
+  StreamState,
 } from '../lib/api'
 import { getStorageStream } from '../lib/storage'
 import { log, setLogMeeting } from '../lib/log'
@@ -151,6 +153,26 @@ const cleanup = () => {
 
 let events: EventSource | undefined
 let heartbeat: number | undefined
+let sseConnected = false
+
+// after an SSE reconnect the server-side meeting state may have moved on
+// (presence expired, participant marked left, or the process restarted):
+// re-join idempotently and re-publish presence immediately
+const rejoinMeeting = async () => {
+  log('warn', 'sse_reconnected_rejoin', '', { meetingId: props.meetingId })
+  try {
+    await joinMeeting(props.meetingId, whip.value.userStatus.name || localStreamId)
+    await setPresence(props.meetingId, whip.value.userStatus)
+    // the WHIP watchdog normally recovers publishing itself, but give a
+    // dead connection a nudge right away
+    const dead = [StreamState.Failed, StreamState.Closed, StreamState.Disconnected]
+    if (dead.includes(whip.value.userStatus.state)) {
+      whip.value.restart()
+    }
+  } catch (e) {
+    log('error', 'rejoin_failed', String(e), { meetingId: props.meetingId })
+  }
+}
 
 onMounted(async () => {
   window.addEventListener('beforeunload', cleanup)
@@ -165,6 +187,14 @@ onMounted(async () => {
 
   events = openRoomEvents(props.meetingId)
   events.onmessage = (e) => onRoomEvent(e.data)
+  events.onopen = () => {
+    if (sseConnected) rejoinMeeting()
+    sseConnected = true
+  }
+  events.onerror = () => {
+    sseConnected = false
+    log('warn', 'sse_error', '', { meetingId: props.meetingId })
+  }
 
   // presence heartbeat: the server expires entries after 45s without one
   heartbeat = window.setInterval(() => {
@@ -203,26 +233,26 @@ onUnmounted(() => {
         <div :class="enabledPresentation
           ? 'flex lg:flex-col flex-row gap-3 shrink-0 overflow-auto lg:w-48'
           : 'flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-center content-center overflow-y-auto'">
-          <WhipPlayer :stream-id="localStreamId" :width="enabledPresentation ? '160px' : '320px'" />
-          <WhepPlayer v-for="i in visibleRemoteIds" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" :width="enabledPresentation ? '160px' : '320px'" />
+          <WhipPlayer :stream-id="localStreamId" :width="enabledPresentation ? '160px' : 'min(320px, 92vw)'" />
+          <WhepPlayer v-for="i in visibleRemoteIds" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" :width="enabledPresentation ? '160px' : 'min(320px, 92vw)'" />
 
-          <div v-if="hiddenRemoteIds.length" class="flex flex-col justify-center items-center rounded-2xl bg-white/5 ring-1 ring-white/10" :class="enabledPresentation ? 'min-h-30' : 'min-h-60'" :style="{ width: enabledPresentation ? '160px' : '320px' }" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')">
+          <div v-if="hiddenRemoteIds.length" class="flex flex-col justify-center items-center rounded-2xl bg-white/5 ring-1 ring-white/10" :class="enabledPresentation ? 'min-h-30' : 'min-h-60'" :style="{ width: enabledPresentation ? '160px' : 'min(320px, 92vw)' }" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')">
             <p class="text-3xl font-bold text-slate-300">+{{ hiddenRemoteIds.length }}</p>
             <p class="mt-1 text-sm text-slate-400">{{ hiddenRemoteIds.length === 1 ? 'other' : 'others' }}</p>
           </div>
         </div>
       </div>
 
-      <div v-if="chatOpen" class="shrink-0 py-4 pr-4">
+      <div v-if="chatOpen" class="shrink-0 py-4 pr-4 w-[85vw] max-w-xs sm:w-auto">
         <Chat :meeting-id="meetingId" :messages="messages" @close="chatOpen = false" />
       </div>
-      <div v-if="membersOpen" class="shrink-0 py-4 pr-4">
+      <div v-if="membersOpen" class="shrink-0 py-4 pr-4 w-[85vw] max-w-xs sm:w-auto">
         <Members :meeting-id="meetingId" :streams="streamsAll" @close="membersOpen = false" />
       </div>
     </div>
 
     <div class="flex justify-center px-4 pb-4">
-      <div class="panel flex items-center gap-3 px-4 py-2">
+      <div class="panel flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 max-w-[calc(100vw-1rem)] overflow-x-auto">
         <button class="hidden md:flex items-center gap-2 rounded-xl px-3 py-2 text-indigo-300 transition-colors hover:bg-white/10" @click="copyMeetingLink">
           <code class="font-mono text-sm tracking-wider" data-testid="meeting-id">{{ meetingId }}</code>
           <span class="inline-grid place-items-center text-emerald-400" :style="{ visibility: copyStatus ? 'visible' : 'hidden' }">

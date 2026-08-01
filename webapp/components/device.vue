@@ -6,7 +6,7 @@ import {
   deviceNone,
   deviceScreen,
 } from '../lib/device'
-import { isScreenShareSupported } from '../lib/util'
+import { isMobile, isScreenShareSupported } from '../lib/util'
 import { deviceSpeaker, speakerStatus, roomInfo } from '../store/atoms'
 import { setting } from '../store/setting'
 
@@ -14,6 +14,7 @@ import Loading from './svg/loading.vue'
 import SvgSpeaker from './svg/speaker.vue'
 import SvgAudio from './svg/audio.vue'
 import SvgVideo from './svg/video.vue'
+import SvgSwitchCamera from './svg/switch-camera.vue'
 import SvgPresentCancel from './svg/present-cancel.vue'
 import SvgPresentToAll from './svg/present.vue'
 import SvgBackgroundCancel from './svg/background-cancel.vue'
@@ -186,6 +187,17 @@ const canShareScreen = computed(() =>
   isScreenShareSupported && (!roomInfo.value.presenter || roomInfo.value.presenter === props.streamId)
 )
 
+// front/back camera toggle (mobile): re-capture the current camera with a
+// facingMode constraint; hidden while sharing screen or with camera off
+const facingMode = ref<'user' | 'environment'>('user')
+const showCameraSwitch = computed(() =>
+  isMobile && whip.value.currentDeviceVideo !== deviceNone.deviceId && !whip.value.userStatus.screen
+)
+const onSwitchCamera = async () => {
+  facingMode.value = facingMode.value === 'user' ? 'environment' : 'user'
+  await onChangedDeviceVideo(whip.value.currentDeviceVideo, { height: 480, facingMode: facingMode.value })
+}
+
 const onChangeScreenShareResolution = async (resolution: string) => {
   setting.screenShareResolution = resolution
   const height = Number.parseInt(resolution)
@@ -288,6 +300,9 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
         </select>
         <span class="pointer-events-none text-slate-400 text-xs">&#9662;</span>
       </div>
+      <button v-if="showCameraSwitch" class="icon-btn" aria-label="Switch camera" data-testid="switch-camera" @click="onSwitchCamera">
+        <SvgSwitchCamera />
+      </button>
     </div>
 
     <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
