@@ -2,7 +2,7 @@ export default class VolumeExtractor {
   private audioContext: AudioContext
   private source: MediaStreamAudioSourceNode
   private analyser: AnalyserNode
-  private dataArray: Uint8Array
+  private dataArray: Uint8Array<ArrayBuffer>
   private bufferLength: number
 
   constructor(stream: MediaStream) {
