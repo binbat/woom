@@ -36,6 +36,19 @@ export default defineConfigWithVueTs(
     }
   },
   {
+    // service worker runs in a worker scope, not a browser window
+    files: ['webapp/public/sw.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly',
+        caches: 'readonly',
+        fetch: 'readonly',
+        location: 'readonly',
+        URL: 'readonly'
+      }
+    }
+  },
+  {
     // ts options
     rules: {
       '@typescript-eslint/no-unused-vars': [

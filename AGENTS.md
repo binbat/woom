@@ -28,7 +28,10 @@ WOOM is a self-hosted meeting service built on the
   views are switched by `meetingId` in `webapp/app.vue`. The WHIP/WHEP clients
   are framework-agnostic classes (`webapp/components/use/whxp.ts`) exposed to
   components through composables (`useWhipClient`/`useWhepClient`) that bridge
-  the classes' `EventTarget` sync into `shallowRef`s.
+  the classes' `EventTarget` sync into `shallowRef`s. PWA: `webapp/public/`
+  carries the manifest, icons and a hand-rolled service worker (`sw.js`,
+  network-first navigations, cache-first hashed assets, API/SSE/WHIP/WHEP
+  bypassed) registered in production from `webapp/main.ts`.
 - `static/` — webapp build output embedded into the Rust binary via rust-embed
   (`src/spa.rs`). `static/dist` is produced by `npm run build` and must exist
   before compiling.
