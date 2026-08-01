@@ -58,12 +58,13 @@ test.describe('video-off avatar', () => {
       await expectVideoPlaying(bobRemote)
 
       // Alice turns her camera off (bar buttons: copy, speaker, audio, video):
-      // her tile on Bob's side shows the avatar
+      // her tile on Bob's side shows the avatar ringed by the spectrum
       await alice.locator('.flex.justify-center .panel button').nth(3).click()
       const avatar = bob.getByTestId('video-off-avatar')
       await expect(avatar).toBeVisible({ timeout: 15_000 })
       await expect(avatar).toContainText('A')
       await expect(avatar).toContainText('Alice')
+      await expect(bob.getByTestId('circle-wave')).toBeVisible()
     } finally {
       await contextAlice.close()
       await contextBob.close()

@@ -15,7 +15,6 @@
     "@mediapipe/tasks-vision": "^0.10.35",
     "copy-to-clipboard": "^4.0.2",
     "vue": "^3.5.40",
-    "wavesurfer.js": "^7.12.11",
     "whip-whep": "1.2.0"
   },
   "devDependencies": {

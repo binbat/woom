@@ -13,7 +13,7 @@ import SvgFullscreen from '../svg/fullscreen.vue'
 import SvgExitFullscreen from '../svg/exit-fullscreen.vue'
 import SvgPictureInPicture from '../svg/pip.vue'
 import SvgExitPictureInPicture from '../svg/exit-pip.vue'
-import AudioWave from './audio-wave.vue'
+import CircleWave from './circle-wave.vue'
 import Mic from './mic.vue'
 
 const props = defineProps<{
@@ -36,7 +36,6 @@ const isFullscreened = ref(false)
 const isPictureInPictured = ref(false)
 const hasTracks = computed(() => props.stream.getTracks().length > 0)
 const mediaEnabled = computed(() => props.audio || props.video)
-const showAudio = computed(() => props.audio && !props.video)
 const mediaDisabledTip = `All ${props.self ? 'your' : 'their'} media are disabled`
 const initial = computed(() => (props.name || '?').charAt(0).toUpperCase())
 
@@ -178,7 +177,10 @@ https://webkit.org/blog/6784/new-video-policies-for-ios/ -->
       class="absolute inset-0 flex flex-col items-center justify-center gap-2"
       data-testid="video-off-avatar"
     >
-      <span class="inline-grid place-items-center w-16 h-16 rounded-full bg-indigo-600/80 text-white text-2xl font-bold">{{ initial }}</span>
+      <div class="relative">
+        <CircleWave v-if="audioTrack" :stream="stream" />
+        <span class="inline-grid place-items-center w-16 h-16 rounded-full bg-indigo-600/80 text-white text-2xl font-bold">{{ initial }}</span>
+      </div>
       <p v-if="name" class="text-sm text-slate-300 max-w-full px-4 truncate">{{ name }}</p>
     </div>
     <p
@@ -199,7 +201,6 @@ https://webkit.org/blog/6784/new-video-policies-for-ios/ -->
         ? { display: video ? 'inline' : 'none' }
         : { height: '0px' }"
     />
-    <div v-if="showAudio" class="w-full"><AudioWave :stream="stream" /></div>
     <Mic :stream="stream" />
     <div
       ref="refControls"
