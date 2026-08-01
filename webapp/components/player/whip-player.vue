@@ -30,7 +30,7 @@ watch([() => whip.value.userStatus.screen, () => whip.value.stream], () => {
 
 <template>
   <div class="relative flex flex-col">
-    <Player :stream="whip.stream" :muted="true" :width="width" :audio="whip.userStatus.audio" :video="whip.userStatus.video && !whip.userStatus.screen" :self="true" />
+    <Player :stream="whip.stream" :muted="true" :width="width" :audio="whip.userStatus.audio" :video="whip.userStatus.video && !whip.userStatus.screen" :self="true" :name="whip.userStatus.name" />
     <Detail :stream-id="streamId" :conn-status="whip.userStatus.state" :user-status="whip.userStatus" :restart="whip.restart" />
   </div>
 </template>

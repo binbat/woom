@@ -23,6 +23,7 @@ const props = defineProps<{
   video?: boolean
   width: string
   self: boolean
+  name?: string
 }>()
 
 const refVideo = ref<HTMLVideoElement>()
@@ -37,6 +38,7 @@ const hasTracks = computed(() => props.stream.getTracks().length > 0)
 const mediaEnabled = computed(() => props.audio || props.video)
 const showAudio = computed(() => props.audio && !props.video)
 const mediaDisabledTip = `All ${props.self ? 'your' : 'their'} media are disabled`
+const initial = computed(() => (props.name || '?').charAt(0).toUpperCase())
 
 let timeoutId: number | undefined
 let playPromise: Promise<void> | undefined
@@ -171,9 +173,17 @@ onUnmounted(teardownAudio)
 https://webkit.org/blog/6784/new-video-policies-for-ios/ -->
 <template>
   <div class="relative flex flex-col justify-center items-center min-h-60 rounded-2xl bg-black/70 ring-1 ring-white/10 overflow-hidden shadow-xl" :style="{ width: width }">
+    <div
+      v-if="!video"
+      class="absolute inset-0 flex flex-col items-center justify-center gap-2"
+      data-testid="video-off-avatar"
+    >
+      <span class="inline-grid place-items-center w-16 h-16 rounded-full bg-indigo-600/80 text-white text-2xl font-bold">{{ initial }}</span>
+      <p v-if="name" class="text-sm text-slate-300 max-w-full px-4 truncate">{{ name }}</p>
+    </div>
     <p
       v-if="!mediaEnabled"
-      class="text-slate-300 text-sm transition-opacity duration-300"
+      class="absolute bottom-2 text-slate-400 text-xs transition-opacity duration-300"
       :class="showControls ? 'opacity-100' : 'opacity-0'"
     >{{ mediaDisabledTip }}</p>
     <SvgProgress v-if="mediaEnabled && !hasTracks" />

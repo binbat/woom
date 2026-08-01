@@ -203,8 +203,36 @@ class WHIPContext extends Context {
   }
 
   async start() {
-    const { id, pc, stream, client, userStatus } = this
-    if (stream.getTracks().length === 0) return
+    const { id, pc, client, userStatus } = this
+    if (this.stream.getTracks().length === 0) {
+      // device init may still be in flight (slow phones, permission
+      // prompts): wait for the first track instead of silently never
+      // publishing. Times out into Failed so the watchdog retries.
+      log('info', 'whip_start_wait_tracks', '', { id })
+      const gotTracks = await new Promise<boolean>((resolve) => {
+        const timer = setTimeout(() => {
+          this.removeEventListener(event.type, onSync)
+          resolve(false)
+        }, 10000)
+        const onSync = () => {
+          if (this.stream.getTracks().length > 0) {
+            clearTimeout(timer)
+            this.removeEventListener(event.type, onSync)
+            resolve(true)
+          }
+        }
+        this.addEventListener(event.type, onSync)
+        onSync()
+      })
+      if (!gotTracks) {
+        log('warn', 'whip_start_no_tracks', 'timed out waiting for media tracks', { id })
+        userStatus.state = StreamState.Failed
+        this.syncUserStatus(userStatus)
+        this.sync()
+        if (!this.timer) this.timer = setInterval(() => this.run(), 5000)
+        return
+      }
+    }
     log('info', 'whip_start', '', { id })
     pc.addEventListener('connectionstatechange', this.onconnectionstatechange)
     userStatus.state = StreamState.Signaled

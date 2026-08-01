@@ -57,7 +57,7 @@ watch([() => props.userStatus.screen, () => whep.value.stream], () => {
 
 <template>
   <div class="relative flex flex-col">
-    <Player :stream="whep.stream" :muted="false" :width="width" :audio="userStatus.audio" :video="userStatus.video && !userStatus.screen" :self="false" />
+    <Player :stream="whep.stream" :muted="false" :width="width" :audio="userStatus.audio" :video="userStatus.video && !userStatus.screen" :self="false" :name="userStatus.name" />
     <Detail :stream-id="streamId" :conn-status="whep.connStatus" :user-status="userStatus" :restart="whep.restart" />
   </div>
 </template>

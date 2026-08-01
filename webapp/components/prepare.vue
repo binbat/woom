@@ -52,7 +52,7 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col items-center gap-6 py-8 px-4">
-    <Player :stream="whip.stream" :muted="false" width="min(360px, 92vw)" :audio="whip.userStatus.audio" :video="whip.userStatus.video" :self="true" />
+    <Player :stream="whip.stream" :muted="false" width="min(360px, 92vw)" :audio="whip.userStatus.audio" :video="whip.userStatus.video" :self="true" :name="displayName" />
 
     <label class="flex items-center gap-3 text-slate-300">
       <span class="text-sm font-medium whitespace-nowrap">Your Name</span>
