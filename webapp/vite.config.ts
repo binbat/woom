@@ -2,7 +2,7 @@ import path from 'node:path'
 
 import { defineConfig } from 'vite'
 import UnoCSS from 'unocss/vite'
-import React from '@vitejs/plugin-react'
+import Vue from '@vitejs/plugin-vue'
 
 const ProjectRoot = path.resolve(import.meta.dirname, '..')
 const WebAppRoot = path.resolve(ProjectRoot, 'webapp')
@@ -29,7 +29,7 @@ export default defineConfig({
   },
   plugins: [
     UnoCSS(path.resolve(WebAppRoot, 'uno.config.ts')),
-    React()
+    Vue()
   ],
   resolve: {
     alias: [

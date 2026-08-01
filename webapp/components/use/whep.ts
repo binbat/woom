@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { onScopeDispose, shallowRef, type ShallowRef } from 'vue'
 import { event, Context, Data } from './whxp'
 import { StreamState, Stream } from '../../lib/api'
 import { WHEPClient } from 'whip-whep/whep'
@@ -107,7 +107,7 @@ class WHEPContext extends Context {
 
 const contexts: WHEPContext[] = []
 
-export default function useWhepClient(id: string) {
+export default function useWhepClient(id: string): ShallowRef<WHIPData> {
   const newContext = (id: string) => {
     const context = new WHEPContext(id)
     contexts.push(context)
@@ -115,10 +115,13 @@ export default function useWhepClient(id: string) {
   }
 
   const context = contexts.find(ctx => ctx.id === id) || newContext(id)
-  return useSyncExternalStore((callback: () => void) => {
-    context.addEventListener(event.type, callback)
-    return () => {
-      context.removeEventListener(event.type, callback)
-    }
-  }, () => context.export())
+  const data = shallowRef(context.export())
+  const update = () => {
+    data.value = context.export()
+  }
+  context.addEventListener(event.type, update)
+  onScopeDispose(() => {
+    context.removeEventListener(event.type, update)
+  })
+  return data
 }

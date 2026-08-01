@@ -1,15 +1,17 @@
 import js from '@eslint/js'
-import ts from 'typescript-eslint'
-
 import stylisticJs from '@stylistic/eslint-plugin-js'
+import pluginVue from 'eslint-plugin-vue'
+import { defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript'
 
-export default ts.config(
+export default defineConfigWithVueTs(
   {
     ignores: [
       'static/'
     ]
   },
   js.configs.recommended,
+  ...pluginVue.configs['flat/essential'],
+  vueTsConfigs.recommended,
   {
     // js options
     plugins: {
@@ -30,11 +32,9 @@ export default ts.config(
       '@stylistic/js/new-parens': ['warn', 'always'],
       'comma-dangle': ['warn', 'only-multiline'],
       '@stylistic/js/quotes': ['warn', 'single', { 'avoidEscape': true }],
-      '@stylistic/js/indent': ['warn', 2, { 'SwitchCase': 1 }],
-      '@stylistic/js/jsx-quotes': ['warn', 'prefer-double']
+      '@stylistic/js/indent': ['warn', 2, { 'SwitchCase': 1 }]
     }
   },
-  ...ts.configs.recommended,
   {
     // ts options
     rules: {
@@ -49,7 +49,9 @@ export default ts.config(
           'varsIgnorePattern': '^_',
           'ignoreRestSiblings': true
         }
-      ]
+      ],
+      // single-word names (join, prepare, layout, ...) mirror the old React files
+      'vue/multi-word-component-names': 'off'
     }
   }
 )

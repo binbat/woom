@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite -c webapp/vite.config.ts",
     "dev-refresh": "cross-env USE_REFRESH=true npm run dev",
-    "lint": "eslint && tsc --noEmit",
+    "lint": "eslint && vue-tsc --noEmit",
     "build": "npm run lint && vite build -c webapp/vite.config.ts",
     "build-refresh": "npm run lint && cross-env USE_REFRESH=true npm run build",
     "preview": "vite preview -c webapp/vite.config.ts",
@@ -14,15 +14,9 @@
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.21",
     "copy-to-clipboard": "^3.3.3",
-    "jotai": "^2.10.2",
-    "jotai-devtools": "^0.10.1",
-    "jotai-location": "^0.5.5",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "swr": "^2.2.5",
+    "vue": "^3.5.40",
     "wavesurfer.js": "7.8.2",
-    "whip-whep": "1.2.0",
-    "zustand": "^5.0.6"
+    "whip-whep": "1.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
@@ -30,18 +24,19 @@
     "@playwright/test": "^1.62.1",
     "@stylistic/eslint-plugin-js": "^2.10.1",
     "@types/node": "^22.9.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
     "@unocss/preset-attributify": "^0.64.1",
     "@unocss/preset-icons": "^0.64.1",
     "@unocss/preset-uno": "^0.64.1",
     "@unocss/reset": "^0.64.1",
-    "@vitejs/plugin-react": "^4.3.3",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/eslint-config-typescript": "^14.9.0",
     "cross-env": "^7.0.3",
     "eslint": "^9.14.0",
+    "eslint-plugin-vue": "^10.10.0",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.14.0",
     "unocss": "^0.64.1",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vue-tsc": "^3.3.9"
   }
 }

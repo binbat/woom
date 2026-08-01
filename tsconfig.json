@@ -7,7 +7,6 @@
     "types": [""],
     "target": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "jsx": "react-jsx",
     "useDefineForClassFields": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",

@@ -13,10 +13,15 @@ WOOM is a self-hosted meeting service built on the
   (hashes with JSON values, see `src/model.rs`). Config is via env vars, see
   `src/config.rs` (`PORT` 4000, `REDIS_URL`, `LIVE777_URL`, `LIVE777_TOKEN`,
   `SECRET`).
-- `webapp/` — React 18 + TypeScript + Vite + UnoCSS frontend. State: jotai
-  (`webapp/store/atom.ts`), zustand for persisted settings, localStorage for
-  user/token (`webapp/lib/storage.ts`). There is no router library; the
-  Welcome/Meeting views are switched by `meetingIdAtom` in `webapp/app.tsx`.
+- `webapp/` — Vue 3 + TypeScript + Vite + UnoCSS frontend (`<script setup>`
+  SFCs). State: module-level `ref`/`shallowRef` (`webapp/store/atoms.ts`),
+  a `reactive` settings object persisted to localStorage
+  (`webapp/store/setting.ts`), localStorage for user/token
+  (`webapp/lib/storage.ts`). There is no router library; the Welcome/Meeting
+  views are switched by `meetingId` in `webapp/app.vue`. The WHIP/WHEP clients
+  are framework-agnostic classes (`webapp/components/use/whxp.ts`) exposed to
+  components through composables (`useWhipClient`/`useWhepClient`) that bridge
+  the classes' `EventTarget` sync into `shallowRef`s.
 - `static/` — webapp build output embedded into the Rust binary via rust-embed
   (`src/spa.rs`). `static/dist` is produced by `npm run build` and must exist
   before compiling.
@@ -62,10 +67,11 @@ E2e conventions:
 
 ## Code style
 
-- ESLint flat config (`eslint.config.js`): no semicolons, single quotes,
-  2-space indent, trailing commas only when multiline. Run `npm run lint`
-  (also type-checks via `tsc --noEmit`) before committing — it is part of
-  `npm run build`.
+- ESLint flat config (`eslint.config.js`): eslint-plugin-vue (essential),
+  typescript-eslint and the legacy stylistic rules: no semicolons, single
+  quotes, 2-space indent, trailing commas only when multiline. Run
+  `npm run lint` (also type-checks via `vue-tsc --noEmit`) before
+  committing — it is part of `npm run build`.
 - Commits: Conventional Commits with scope, e.g. `feat(webapp): ...`,
   `refactor(webapp): ...`, `test(e2e): ...` (see `git log`).
 - CI: `.github/workflows/build.yml` (build matrix), `.github/workflows/test.yml`
