@@ -46,6 +46,7 @@ export default function Prepare(_props: { meetingId: string }) {
         <label className="text-white">Your Name: </label>
         <input
           className="text-center"
+          data-testid="name-input"
           value={displayName}
           onChange={e => setDisplayName(e.target.value)}
         />
@@ -56,7 +57,7 @@ export default function Prepare(_props: { meetingId: string }) {
       </div>
 
       <center className="m-xs">
-        <button className="btn-primary flex flex-row justify-center" onClick={() => { join() }}>
+        <button className="btn-primary flex flex-row justify-center" data-testid="join-room" onClick={() => { join() }}>
           {loading
             ? <center className="m-2px mr-3"><Loading /></center>
             : null

@@ -116,7 +116,7 @@ export default function Layout(props: { meetingId: string }) {
               setCopyStatus(true)
               setTimeout(() => setCopyStatus(false), 3000)
             }}>
-              <code className="mx-sm my-1px">{props.meetingId}</code>
+              <code className="mx-sm my-1px" data-testid="meeting-id">{props.meetingId}</code>
               <center className="text-rose-400 rounded-md" style={{ visibility: copyStatus ? 'visible' : 'hidden' }} >
                 <SvgDone />
               </center>
@@ -126,7 +126,7 @@ export default function Layout(props: { meetingId: string }) {
           <DeviceBar streamId={localStreamId} />
 
           <section className="flex flex-col justify-center">
-            <button className="text-white bg-rose-600 hover:bg-rose-700 duration-1000 shadow-xl rounded-3xl w-18 h-10" onClick={() => callEnd()}>
+            <button className="text-white bg-rose-600 hover:bg-rose-700 duration-1000 shadow-xl rounded-3xl w-18 h-10" data-testid="hang-up" onClick={() => callEnd()}>
               <center>
                 <SvgEnd />
               </center>

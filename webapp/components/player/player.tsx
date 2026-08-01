@@ -215,6 +215,7 @@ export default function Player(props: { stream: MediaStream, muted: boolean, aud
       {mediaEnabled && !hasTracks ? <SvgProgress /> : null}
       <video
         className="aspect-ratio-[4/3] w-full h-full object-contain rounded-xl"
+        data-testid={props.self ? 'video-self' : 'video-remote'}
         playsInline={true}
         autoPlay={true}
         controls={false}
