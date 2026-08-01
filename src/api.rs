@@ -6,7 +6,7 @@ use axum::{
     http::{header, HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{sse::Event, IntoResponse, Response, Sse},
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post},
     Json, Router,
 };
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
@@ -22,7 +22,7 @@ use crate::{
     helper,
     model::{Meeting, Message, Participant, Presence, Record, Role, Room},
     proxy, spa,
-    store::{now_secs, Store},
+    store::{now_millis, now_secs, Store},
 };
 
 #[derive(Clone)]
@@ -47,6 +47,8 @@ pub fn router(store: Arc<dyn Store>, bus: EventBus, cfg: Config) -> Router {
         .route("/room/{roomId}/join", post(join_meeting))
         .route("/room/{roomId}/leave", post(leave_meeting))
         .route("/room/{roomId}/end", post(end_meeting))
+        .route("/room/{roomId}/mute", post(mute_all))
+        .route("/room/{roomId}/participant/{userId}", delete(remove_participant))
         .route("/room/{roomId}/presence", patch(set_presence))
         .route("/room/{roomId}/message", post(create_message))
         .route("/room/{roomId}/records", get(room_records))
@@ -404,6 +406,63 @@ async fn end_meeting(
         return StatusCode::NO_CONTENT.into_response();
     };
     end_and_archive(&state, &room_id, &meeting).await;
+    events::publish_room(&state.store, &state.bus, &room_id).await;
+    StatusCode::NO_CONTENT.into_response()
+}
+
+/// Mute everyone (except the owner, exempted client-side). This only bumps
+/// the broadcast timestamp; clients mute their own mic when they see it.
+async fn mute_all(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    let Some(mut room) = state.store.get_room(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "room not found");
+    };
+    if room.owner != user.0 {
+        return error(StatusCode::FORBIDDEN, "only the room owner can mute everyone");
+    }
+    room.mute_all_at = now_millis();
+    state.store.update_room(room).await;
+    events::publish_room(&state.store, &state.bus, &room_id).await;
+    StatusCode::NO_CONTENT.into_response()
+}
+
+async fn remove_participant(
+    State(state): State<AppState>,
+    Path((room_id, target)): Path<(String, String)>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    let Some(room) = state.store.get_room(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "room not found");
+    };
+    if room.owner != user.0 {
+        return error(StatusCode::FORBIDDEN, "only the room owner can remove participants");
+    }
+    if target == user.0 {
+        return error(StatusCode::BAD_REQUEST, "cannot remove yourself");
+    }
+    let Some(meeting) = state.store.current_meeting(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "no ongoing meeting");
+    };
+    let participants = state.store.participants(&meeting.meeting_no).await;
+    let Some(p) = participants
+        .iter()
+        .find(|p| p.user_id == target && p.leave_at.is_none())
+    else {
+        return error(StatusCode::NOT_FOUND, "participant not found");
+    };
+    if p.role == Role::Owner {
+        return error(StatusCode::FORBIDDEN, "cannot remove the room owner");
+    }
+
+    state
+        .store
+        .leave_participant(&meeting.meeting_no, &target, now_secs())
+        .await;
+    state.store.remove_presence(&meeting.meeting_no, &target).await;
+    archive_if_empty(&state, &room_id, &meeting).await;
     events::publish_room(&state.store, &state.bus, &room_id).await;
     StatusCode::NO_CONTENT.into_response()
 }

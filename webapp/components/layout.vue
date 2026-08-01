@@ -16,7 +16,9 @@ import copy from 'copy-to-clipboard'
 import SvgDone from './svg/done.vue'
 import SvgEnd from './svg/end.vue'
 import SvgChat from './svg/chat.vue'
+import SvgMembers from './svg/members.vue'
 import Chat from './chat.vue'
+import Members from './members.vue'
 import {
   getRoom,
   leaveMeeting,
@@ -53,13 +55,28 @@ const hiddenRemoteIds = computed(() =>
 )
 
 const chatOpen = ref(false)
+const membersOpen = ref(false)
 const unread = ref(0)
 const messages = ref<Message[]>([])
+const streamsAll = ref<Record<string, Stream>>({})
+
+const activeCount = computed(() => roomParticipants.value.filter(p => !p.leaveAt).length)
 
 const toggleChat = () => {
   chatOpen.value = !chatOpen.value
-  if (chatOpen.value) unread.value = 0
+  if (chatOpen.value) {
+    unread.value = 0
+    membersOpen.value = false
+  }
 }
+
+const toggleMembers = () => {
+  membersOpen.value = !membersOpen.value
+  if (membersOpen.value) chatOpen.value = false
+}
+
+// the newest mute-all timestamp already acted on; null = nothing seen yet
+let lastMuteAllAt: number | null = null
 
 const applySnapshot = (data: RoomSnapshot) => {
   roomInfo.value = { owner: roomInfo.value.owner, presenter: data.presenter, locked: data.locked }
@@ -71,6 +88,22 @@ const applySnapshot = (data: RoomSnapshot) => {
     return
   }
   if (data.meetingNo) meetingNoSeen = true
+  // removed by the owner: my participant entry is marked as left
+  const me = data.participants.find(p => p.userId === localStreamId)
+  if (data.meetingNo && me?.leaveAt) {
+    callEnd()
+    return
+  }
+  // host muted everyone: mute my own mic (the owner is exempt)
+  if (lastMuteAllAt === null) {
+    lastMuteAllAt = data.muteAllAt
+  } else if (data.muteAllAt > lastMuteAllAt) {
+    lastMuteAllAt = data.muteAllAt
+    if (roomInfo.value.owner !== localStreamId && whip.value.userStatus.audio) {
+      whip.value.toggleEnableAudio()
+    }
+  }
+  streamsAll.value = data.streams || {}
   const r = Object.keys(data.streams || {})
     .filter(i => i !== localStreamId)
     .filter(i => !!i)
@@ -183,6 +216,9 @@ onUnmounted(() => {
       <div v-if="chatOpen" class="shrink-0 py-4 pr-4">
         <Chat :meeting-id="meetingId" :messages="messages" @close="chatOpen = false" />
       </div>
+      <div v-if="membersOpen" class="shrink-0 py-4 pr-4">
+        <Members :meeting-id="meetingId" :streams="streamsAll" @close="membersOpen = false" />
+      </div>
     </div>
 
     <div class="flex justify-center px-4 pb-4">
@@ -195,6 +231,11 @@ onUnmounted(() => {
         </button>
 
         <DeviceBar :stream-id="localStreamId" />
+
+        <button class="icon-btn" aria-label="Members" data-testid="members-toggle" @click="toggleMembers">
+          <SvgMembers />
+          <span class="absolute -top-1 -right-1 inline-grid place-items-center min-w-4 h-4 px-0.5 rounded-full bg-indigo-500 text-white text-[10px] font-bold" data-testid="members-count">{{ activeCount }}</span>
+        </button>
 
         <button class="icon-btn" aria-label="Chat" data-testid="chat-toggle" @click="toggleChat">
           <SvgChat />

@@ -88,6 +88,7 @@ interface RoomSnapshot {
   locked: boolean,
   participants: Participant[],
   messages: Message[],
+  muteAllAt: number,
 }
 
 interface RoomMessageEvent {
@@ -175,6 +176,22 @@ async function endMeeting(id: string): Promise<void> {
   if (!res.ok) throw new Error(await res.text())
 }
 
+async function muteAll(id: string): Promise<void> {
+  const res = await fetch(`/room/${id}/mute`, {
+    headers: authHeaders(),
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error(await res.text())
+}
+
+async function kickParticipant(id: string, userId: string): Promise<void> {
+  const res = await fetch(`/room/${id}/participant/${userId}`, {
+    headers: authHeaders(),
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error(await res.text())
+}
+
 async function setPresence(id: string, status: Stream): Promise<void> {
   const res = await fetch(`/room/${id}/presence`, {
     headers: authHeaders(),
@@ -217,6 +234,8 @@ export {
   leaveMeeting,
   leaveMeetingKeepalive,
   endMeeting,
+  muteAll,
+  kickParticipant,
   setPresence,
   getMyRecords,
   sendMessage,

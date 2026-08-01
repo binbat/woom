@@ -14,6 +14,9 @@ pub struct Room {
     pub locked: bool,
     /// user id of the designated presenter; empty means anyone may share
     pub presenter: String,
+    /// bumped (millis) every time the owner mutes everyone; clients mute
+    /// themselves when they see a newer value
+    pub mute_all_at: i64,
     pub created_at: i64,
 }
 

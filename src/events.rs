@@ -35,6 +35,7 @@ struct Snapshot<'a> {
     locked: bool,
     participants: &'a [Participant],
     messages: &'a [Message],
+    mute_all_at: i64,
 }
 
 pub async fn snapshot(store: &Arc<dyn Store>, room_id: &str) -> String {
@@ -58,6 +59,7 @@ pub async fn snapshot(store: &Arc<dyn Store>, room_id: &str) -> String {
         locked: room.locked,
         participants: &participants,
         messages: &messages,
+        mute_all_at: room.mute_all_at,
     })
     .unwrap_or_default()
 }

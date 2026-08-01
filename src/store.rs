@@ -19,6 +19,13 @@ pub fn now_secs() -> i64 {
         .as_secs() as i64
 }
 
+pub fn now_millis() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64
+}
+
 /// Storage abstraction. `MemoryStore` is the current implementation; a
 /// PostgreSQL implementation can replace it without touching the API layer.
 #[async_trait]
