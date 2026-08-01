@@ -7,15 +7,6 @@ jobs:
     name: Playwright e2e
     runs-on: ubuntu-latest
     services:
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
       live777:
         image: ghcr.io/binbat/live777-server:0.7.3
         ports:

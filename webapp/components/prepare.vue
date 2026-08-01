@@ -6,11 +6,14 @@ import Loading from './svg/loading.vue'
 import Player from './player/player.vue'
 import { meetingJoined } from '../store/atoms'
 import { getStorageName, setStorageName, getStorageStream } from '../lib/storage'
-import { setStream } from '../lib/api'
+import { joinMeeting, setPresence } from '../lib/api'
+import { log, setLogMeeting } from '../lib/log'
 
-defineProps<{ meetingId: string }>()
+const props = defineProps<{ meetingId: string }>()
 
 const loading = ref<boolean>(false)
+const joinError = ref('')
+const password = ref('')
 const displayName = ref<string>('')
 
 const localStreamId = getStorageStream()
@@ -19,13 +22,26 @@ const whip = useWhipClient(localStreamId)
 
 const join = async () => {
   loading.value = true
+  joinError.value = ''
 
-  whip.value.setUserName(displayName.value || localStreamId)
+  const name = displayName.value || localStreamId
+  try {
+    await joinMeeting(props.meetingId, name, password.value || undefined)
+  } catch (e) {
+    joinError.value = e instanceof Error ? e.message : String(e)
+    log('error', 'join_meeting_failed', joinError.value, { meetingId: props.meetingId })
+    loading.value = false
+    return
+  }
+  setLogMeeting(props.meetingId)
+  log('info', 'joined_meeting', '', { meetingId: props.meetingId, name })
+
+  whip.value.setUserName(name)
 
   meetingJoined.value = true
   setStorageName(displayName.value)
   await whip.value.restart()
-  whip.value.setSyncUserStatus((status) => setStream(whip.value.id, status))
+  whip.value.setSyncUserStatus((status) => setPresence(props.meetingId, status))
   loading.value = false
 }
 
@@ -46,6 +62,18 @@ onMounted(() => {
         data-testid="name-input"
       />
     </label>
+
+    <label v-if="joinError.includes('password')" class="flex items-center gap-3 text-slate-300">
+      <span class="text-sm font-medium whitespace-nowrap">Password</span>
+      <input
+        v-model="password"
+        type="password"
+        class="input-dark w-56 text-center"
+        data-testid="password-input"
+      />
+    </label>
+
+    <p v-if="joinError" class="text-sm text-rose-400">{{ joinError }}</p>
 
     <div class="panel px-3 py-2">
       <DeviceBar :stream-id="localStreamId" />

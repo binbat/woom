@@ -1,28 +1,11 @@
-import net from 'node:net'
-
-// The woom server depends on Redis (room state) and Live777 (WebRTC SFU).
+// The woom server depends on Live777 (WebRTC SFU).
 // Fail fast with a clear message instead of obscure test failures.
-// Start them with: docker compose up -d
+// Start it with: docker compose up -d
 
-const REDIS_PORT = 6379
 const LIVE777_URL = 'http://localhost:7777'
 const WAIT_TIMEOUT = 30_000
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-function checkTcp(port: number): Promise<boolean> {
-  return new Promise(resolve => {
-    const socket = net.createConnection({ host: '127.0.0.1', port })
-    socket.once('connect', () => {
-      socket.end()
-      resolve(true)
-    })
-    socket.once('error', () => {
-      socket.destroy()
-      resolve(false)
-    })
-  })
-}
 
 async function checkHttp(url: string): Promise<boolean> {
   try {
@@ -46,11 +29,6 @@ async function waitFor(name: string, hint: string, check: () => Promise<boolean>
 }
 
 export default async function globalSetup() {
-  await waitFor(
-    `Redis (localhost:${REDIS_PORT})`,
-    'Start it with: docker compose up -d',
-    () => checkTcp(REDIS_PORT),
-  )
   await waitFor(
     `Live777 (${LIVE777_URL})`,
     'Start it with: docker compose up -d',

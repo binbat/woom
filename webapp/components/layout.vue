@@ -9,12 +9,23 @@ import {
   enabledPresentation,
   meetingJoined,
   presentationStream,
+  roomInfo,
+  roomParticipants,
 } from '../store/atoms'
 import copy from 'copy-to-clipboard'
 import SvgDone from './svg/done.vue'
 import SvgEnd from './svg/end.vue'
-import { getRoom, delStream, Stream } from '../lib/api'
+import {
+  getRoom,
+  leaveMeeting,
+  leaveMeetingKeepalive,
+  setPresence,
+  openRoomEvents,
+  RoomEvent,
+  Stream,
+} from '../lib/api'
 import { getStorageStream } from '../lib/storage'
+import { log, setLogMeeting } from '../lib/log'
 import useWhipClient from './use/whip'
 
 // at most 9 video tiles on screen (self + up to 8 remotes); remote users
@@ -29,6 +40,8 @@ const copyStatus = ref(false)
 const localStreamId = getStorageStream()
 const remoteUserStatus = ref<Record<string, UserStatus>>({})
 
+const whip = useWhipClient(localStreamId)
+
 const visibleRemoteIds = computed(() =>
   Object.keys(remoteUserStatus.value).slice(0, MAX_VISIBLE_TILES - 1)
 )
@@ -36,24 +49,30 @@ const hiddenRemoteIds = computed(() =>
   Object.keys(remoteUserStatus.value).slice(MAX_VISIBLE_TILES - 1)
 )
 
-const whip = useWhipClient(localStreamId)
-
-const refresh = async () => {
-  const data = (await getRoom(props.meetingId)).streams
-  if (data) {
-    const r = Object.keys(data)
-      .filter(i => i !== localStreamId)
-      .filter(i => !!i)
-      .reduce((map, i) => {
-        map[i] = data[i]
-        return map
-      }, {} as { [_: string]: Stream })
-    remoteUserStatus.value = r
+const applySnapshot = (data: RoomEvent) => {
+  roomInfo.value = { owner: roomInfo.value.owner, presenter: data.presenter, locked: data.locked }
+  roomParticipants.value = data.participants
+  // the meeting was ended (by the owner, or everyone else left): hang up locally
+  if (meetingNoSeen && !data.meetingNo) {
+    callEnd()
+    return
   }
+  if (data.meetingNo) meetingNoSeen = true
+  const r = Object.keys(data.streams || {})
+    .filter(i => i !== localStreamId)
+    .filter(i => !!i)
+    .reduce((map, i) => {
+      map[i] = data.streams[i]
+      return map
+    }, {} as { [_: string]: Stream })
+  remoteUserStatus.value = r
 }
 
+let meetingNoSeen = false
+
 const callEnd = async () => {
-  delStream(props.meetingId, localStreamId)
+  log('info', 'leave_meeting', '', { meetingId: props.meetingId })
+  leaveMeeting(props.meetingId)
 
   meetingJoined.value = false
   whip.value.stop()
@@ -71,21 +90,37 @@ const copyMeetingLink = () => {
 // https://developer.mozilla.org/en-US/docs/Web/API/Window/unload_event
 // `unload` event is Deprecated, But Firefox need `unload`
 const cleanup = () => {
-  delStream(props.meetingId, localStreamId)
+  leaveMeetingKeepalive(props.meetingId)
 }
 
-let refreshTimer: number | undefined
+let events: EventSource | undefined
+let heartbeat: number | undefined
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('beforeunload', cleanup)
   window.addEventListener('unload', cleanup)
-  refreshTimer = window.setInterval(refresh, 3000)
+  setLogMeeting(props.meetingId)
+
+  // static room info (owner) once; live state arrives over SSE
+  try {
+    const detail = await getRoom(props.meetingId)
+    roomInfo.value = { ...roomInfo.value, owner: detail.owner }
+  } catch { /* room may be gone */ }
+
+  events = openRoomEvents(props.meetingId)
+  events.onmessage = (e) => applySnapshot(JSON.parse(e.data))
+
+  // presence heartbeat: the server expires entries after 45s without one
+  heartbeat = window.setInterval(() => {
+    setPresence(props.meetingId, whip.value.userStatus)
+  }, 15000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('beforeunload', cleanup)
   window.removeEventListener('unload', cleanup)
-  window.clearInterval(refreshTimer)
+  events?.close()
+  window.clearInterval(heartbeat)
 })
 </script>
 

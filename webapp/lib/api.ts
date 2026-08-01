@@ -1,11 +1,47 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 interface Room {
   roomId: string,
-  locked: false,
   owner: string,
-  presenter?: string,
-  streams: any,
+  topic: string,
+  locked: boolean,
+  presenter: string,
+  createdAt: number,
+}
+
+interface Meeting {
+  meetingNo: string,
+  roomId: string,
+  startedAt: number,
+  endedAt?: number,
+  maxConcurrent: number,
+}
+
+interface Participant {
+  userId: string,
+  name: string,
+  role: 'owner' | 'member',
+  joinAt: number,
+  leaveAt?: number,
+}
+
+interface RoomDetail extends Room {
+  meeting: Meeting | null,
+  participants: Participant[],
+}
+
+interface JoinResponse {
+  meetingNo: string,
+  userId: string,
+  role: 'owner' | 'member',
+  name: string,
+}
+
+interface MeetingRecord {
+  meetingNo: string,
+  roomId: string,
+  startedAt: number,
+  endedAt: number,
+  maxConcurrent: number,
+  participants: Participant[],
 }
 
 /**
@@ -34,15 +70,26 @@ interface User {
   token: string,
 }
 
+/** Snapshot pushed over SSE, same shape for the initial event and updates */
+interface RoomEvent {
+  meetingNo: string | null,
+  streams: Record<string, Stream>,
+  presenter: string,
+  locked: boolean,
+  participants: Participant[],
+}
+
 let token = ''
-let roomId = ''
 
 function setApiToken(str: string) {
   token = str
 }
 
-function setRoomId(str: string) {
-  roomId = str
+function authHeaders(): HeadersInit {
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  }
 }
 
 async function newUser(): Promise<User> {
@@ -53,84 +100,98 @@ async function newUser(): Promise<User> {
 
 async function newRoom(): Promise<Room> {
   return (await fetch('/room/', {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: authHeaders(),
     method: 'POST',
   })).json()
 }
 
-async function getRoom(roomId: string): Promise<Room> {
-  return (await fetch(`/room/${roomId}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })).json()
+async function getRoom(id: string): Promise<RoomDetail> {
+  const res = await fetch(`/room/${id}`, {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
 }
 
-async function setRoom(roomId: string, data: any): Promise<Room> {
-  return (await fetch(`/room/${roomId}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+async function patchRoom(id: string, data: Partial<Pick<Room, 'topic' | 'locked' | 'presenter'> & { password: string }>): Promise<Room> {
+  const res = await fetch(`/room/${id}`, {
+    headers: authHeaders(),
     method: 'PATCH',
     body: JSON.stringify(data),
-  })).json()
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
 }
 
-async function delRoom(roomId: string): Promise<void> {
-  return (await fetch(`/room/${roomId}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-    method: 'DELETE',
-  })).json()
-}
-
-async function newStream(roomId: string): Promise<Stream> {
-  return (await fetch(`/room/${roomId}/stream`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+async function joinMeeting(id: string, name: string, password?: string): Promise<JoinResponse> {
+  const res = await fetch(`/room/${id}/join`, {
+    headers: authHeaders(),
     method: 'POST',
-  })).json()
+    body: JSON.stringify({ name, password }),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
 }
 
-async function setStream(streamId: string, data: any): Promise<Stream> {
-  return (await fetch(`/room/${roomId}/stream/${streamId}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  })).json()
+async function leaveMeeting(id: string): Promise<void> {
+  await fetch(`/room/${id}/leave`, {
+    headers: authHeaders(),
+    method: 'POST',
+  })
 }
 
-async function delStream(roomId: string, streamId: string): Promise<any> {
-  return fetch(`/room/${roomId}/stream/${streamId}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-    method: 'DELETE',
+/** keepalive variant for page-unload cleanup */
+function leaveMeetingKeepalive(id: string) {
+  fetch(`/room/${id}/leave`, {
+    headers: authHeaders(),
+    method: 'POST',
     keepalive: true,
   })
 }
 
+async function endMeeting(id: string): Promise<void> {
+  const res = await fetch(`/room/${id}/end`, {
+    headers: authHeaders(),
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error(await res.text())
+}
+
+async function setPresence(id: string, status: Stream): Promise<void> {
+  const res = await fetch(`/room/${id}/presence`, {
+    headers: authHeaders(),
+    method: 'PATCH',
+    body: JSON.stringify(status),
+  })
+  if (!res.ok) console.warn('presence rejected:', res.status, await res.text())
+}
+
+async function getMyRecords(): Promise<MeetingRecord[]> {
+  return (await fetch('/user/records', {
+    headers: authHeaders(),
+  })).json()
+}
+
+/** room-state stream; EventSource cannot set headers so the token goes in the query */
+function openRoomEvents(id: string): EventSource {
+  return new EventSource(`/room/${id}/events?token=${encodeURIComponent(token)}`)
+}
+
 export {
-  setRoomId,
   setApiToken,
   newUser,
 
   newRoom,
   getRoom,
-  setRoom,
-  delRoom,
+  patchRoom,
 
-  newStream,
-  setStream,
-  delStream,
+  joinMeeting,
+  leaveMeeting,
+  leaveMeetingKeepalive,
+  endMeeting,
+  setPresence,
+  getMyRecords,
+  openRoomEvents,
 
   StreamState,
 
@@ -138,5 +199,12 @@ export {
 }
 
 export type {
+  Room,
+  RoomDetail,
+  Meeting,
+  Participant,
+  MeetingRecord,
+  JoinResponse,
   Stream,
+  RoomEvent,
 }

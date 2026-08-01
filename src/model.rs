@@ -1,37 +1,72 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
-pub const ADMIN_UNIQUE_KEY: &str = "admin";
-
+/// Persistent meeting room (the "number"). Lives until the process restarts;
+/// a future PostgreSQL `Store` implementation will make it durable.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct RoomAdmin {
-    pub owner: String,
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub presenter: String,
-    pub locked: bool,
-}
-
-#[derive(Clone, Debug, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Room {
     pub room_id: String,
-    #[serde(flatten)]
-    pub admin: RoomAdmin,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub stream_id: String,
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub streams: HashMap<String, Stream>,
+    pub owner: String,
+    pub topic: String,
+    // never serialized to clients
+    #[serde(skip_serializing)]
+    pub password: String,
+    pub locked: bool,
+    /// user id of the designated presenter; empty means anyone may share
+    pub presenter: String,
+    pub created_at: i64,
+}
+
+/// One meeting instance ("one sitting") of a room. A room has at most one
+/// ongoing meeting; when it ends it is archived as a `Record`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Meeting {
+    pub meeting_no: String,
+    pub room_id: String,
+    pub started_at: i64,
+    pub ended_at: Option<i64>,
+    pub max_concurrent: usize,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum Role {
+    Owner,
+    #[default]
+    Member,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct Stream {
+#[serde(rename_all = "camelCase", default)]
+pub struct Participant {
+    pub user_id: String,
     pub name: String,
-    #[serde(skip)]
-    pub token: String,
+    pub role: Role,
+    pub join_at: i64,
+    pub leave_at: Option<i64>,
+}
+
+/// Ephemeral per-user media state. This is signaling data with a TTL, not
+/// part of the durable room state.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Presence {
+    pub name: String,
     pub state: String,
     pub audio: bool,
     pub video: bool,
     pub screen: bool,
+}
+
+/// Archived meeting: the "meeting record" listed in history.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Record {
+    pub meeting_no: String,
+    pub room_id: String,
+    pub started_at: i64,
+    pub ended_at: i64,
+    pub max_concurrent: usize,
+    pub participants: Vec<Participant>,
 }

@@ -1,12 +1,5 @@
 version: "3"
 services:
-  redis:
-    image: redis:7
-    container_name: redis
-    hostname: redis
-    ports:
-      - "6379:6379/tcp"
-
   live777:
     image: ghcr.io/binbat/live777-server:0.7.3
     container_name: live777
@@ -17,4 +10,3 @@ services:
 networks:
   default:
     name: woom
-

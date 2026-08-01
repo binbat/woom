@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch, computed } from 'vue'
 import useWhipClient from './use/whip'
 import {
   Device,
@@ -7,7 +7,7 @@ import {
   deviceScreen,
 } from '../lib/device'
 import { isScreenShareSupported } from '../lib/util'
-import { deviceSpeaker, speakerStatus } from '../store/atoms'
+import { deviceSpeaker, speakerStatus, roomInfo } from '../store/atoms'
 import { setting } from '../store/setting'
 
 import Loading from './svg/loading.vue'
@@ -181,6 +181,11 @@ const toggleEnableScreen = async () => {
   loadingScreen.value = false
 }
 
+// only the designated presenter may share; everyone can when it is unset
+const canShareScreen = computed(() =>
+  isScreenShareSupported && (!roomInfo.value.presenter || roomInfo.value.presenter === props.streamId)
+)
+
 const onChangeScreenShareResolution = async (resolution: string) => {
   setting.screenShareResolution = resolution
   const height = Number.parseInt(resolution)
@@ -294,7 +299,7 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
     </div>
 
     <div v-if="!setting.screenShareButtonShowed" class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
-      <button class="icon-btn" :disabled="!isScreenShareSupported" @click="toggleEnableScreen()">
+      <button class="icon-btn" :disabled="!canShareScreen" @click="toggleEnableScreen()">
         <Loading v-if="loadingScreen" />
         <SvgPresentCancel v-else-if="whip.userStatus.screen" />
         <SvgPresentToAll v-else />
@@ -303,7 +308,7 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
         <select
           class="absolute inset-0 opacity-0 cursor-pointer"
           :value="setting.screenShareResolution"
-          :disabled="!isScreenShareSupported"
+          :disabled="!canShareScreen"
           @change="onChangeScreenShareResolution(selectValue($event))"
         >
           <option v-for="r in screenResolutions" :key="r.label" :value="r.value">{{ r.label }}</option>

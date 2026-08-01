@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { meetingId } from '../store/atoms'
 import { getStorage, setStorage, delStorage, setStorageStream, setStorageMeeting } from '../lib/storage'
-import { newRoom, newUser, setApiToken, setRoomId } from '../lib/api'
+import { newRoom, newUser, setApiToken } from '../lib/api'
 import SvgSetting from './svg/setting.vue'
 import Settings from './settings.vue'
 
@@ -32,13 +32,11 @@ const newMeeting = async () => {
   await getLoginStatus()
   const id = (await newRoom()).roomId
   enterMeeting(id)
-  setRoomId(id)
 }
 
 const joinMeeting = async () => {
   await getLoginStatus()
   enterMeeting(tmpId.value)
-  setRoomId(tmpId.value)
 }
 
 onMounted(() => {

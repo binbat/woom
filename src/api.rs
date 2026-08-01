@@ -1,59 +1,77 @@
-use std::collections::HashMap;
+use std::convert::Infallible;
+use std::sync::Arc;
 
 use axum::{
-    extract::{Path, Request, State},
+    extract::{Path, Query, Request, State},
     http::{header, HeaderMap, StatusCode},
     middleware::{self, Next},
-    response::{IntoResponse, Response},
-    routing::{any, get, patch, post},
+    response::{sse::Event, IntoResponse, Response, Sse},
+    routing::{get, patch, post},
     Json, Router,
 };
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use redis::{aio::ConnectionManager, AsyncCommands};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tokio_stream::wrappers::BroadcastStream;
+use tokio_stream::StreamExt;
 use tower_http::trace::TraceLayer;
 
 use crate::{
     config::Config,
+    events::{self, EventBus},
     helper,
-    model::{Room, RoomAdmin, Stream, ADMIN_UNIQUE_KEY},
+    model::{Meeting, Participant, Presence, Record, Role, Room},
     proxy, spa,
+    store::{now_secs, Store},
 };
 
 #[derive(Clone)]
 pub struct AppState {
-    pub rdb: ConnectionManager,
+    pub store: Arc<dyn Store>,
+    pub bus: EventBus,
     pub cfg: Config,
     pub http: reqwest::Client,
 }
 
-pub fn router(rdb: ConnectionManager, cfg: Config) -> Router {
+pub fn router(store: Arc<dyn Store>, bus: EventBus, cfg: Config) -> Router {
     let state = AppState {
-        rdb,
+        store,
+        bus,
         cfg,
         http: reqwest::Client::new(),
     };
 
     let protected = Router::new()
         .route("/room/", post(create_room))
-        .route("/room/{roomId}", get(show_room))
-        .route("/room/{roomId}/stream", post(create_room_stream))
-        .route(
-            "/room/{roomId}/stream/{streamId}",
-            patch(update_room_stream).delete(destroy_room_stream),
-        )
+        .route("/room/{roomId}", get(show_room).patch(update_room))
+        .route("/room/{roomId}/join", post(join_meeting))
+        .route("/room/{roomId}/leave", post(leave_meeting))
+        .route("/room/{roomId}/end", post(end_meeting))
+        .route("/room/{roomId}/presence", patch(set_presence))
+        .route("/room/{roomId}/records", get(room_records))
+        .route("/user/records", get(user_records))
         .route_layer(middleware::from_fn_with_state(state.clone(), jwt_auth));
 
     Router::new()
         .merge(protected)
         .route("/user/", post(create_user))
+        // browser log intake. Unauthenticated on purpose: failures must be
+        // reportable even before the client managed to get a token
+        .route("/log", post(client_log))
+        // EventSource cannot set headers: this route accepts the JWT via
+        // the Authorization header or the ?token= query parameter
+        .route("/room/{roomId}/events", get(room_events))
         .route("/whip/{uuid}", any(proxy::forward))
         .route("/whep/{uuid}", any(proxy::forward))
         .fallback(spa::handler)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
+
+use axum::routing::any;
+
+#[derive(Clone)]
+struct UserId(String);
 
 #[derive(Serialize, Deserialize)]
 struct Claims {
@@ -75,22 +93,47 @@ fn token_from_header(headers: &HeaderMap) -> &str {
     }
 }
 
-async fn jwt_auth(State(state): State<AppState>, req: Request, next: Next) -> Response {
-    let token = token_from_header(req.headers());
-    let result = decode::<Claims>(
+fn decode_token(secret: &str, token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+    Ok(decode::<Claims>(
         token,
-        &DecodingKey::from_secret(state.cfg.secret.as_bytes()),
+        &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::new(Algorithm::HS512),
-    );
-    match result {
-        Ok(_) => next.run(req).await,
+    )?
+    .claims)
+}
+
+async fn jwt_auth(State(state): State<AppState>, mut req: Request, next: Next) -> Response {
+    let token = token_from_header(req.headers()).to_string();
+    match decode_token(&state.cfg.secret, &token) {
+        Ok(claims) => {
+            req.extensions_mut().insert(UserId(claims.id));
+            next.run(req).await
+        }
         Err(e) => (StatusCode::UNAUTHORIZED, e.to_string()).into_response(),
     }
 }
 
-fn internal_error(e: impl std::fmt::Display) -> Response {
-    (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+/// JWT from header or ?token= (for EventSource)
+fn auth_user(state: &AppState, headers: &HeaderMap, query: &Query<AuthQuery>) -> Option<UserId> {
+    let header_token = token_from_header(headers);
+    let token = if header_token.is_empty() {
+        query.token.as_deref().unwrap_or("")
+    } else {
+        header_token
+    };
+    decode_token(&state.cfg.secret, token).ok().map(|c| UserId(c.id))
 }
+
+#[derive(Deserialize)]
+struct AuthQuery {
+    token: Option<String>,
+}
+
+fn error(status: StatusCode, msg: &str) -> Response {
+    (status, msg.to_string()).into_response()
+}
+
+// ---------- user ----------
 
 async fn create_user(State(state): State<AppState>) -> Response {
     let stream_id = uuid::Uuid::new_v4().to_string();
@@ -107,120 +150,366 @@ async fn create_user(State(state): State<AppState>) -> Response {
         &EncodingKey::from_secret(state.cfg.secret.as_bytes()),
     ) {
         Ok(token) => Json(json!({ "streamId": stream_id, "token": token })).into_response(),
-        Err(e) => internal_error(e),
+        Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
     }
 }
 
-async fn create_room(State(mut state): State<AppState>) -> Response {
-    let room_id = helper::add_split_symbol(&helper::gen_number_secret(9));
-    let stream_id = uuid::Uuid::new_v4().to_string();
-    let admin = RoomAdmin {
-        owner: stream_id.clone(),
+async fn user_records(State(state): State<AppState>, axum::Extension(user): axum::Extension<UserId>) -> Json<Vec<Record>> {
+    Json(state.store.records_for_user(&user.0).await)
+}
+
+// ---------- room ----------
+
+async fn create_room(
+    State(state): State<AppState>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    let room = Room {
+        room_id: helper::add_split_symbol(&helper::gen_number_secret(9)),
+        owner: user.0,
+        created_at: now_secs(),
         ..Default::default()
     };
+    state.store.create_room(room.clone()).await;
+    Json(room).into_response()
+}
 
-    let value = match serde_json::to_string(&admin) {
-        Ok(v) => v,
-        Err(e) => return internal_error(e),
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RoomDetail {
+    #[serde(flatten)]
+    room: Room,
+    meeting: Option<Meeting>,
+    participants: Vec<Participant>,
+}
+
+async fn show_room(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+) -> Response {
+    let Some(room) = state.store.get_room(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "room not found");
     };
-    if let Err(e) = state
-        .rdb
-        .hset::<_, _, _, ()>(&room_id, ADMIN_UNIQUE_KEY, value)
-        .await
-    {
-        return internal_error(e);
-    }
-
-    Json(Room {
-        room_id,
-        admin,
-        stream_id,
-        ..Default::default()
+    let meeting = state.store.current_meeting(&room_id).await;
+    let participants = match &meeting {
+        Some(m) => state.store.participants(&m.meeting_no).await,
+        None => Vec::new(),
+    };
+    Json(RoomDetail {
+        room,
+        meeting,
+        participants,
     })
     .into_response()
 }
 
-async fn show_room(State(state): State<AppState>, Path(room_id): Path<String>) -> Response {
-    match helper_show_room(state, &room_id).await {
-        Ok(room) => Json(room).into_response(),
-        Err(e) => internal_error(e),
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+struct UpdateRoom {
+    topic: Option<String>,
+    password: Option<String>,
+    locked: Option<bool>,
+    presenter: Option<String>,
+}
+
+impl Default for UpdateRoom {
+    fn default() -> Self {
+        Self {
+            topic: None,
+            password: None,
+            locked: None,
+            presenter: None,
+        }
     }
 }
 
-async fn create_room_stream(
+async fn update_room(
     State(state): State<AppState>,
     Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
+    Json(body): Json<UpdateRoom>,
 ) -> Response {
-    let mut room = match helper_show_room(state.clone(), &room_id).await {
-        Ok(room) => room,
-        Err(e) => return internal_error(e),
+    let Some(mut room) = state.store.get_room(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "room not found");
     };
-
-    let stream_id = uuid::Uuid::new_v4().to_string();
-    if let Err(e) = helper_set_room_stream(state, &room_id, &stream_id, &Stream::default()).await {
-        return internal_error(e);
+    if room.owner != user.0 {
+        return error(StatusCode::FORBIDDEN, "only the room owner can update the room");
     }
-    room.stream_id = stream_id;
+    if let Some(topic) = body.topic {
+        room.topic = topic;
+    }
+    if let Some(password) = body.password {
+        room.password = password;
+    }
+    if let Some(locked) = body.locked {
+        room.locked = locked;
+    }
+    if let Some(presenter) = body.presenter {
+        room.presenter = presenter;
+    }
+    state.store.update_room(room.clone()).await;
+    events::publish_room(&state.store, &state.bus, &room_id).await;
     Json(room).into_response()
 }
 
-async fn update_room_stream(
+// ---------- meeting ----------
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+struct JoinRequest {
+    name: Option<String>,
+    password: Option<String>,
+}
+
+impl Default for JoinRequest {
+    fn default() -> Self {
+        Self {
+            name: None,
+            password: None,
+        }
+    }
+}
+
+async fn join_meeting(
     State(state): State<AppState>,
-    Path((room_id, stream_id)): Path<(String, String)>,
-    Json(stream): Json<Stream>,
+    Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
+    Json(body): Json<JoinRequest>,
 ) -> Response {
-    let mut room = match helper_show_room(state.clone(), &room_id).await {
-        Ok(room) => room,
-        Err(e) => return internal_error(e),
+    let Some(room) = state.store.get_room(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "room not found");
+    };
+    let is_owner = room.owner == user.0;
+    if room.locked && !is_owner {
+        return error(StatusCode::FORBIDDEN, "room is locked");
+    }
+    if !room.password.is_empty() && !is_owner && body.password.as_deref() != Some(room.password.as_str()) {
+        return error(StatusCode::FORBIDDEN, "invalid password");
+    }
+
+    // first participant starts the meeting instance
+    let meeting = match state.store.current_meeting(&room_id).await {
+        Some(m) => m,
+        None => {
+            let meeting = Meeting {
+                meeting_no: uuid::Uuid::new_v4().to_string(),
+                room_id: room_id.clone(),
+                started_at: now_secs(),
+                ended_at: None,
+                max_concurrent: 0,
+            };
+            state.store.create_meeting(meeting.clone()).await;
+            meeting
+        }
     };
 
-    if let Err(e) = helper_set_room_stream(state, &room_id, &stream_id, &stream).await {
-        return internal_error(e);
-    }
-    room.stream_id = stream_id;
-    Json(room).into_response()
+    let role = if is_owner { Role::Owner } else { Role::Member };
+    let name = body.name.filter(|n| !n.is_empty()).unwrap_or_else(|| user.0.clone());
+    let participants = state
+        .store
+        .join_participant(
+            &meeting.meeting_no,
+            Participant {
+                user_id: user.0.clone(),
+                name: name.clone(),
+                role: role.clone(),
+                join_at: now_secs(),
+                leave_at: None,
+            },
+        )
+        .await;
+    let active = participants.iter().filter(|p| p.leave_at.is_none()).count();
+    state.store.bump_concurrent(&meeting.meeting_no, active).await;
+    events::publish_room(&state.store, &state.bus, &room_id).await;
+
+    Json(json!({
+        "meetingNo": meeting.meeting_no,
+        "userId": user.0,
+        "role": role,
+        "name": name,
+    }))
+    .into_response()
 }
 
-async fn destroy_room_stream(
-    State(mut state): State<AppState>,
-    Path((room_id, stream_id)): Path<(String, String)>,
+async fn leave_meeting(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
 ) -> Response {
-    if let Err(e) = state.rdb.hdel::<_, _, ()>(&room_id, &stream_id).await {
-        return internal_error(e);
-    }
+    let Some(meeting) = state.store.current_meeting(&room_id).await else {
+        return StatusCode::NO_CONTENT.into_response();
+    };
+    state
+        .store
+        .leave_participant(&meeting.meeting_no, &user.0, now_secs())
+        .await;
+    state.store.remove_presence(&meeting.meeting_no, &user.0).await;
+    archive_if_empty(&state, &room_id, &meeting).await;
+    events::publish_room(&state.store, &state.bus, &room_id).await;
     StatusCode::NO_CONTENT.into_response()
 }
 
-async fn helper_show_room(
-    mut state: AppState,
-    room_id: &str,
-) -> redis::RedisResult<Room> {
-    let result: HashMap<String, String> = state.rdb.hgetall(room_id).await?;
-
-    let mut room = Room {
-        room_id: room_id.to_string(),
-        ..Default::default()
-    };
-    for (k, v) in result {
-        if k == ADMIN_UNIQUE_KEY {
-            if let Ok(admin) = serde_json::from_str(&v) {
-                room.admin = admin;
-            }
-        } else if let Ok(stream) = serde_json::from_str::<Stream>(&v) {
-            room.streams.insert(k, stream);
-        }
+/// End the meeting when nobody is left, archiving the record.
+async fn archive_if_empty(state: &AppState, room_id: &str, meeting: &Meeting) {
+    let participants = state.store.participants(&meeting.meeting_no).await;
+    if participants.iter().any(|p| p.leave_at.is_none()) {
+        return;
     }
-    Ok(room)
+    end_and_archive(state, room_id, meeting).await;
 }
 
-async fn helper_set_room_stream(
-    mut state: AppState,
-    room_id: &str,
-    stream_id: &str,
-    stream: &Stream,
-) -> redis::RedisResult<()> {
-    let value = serde_json::to_string(stream).map_err(|e| {
-        redis::RedisError::from((redis::ErrorKind::TypeError, "json encode failed", e.to_string()))
-    })?;
-    state.rdb.hset(room_id, stream_id, value).await
+async fn end_and_archive(state: &AppState, room_id: &str, meeting: &Meeting) {
+    let ended_at = now_secs();
+    // mark everyone left, so the record has complete durations
+    let participants = state.store.participants(&meeting.meeting_no).await;
+    for p in participants.iter().filter(|p| p.leave_at.is_none()) {
+        state
+            .store
+            .leave_participant(&meeting.meeting_no, &p.user_id, ended_at)
+            .await;
+    }
+    state.store.clear_presence(&meeting.meeting_no).await;
+    let Some(ended) = state.store.end_meeting(&meeting.meeting_no, ended_at).await else {
+        return;
+    };
+    let participants = state.store.participants(&meeting.meeting_no).await;
+    state
+        .store
+        .archive_record(Record {
+            meeting_no: ended.meeting_no,
+            room_id: room_id.to_string(),
+            started_at: ended.started_at,
+            ended_at,
+            max_concurrent: ended.max_concurrent,
+            participants,
+        })
+        .await;
+}
+
+async fn end_meeting(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    let Some(room) = state.store.get_room(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "room not found");
+    };
+    if room.owner != user.0 {
+        return error(StatusCode::FORBIDDEN, "only the room owner can end the meeting");
+    }
+    let Some(meeting) = state.store.current_meeting(&room_id).await else {
+        return StatusCode::NO_CONTENT.into_response();
+    };
+    end_and_archive(&state, &room_id, &meeting).await;
+    events::publish_room(&state.store, &state.bus, &room_id).await;
+    StatusCode::NO_CONTENT.into_response()
+}
+
+async fn room_records(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    let Some(room) = state.store.get_room(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "room not found");
+    };
+    if room.owner != user.0 {
+        return error(StatusCode::FORBIDDEN, "only the room owner can list room records");
+    }
+    Json(state.store.records_for_room(&room_id).await).into_response()
+}
+
+// ---------- presence ----------
+
+async fn set_presence(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
+    Json(presence): Json<Presence>,
+) -> Response {
+    let Some(room) = state.store.get_room(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "room not found");
+    };
+    let Some(meeting) = state.store.current_meeting(&room_id).await else {
+        return error(StatusCode::NOT_FOUND, "no ongoing meeting");
+    };
+    // only the designated presenter (or the owner) may share their screen
+    if presence.screen && !room.presenter.is_empty() && room.presenter != user.0 && room.owner != user.0 {
+        return error(StatusCode::FORBIDDEN, "only the presenter can share screen");
+    }
+    state
+        .store
+        .set_presence(&meeting.meeting_no, &user.0, presence)
+        .await;
+    events::publish_room(&state.store, &state.bus, &room_id).await;
+    StatusCode::NO_CONTENT.into_response()
+}
+
+// ---------- browser log intake ----------
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClientLogBatch {
+    session_id: Option<String>,
+    meeting_id: Option<String>,
+    logs: Vec<ClientLogEntry>,
+}
+
+#[derive(Deserialize)]
+struct ClientLogEntry {
+    ts: Option<i64>,
+    level: Option<String>,
+    event: Option<String>,
+    msg: Option<String>,
+    data: Option<serde_json::Value>,
+}
+
+/// Write browser-reported logs as NDJSON lines on the `client_log` target;
+/// `docker logs woom | grep client_log` answers "what did users hit".
+async fn client_log(Json(batch): Json<ClientLogBatch>) -> StatusCode {
+    for entry in batch.logs.iter().take(100) {
+        let line = json!({
+            "src": "browser",
+            "sessionId": batch.session_id,
+            "meetingId": batch.meeting_id,
+            "ts": entry.ts,
+            "level": entry.level.as_deref().unwrap_or("info"),
+            "event": entry.event,
+            "msg": entry.msg.as_deref().map(|m| m.chars().take(500).collect::<String>()),
+            "data": entry.data,
+        });
+        tracing::info!(target: "client_log", "{}", line.to_string());
+    }
+    StatusCode::NO_CONTENT
+}
+
+// ---------- SSE ----------
+
+async fn room_events(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    headers: HeaderMap,
+    query: Query<AuthQuery>,
+) -> Response {
+    if auth_user(&state, &headers, &query).is_none() {
+        return error(StatusCode::UNAUTHORIZED, "invalid token");
+    }
+    if state.store.get_room(&room_id).await.is_none() {
+        return error(StatusCode::NOT_FOUND, "room not found");
+    }
+
+    let initial = events::snapshot(&state.store, &room_id).await;
+    let stream = BroadcastStream::new(state.bus.subscribe()).filter_map(move |msg| {
+        match msg {
+            Ok(event) if event.room_id == room_id => {
+                Some(Ok::<_, Infallible>(Event::default().data(event.payload)))
+            }
+            // lagged behind: the next publish carries a full snapshot anyway
+            _ => None,
+        }
+    });
+    let initial_stream = tokio_stream::once(Ok(Event::default().data(initial)));
+    Sse::new(initial_stream.chain(stream))
+        .keep_alive(axum::response::sse::KeepAlive::default())
+        .into_response()
 }

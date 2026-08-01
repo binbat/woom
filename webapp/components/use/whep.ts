@@ -1,6 +1,7 @@
 import { onScopeDispose, shallowRef, type ShallowRef } from 'vue'
 import { event, Context, Data } from './whxp'
 import { StreamState, Stream } from '../../lib/api'
+import { log } from '../../lib/log'
 import { WHEPClient } from 'whip-whep/whep'
 
 interface WHIPData extends Data {
@@ -56,11 +57,15 @@ class WHEPContext extends Context {
   onconnectionstatechange = () => {
     this.userStatus.state = this.pc.connectionState as StreamState
     this.connStatus = this.pc.connectionState
+    if (this.userStatus.state === StreamState.Failed || this.userStatus.state === StreamState.Disconnected) {
+      log('warn', 'whep_state', this.pc.connectionState, { id: this.id })
+    }
     this.sync()
   }
 
   async start() {
     const { id, pc, client, userStatus } = this
+    log('info', 'whep_start', '', { id })
     pc.addEventListener('connectionstatechange', this.onconnectionstatechange)
     userStatus.state = StreamState.Signaled
     this.sync()
@@ -70,6 +75,7 @@ class WHEPContext extends Context {
       const url = location.origin + `/whep/${id}`
       await client.view(pc, url)
     } catch (e) {
+      log('error', 'whep_view_failed', String(e), { id })
       console.log(e)
       userStatus.state = StreamState.Failed
       this.sync()
@@ -101,7 +107,10 @@ class WHEPContext extends Context {
   run() {
     // WatchDog, Auto Restart
     const restartStates = [StreamState.Disconnected, StreamState.Closed, StreamState.Failed]
-    if (restartStates.find(i => i === this.userStatus.state) && this.remoteStatus.state === StreamState.Connected) this.restart()
+    if (restartStates.find(i => i === this.userStatus.state) && this.remoteStatus.state === StreamState.Connected) {
+      log('warn', 'whep_watchdog_restart', this.userStatus.state, { id: this.id })
+      this.restart()
+    }
   }
 }
 

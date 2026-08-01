@@ -8,11 +8,17 @@ WOOM is a self-hosted meeting service built on the
 [Live777](https://github.com/binbat/live777) WebRTC engine (WHIP/WHEP).
 
 - `src/` — Rust backend (axum). Serves the REST API (`/user/`, `/room/*`),
-  reverse-proxies `/whip/*` and `/whep/*` to Live777, and serves the webapp as an
-  SPA (unknown paths fall back to `index.html`). Room state lives in Redis
-  (hashes with JSON values, see `src/model.rs`). Config is via env vars, see
-  `src/config.rs` (`PORT` 4000, `REDIS_URL`, `LIVE777_URL`, `LIVE777_TOKEN`,
-  `SECRET`).
+  reverse-proxies `/whip/*` and `/whep/*` to Live777, pushes room state over
+  SSE (`/room/{id}/events`), and serves the webapp as an SPA (unknown paths
+  fall back to `index.html`). State lives in memory behind a `Store` trait
+  (`src/store.rs`, `MemoryStore` now; PostgreSQL later): rooms, meeting
+  instances, participants and archived meeting records (`src/model.rs`).
+  Presence (media state) is ephemeral with a 45s TTL, refreshed by client
+  heartbeats. Browser-side failures are reported to `POST /log` and written
+  as NDJSON on the `client_log` tracing target (`webapp/lib/log.ts` batches
+  and flushes them; key events: join, WHIP/WHEP lifecycle, device and
+  console errors). Config is via env vars, see `src/config.rs` (`PORT` 4000,
+  `LIVE777_URL`, `LIVE777_TOKEN`, `SECRET`).
 - `webapp/` — Vue 3 + TypeScript + Vite + UnoCSS frontend (`<script setup>`
   SFCs). State: module-level `ref`/`shallowRef` (`webapp/store/atoms.ts`),
   a `reactive` settings object persisted to localStorage
@@ -29,7 +35,7 @@ WOOM is a self-hosted meeting service built on the
 
 ## Build and run
 
-External dependencies: Redis (:6379) and Live777 (:7777) — `docker compose up -d`.
+External dependencies: Live777 (:7777) — `docker compose up -d`.
 
 ```bash
 npm install          # install webapp deps
@@ -46,7 +52,7 @@ make                 # release build: webapp -> static/dist, then cargo build --
 - E2E (Playwright, Chromium only):
 
 ```bash
-docker compose up -d          # Redis + Live777 must be running
+docker compose up -d          # Live777 must be running
 npx playwright install chromium
 npm run test:e2e              # builds webapp + release server, runs tests
 npx playwright test           # iterate; reuses a server already on :4000
@@ -63,7 +69,7 @@ E2e conventions:
   element presence.
 - Remote stream list polls every 3s — allow generous timeouts around remote
   video assertions.
-- `tests/global-setup.ts` fails fast if Redis/Live777 are unreachable.
+- `tests/global-setup.ts` fails fast if Live777 is unreachable.
 
 ## Code style
 
@@ -75,4 +81,4 @@ E2e conventions:
 - Commits: Conventional Commits with scope, e.g. `feat(webapp): ...`,
   `refactor(webapp): ...`, `test(e2e): ...` (see `git log`).
 - CI: `.github/workflows/build.yml` (build matrix), `.github/workflows/test.yml`
-  (e2e with Redis/Live777 service containers).
+  (e2e with a Live777 service container).

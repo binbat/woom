@@ -1,6 +1,7 @@
 import { onScopeDispose, shallowRef, type ShallowRef } from 'vue'
 import { event, Context, Data } from './whxp'
 import { Stream, StreamState, token } from '../../lib/api'
+import { log } from '../../lib/log'
 import { WHIPClient } from 'whip-whep/whip'
 import {
   deviceNone,
@@ -194,6 +195,9 @@ class WHIPContext extends Context {
 
   onconnectionstatechange = () => {
     this.userStatus.state = this.pc.connectionState as StreamState
+    if (this.userStatus.state === StreamState.Failed || this.userStatus.state === StreamState.Disconnected) {
+      log('warn', 'whip_state', this.pc.connectionState, { id: this.id })
+    }
     this.sync()
     this.syncUserStatus(this.userStatus)
   }
@@ -201,6 +205,7 @@ class WHIPContext extends Context {
   async start() {
     const { id, pc, stream, client, userStatus } = this
     if (stream.getTracks().length === 0) return
+    log('info', 'whip_start', '', { id })
     pc.addEventListener('connectionstatechange', this.onconnectionstatechange)
     userStatus.state = StreamState.Signaled
     this.sync()
@@ -211,6 +216,7 @@ class WHIPContext extends Context {
       const url = location.origin + `/whip/${id}`
       await client.publish(pc, url, token)
     } catch (e) {
+      log('error', 'whip_publish_failed', String(e), { id })
       console.log(e)
       userStatus.state = StreamState.Failed
       this.syncUserStatus(userStatus)
@@ -242,7 +248,10 @@ class WHIPContext extends Context {
   run() {
     // WatchDog, Auto Restart
     const restartStates = [StreamState.Disconnected, StreamState.Closed, StreamState.Failed]
-    if (restartStates.find(i => i === this.userStatus.state)) this.restart()
+    if (restartStates.find(i => i === this.userStatus.state)) {
+      log('warn', 'whip_watchdog_restart', this.userStatus.state, { id: this.id })
+      this.restart()
+    }
   }
 }
 

@@ -1,5 +1,5 @@
 import { computed, ref, shallowRef } from 'vue'
-import type { StreamState } from '../lib/api'
+import type { Participant, StreamState } from '../lib/api'
 
 interface UserStream {
   stream: MediaStream,
@@ -30,6 +30,10 @@ const enabledPresentation = computed(() => presentationStream.value.stream.getVi
 const deviceSpeaker = ref<string>('')
 const speakerStatus = ref<boolean>(false)
 
+/** live room flags from the SSE snapshot (presenter/lock can change anytime) */
+const roomInfo = ref<{ owner: string, presenter: string, locked: boolean }>({ owner: '', presenter: '', locked: false })
+const roomParticipants = ref<Participant[]>([])
+
 export {
   presentationStream,
 
@@ -38,6 +42,8 @@ export {
   enabledPresentation,
   deviceSpeaker,
   speakerStatus,
+  roomInfo,
+  roomParticipants,
 }
 
 export type {
