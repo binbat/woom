@@ -91,23 +91,33 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col h-screen">
-    <div class="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-center content-center px-4 overflow-y-auto">
-      <Player
-        v-if="enabledPresentation"
-        :stream="presentationStream.stream"
-        :muted="true"
-        :video="true"
-        :audio="false"
-        width="auto"
-        :self="false"
-      />
+    <div class="flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row' : 'flex-col'">
+      <!-- presenter mode: shared screen takes the main stage -->
+      <div v-if="enabledPresentation" class="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+        <Player
+          :stream="presentationStream.stream"
+          :muted="true"
+          :video="true"
+          :audio="false"
+          width="100%"
+          :self="false"
+          class="h-full max-w-full"
+        />
+      </div>
 
-      <WhipPlayer :stream-id="localStreamId" width="320px" />
-      <WhepPlayer v-for="i in visibleRemoteIds" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" width="320px" />
+      <!-- the tiles never change parent across layout switches: remounting
+           a WhepPlayer would clear the presentation stream and restart the
+           WHEP connection, which flips the layout back and loops -->
+      <div :class="enabledPresentation
+        ? 'flex lg:flex-col flex-row gap-3 shrink-0 overflow-auto lg:w-48'
+        : 'flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-center content-center overflow-y-auto'">
+        <WhipPlayer :stream-id="localStreamId" :width="enabledPresentation ? '160px' : '320px'" />
+        <WhepPlayer v-for="i in visibleRemoteIds" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" :width="enabledPresentation ? '160px' : '320px'" />
 
-      <div v-if="hiddenRemoteIds.length" class="flex flex-col justify-center items-center min-h-60 rounded-2xl bg-white/5 ring-1 ring-white/10" style="width: 320px" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')">
-        <p class="text-3xl font-bold text-slate-300">+{{ hiddenRemoteIds.length }}</p>
-        <p class="mt-1 text-sm text-slate-400">{{ hiddenRemoteIds.length === 1 ? 'other' : 'others' }}</p>
+        <div v-if="hiddenRemoteIds.length" class="flex flex-col justify-center items-center rounded-2xl bg-white/5 ring-1 ring-white/10" :class="enabledPresentation ? 'min-h-30' : 'min-h-60'" :style="{ width: enabledPresentation ? '160px' : '320px' }" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')">
+          <p class="text-3xl font-bold text-slate-300">+{{ hiddenRemoteIds.length }}</p>
+          <p class="mt-1 text-sm text-slate-400">{{ hiddenRemoteIds.length === 1 ? 'other' : 'others' }}</p>
+        </div>
       </div>
     </div>
 
