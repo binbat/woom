@@ -170,16 +170,16 @@ onUnmounted(teardownAudio)
 <!-- NOTE: iOS can't display video
 https://webkit.org/blog/6784/new-video-policies-for-ios/ -->
 <template>
-  <div class="relative flex flex-col justify-center items-center min-h-60 rounded-xl bg-black m-8" :style="{ width: width }">
+  <div class="relative flex flex-col justify-center items-center min-h-60 rounded-2xl bg-black/70 ring-1 ring-white/10 overflow-hidden shadow-xl" :style="{ width: width }">
     <p
       v-if="!mediaEnabled"
-      class="text-white transition-opacity duration-300"
+      class="text-slate-300 text-sm transition-opacity duration-300"
       :class="showControls ? 'opacity-100' : 'opacity-0'"
     >{{ mediaDisabledTip }}</p>
     <SvgProgress v-if="mediaEnabled && !hasTracks" />
     <video
       ref="refVideo"
-      class="aspect-ratio-[4/3] w-full h-full object-contain rounded-xl"
+      class="aspect-ratio-[4/3] w-full h-full object-contain"
       :data-testid="self ? 'video-self' : 'video-remote'"
       :playsinline="true"
       :autoplay="true"
@@ -193,21 +193,21 @@ https://webkit.org/blog/6784/new-video-policies-for-ios/ -->
     <Mic :stream="stream" />
     <div
       ref="refControls"
-      class="absolute bottom-0 left-0 right-0 rounded-b-xl px-4 py-3 flex justify-between items-center transition-opacity duration-300"
+      class="absolute bottom-0 left-0 right-0 px-3 py-2 flex justify-between items-center bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300"
       :class="showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'"
     >
       <button
-        class="rounded-md"
-        :class="muted ? 'opacity-0 pointer-events-none' : 'disabled:bg-gray-400 disabled:opacity-70'"
+        class="inline-grid place-items-center w-8 h-8 rounded-lg text-white transition-colors hover:bg-white/15"
+        :class="muted ? 'opacity-0 pointer-events-none' : 'disabled:opacity-40'"
         :disabled="!speakerStatus"
         @click="toggleMute"
       >
         <SvgMuted v-if="isMuted" />
         <SvgUnmuted v-else />
       </button>
-      <div class="flex items-center space-x-2">
+      <div class="flex items-center gap-1">
         <button
-          class="rounded-md disabled:hidden"
+          class="inline-grid place-items-center w-8 h-8 rounded-lg text-white transition-colors hover:bg-white/15 disabled:hidden"
           :disabled="!isFullscreenSupported || isPictureInPictured"
           @click="toggleFullscreen"
         >
@@ -215,7 +215,7 @@ https://webkit.org/blog/6784/new-video-policies-for-ios/ -->
           <SvgFullscreen v-else />
         </button>
         <button
-          class="rounded-md disabled:hidden"
+          class="inline-grid place-items-center w-8 h-8 rounded-lg text-white transition-colors hover:bg-white/15 disabled:hidden"
           :disabled="!isPictureInPictureSupported || !video"
           @click="togglePictureInPicture"
         >

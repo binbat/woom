@@ -9,14 +9,14 @@ const isReset = ref(false)
 </script>
 
 <template>
-  <div class="flex flex-col space-y-2">
+  <div class="flex flex-col">
     <SettingItem label="Local Storage" :tooltips="[
       '1. Local storage only can be reset on the homepage;',
       '2. Single use only;',
       '3. Not used to restore settings.'
     ]">
       <button
-        class="bg-blue-400 disabled:bg-gray-400 rounded text-white max-w-[50%] ml-2 py-1 px-2"
+        class="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-sm font-medium transition-colors hover:bg-rose-500 disabled:bg-slate-600 disabled:pointer-events-none"
         :disabled="isReset || !!meetingId"
         @click="delStorage(); isReset = true"
       >
@@ -29,7 +29,7 @@ const isReset = ref(false)
     ]">
       <button
         class="relative flex h-6 w-11 items-center rounded-full transition-colors duration-300"
-        :class="setting.screenShareButtonShowed ? 'bg-blue-400' : 'bg-gray-300'"
+        :class="setting.screenShareButtonShowed ? 'bg-indigo-500' : 'bg-slate-600'"
         @click="setting.screenShareButtonShowed = !setting.screenShareButtonShowed"
       >
         <span

@@ -22,10 +22,10 @@ const onChangeScreenShareResolution = (resolution: string) => {
 </script>
 
 <template>
-  <div class="flex flex-col space-y-2">
+  <div class="flex flex-col">
     <SettingItem label="Video Resolution">
       <select
-        class="bg-gray-200 rounded max-w-[50%] ml-2 p-1"
+        class="input-dark px-3 py-1.5 text-sm"
         :value="setting.videoResolution"
         @change="onChangeVideoResolution(($event.target as HTMLSelectElement).value)"
       >
@@ -39,7 +39,7 @@ const onChangeScreenShareResolution = (resolution: string) => {
       '2. If screen is sharing, any changes on this property will stop sharing.'
     ]">
       <select
-        class="bg-gray-200 rounded max-w-[50%] ml-2 p-1"
+        class="input-dark px-3 py-1.5 text-sm"
         :value="setting.screenShareResolution"
         @change="onChangeScreenShareResolution(($event.target as HTMLSelectElement).value)"
       >

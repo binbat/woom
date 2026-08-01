@@ -50,23 +50,23 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col justify-around bg-gray-800/80 p-6 my-4">
-    <center class="flex flex-row flex-wrap justify-center">
-      <button class="btn-primary my-2" data-testid="new-meeting" :disabled="!!tmpId" @click="newMeeting()">New Meeting</button>
+  <div class="panel w-full max-w-2xl p-6 sm:p-8 flex flex-col gap-5">
+    <div class="flex flex-wrap items-stretch justify-center gap-3">
+      <button class="btn-primary" data-testid="new-meeting" :disabled="!!tmpId" @click="newMeeting()">New Meeting</button>
       <input
         v-model="tmpId"
-        class="text-center text-4xl mx-2 my-2 max-w-full"
+        class="input-dark flex-1 min-w-40 text-center text-xl font-mono tracking-widest"
         placeholder="Enter Meeting id"
         data-testid="meeting-id-input"
         maxlength="11"
       />
-      <button class="btn-primary my-2" data-testid="join-meeting" :disabled="!tmpId" @click="joinMeeting()">Join</button>
-      <button class="btn-primary my-2 ml-2" @click="isSetting = true"><SvgSetting /></button>
-    </center>
-    <center class="flex flex-row flex-wrap justify-center text-white">
-      <p>If have some problems, Please click this:</p>
-      <a class="mx-2 text-red-300 underline" @click="delStorage">Reset</a>
-    </center>
+      <button class="btn-primary" data-testid="join-meeting" :disabled="!tmpId" @click="joinMeeting()">Join</button>
+      <button class="icon-btn" aria-label="Settings" @click="isSetting = true"><SvgSetting /></button>
+    </div>
+    <p class="text-center text-sm text-slate-400">
+      If have some problems, Please click this:
+      <a class="ml-1 text-rose-300 underline underline-offset-2 cursor-pointer hover:text-rose-200" @click="delStorage">Reset</a>
+    </p>
     <Settings v-if="isSetting" @close="isSetting = false" />
   </div>
 </template>

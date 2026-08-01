@@ -222,105 +222,98 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
 </script>
 
 <template>
-  <div class="flex flex-row flex-wrap justify-around p-xs">
-    <center class="flex flex-row flex-wrap justify-around">
-      <section class="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
-        <button class="text-rose-400 rounded-md w-8 h-8" @click="onToggleSpeaker">
-          <center>
-            <Loading v-if="loadingSpeaker" />
-            <SvgSpeaker v-else />
-          </center>
-        </button>
-        <div class="flex flex-col justify-between w-1 pointer-events-none">
-          <div></div>
-          <div v-if="!speakerStatus" class="w-8 h-1 bg-red-500 rounded-full rotate-45" style="position: relative; right: 32px; bottom: 14px"></div>
-          <div v-else></div>
-        </div>
+  <div class="flex flex-wrap items-center justify-center gap-2">
+    <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+      <button class="icon-btn" @click="onToggleSpeaker">
+        <Loading v-if="loadingSpeaker" />
+        <SvgSpeaker v-else />
+      </button>
+      <div class="relative w-0 h-10 pointer-events-none">
+        <div v-if="!speakerStatus" class="absolute -left-9 top-1/2 w-8 h-0.5 bg-rose-500 rounded-full rotate-45"></div>
+      </div>
+      <div class="relative grid place-items-center w-4 h-10">
         <select
-          class="w-3.5 h-8 rounded-sm rotate-180"
+          class="absolute inset-0 opacity-0 cursor-pointer"
           :value="deviceSpeaker"
           @change="onChangedDeviceSpeaker(selectValue($event))"
         >
           <option v-for="device in deviceSpeakerList" :key="device.deviceId" :value="device.deviceId">{{ device.label }}</option>
         </select>
-      </section>
+        <span class="pointer-events-none text-slate-400 text-xs">&#9662;</span>
+      </div>
+    </div>
 
-      <section class="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
-        <button class="text-rose-400 rounded-md w-8 h-8" @click="onToggleAudio">
-          <center>
-            <Loading v-if="loadingAudio" />
-            <SvgAudio v-else />
-          </center>
-        </button>
-        <div class="flex flex-col justify-between w-1 pointer-events-none">
-          <div v-if="permissionAudio === 'granted'"></div>
-          <div v-else class="bg-orange-500 shadow-sm w-1 h-1 p-1 rounded-full" style="position: relative; right: 7px"></div>
-          <div v-if="!whip.userStatus.audio" class="w-8 h-1 bg-red-500 rounded-full rotate-45" style="position: relative; right: 32px; bottom: 14px"></div>
-          <div v-else></div>
-        </div>
+    <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+      <button class="icon-btn" @click="onToggleAudio">
+        <Loading v-if="loadingAudio" />
+        <SvgAudio v-else />
+      </button>
+      <div class="relative w-0 h-10 pointer-events-none">
+        <div v-if="permissionAudio !== 'granted'" class="absolute -left-4 top-0.5 w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+        <div v-if="!whip.userStatus.audio" class="absolute -left-9 top-1/2 w-8 h-0.5 bg-rose-500 rounded-full rotate-45"></div>
+      </div>
+      <div class="relative grid place-items-center w-4 h-10">
         <select
-          class="w-3.5 h-8 rounded-sm rotate-180"
+          class="absolute inset-0 opacity-0 cursor-pointer"
           :value="whip.currentDeviceAudio"
           @change="onChangedDeviceAudio(selectValue($event))"
         >
           <option v-for="device in deviceAudio" :key="device.deviceId" :value="device.deviceId">{{ device.label }}</option>
         </select>
-      </section>
+        <span class="pointer-events-none text-slate-400 text-xs">&#9662;</span>
+      </div>
+    </div>
 
-      <section class="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
-        <button class="text-rose-400 rounded-md w-8 h-8" @click="onToggleVideo">
-          <center>
-            <Loading v-if="loadingVideo" />
-            <SvgVideo v-else />
-          </center>
-        </button>
-        <div class="flex flex-col justify-between w-1 pointer-events-none">
-          <div v-if="permissionVideo === 'granted'"></div>
-          <div v-else class="bg-orange-500 shadow-sm w-1 h-1 p-1 rounded-full" style="position: relative; right: 7px"></div>
-          <div v-if="!whip.userStatus.video" class="w-8 h-1 bg-red-500 rounded-full rotate-45" style="position: relative; right: 32px; bottom: 14px"></div>
-          <div v-else></div>
-        </div>
+    <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+      <button class="icon-btn" @click="onToggleVideo">
+        <Loading v-if="loadingVideo" />
+        <SvgVideo v-else />
+      </button>
+      <div class="relative w-0 h-10 pointer-events-none">
+        <div v-if="permissionVideo !== 'granted'" class="absolute -left-4 top-0.5 w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+        <div v-if="!whip.userStatus.video" class="absolute -left-9 top-1/2 w-8 h-0.5 bg-rose-500 rounded-full rotate-45"></div>
+      </div>
+      <div class="relative grid place-items-center w-4 h-10">
         <select
-          class="w-3.5 h-8 rounded-sm rotate-180"
+          class="absolute inset-0 opacity-0 cursor-pointer"
           :value="whip.currentDeviceVideo"
           @change="onChangedDeviceVideo(selectValue($event))"
         >
           <option v-for="device in deviceVideo" :key="device.deviceId" :value="device.deviceId">{{ device.label }}</option>
         </select>
-      </section>
+        <span class="pointer-events-none text-slate-400 text-xs">&#9662;</span>
+      </div>
+    </div>
 
-      <section class="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
-        <button class="text-rose-400 rounded-md w-8 h-8" :disabled="!whip.userStatus.video || whip.userStatus.screen" @click="onToggleBackground">
-          <center>
-            <Loading v-if="loadingBackground" />
-            <SvgBackgroundCancel v-else-if="virtualBackgroundEnabled" />
-            <SvgBackground v-else />
-          </center>
-        </button>
-      </section>
-    </center>
-    <center v-if="!setting.screenShareButtonShowed">
-      <section class="m-1 p-1 flex flex-row justify-center rounded-md border-1 border-indigo-500">
-        <button class="text-rose-400 rounded-md w-8 h-8" :disabled="!isScreenShareSupported" @click="toggleEnableScreen()">
-          <center>
-            <Loading v-if="loadingScreen" />
-            <SvgPresentCancel v-else-if="whip.userStatus.screen" />
-            <SvgPresentToAll v-else />
-          </center>
-        </button>
-        <div class="w-1"></div>
+    <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+      <button class="icon-btn" :disabled="!whip.userStatus.video || whip.userStatus.screen" @click="onToggleBackground">
+        <Loading v-if="loadingBackground" />
+        <SvgBackgroundCancel v-else-if="virtualBackgroundEnabled" />
+        <SvgBackground v-else />
+      </button>
+    </div>
+
+    <div v-if="!setting.screenShareButtonShowed" class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+      <button class="icon-btn" :disabled="!isScreenShareSupported" @click="toggleEnableScreen()">
+        <Loading v-if="loadingScreen" />
+        <SvgPresentCancel v-else-if="whip.userStatus.screen" />
+        <SvgPresentToAll v-else />
+      </button>
+      <div class="relative grid place-items-center w-4 h-10">
         <select
-          class="w-3.5 h-8 rounded-sm rotate-180"
+          class="absolute inset-0 opacity-0 cursor-pointer"
           :value="setting.screenShareResolution"
           :disabled="!isScreenShareSupported"
           @change="onChangeScreenShareResolution(selectValue($event))"
         >
           <option v-for="r in screenResolutions" :key="r.label" :value="r.value">{{ r.label }}</option>
         </select>
-      </section>
-    </center>
-    <div class="flex flex-row justify-center m-1 p-1 rounded-md border-1 border-indigo-500">
-      <button class="flex justify-center items-center text-rose-400 rounded-md w-8 h-8" @click="isSetting = true">
+        <span class="pointer-events-none text-slate-400 text-xs">&#9662;</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+      <button class="icon-btn" aria-label="Settings" @click="isSetting = true">
         <SvgSetting />
       </button>
     </div>

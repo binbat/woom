@@ -35,30 +35,25 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col justify-around">
-    <center class="m-xs">
-      <Player :stream="whip.stream" :muted="false" width="320px" :audio="whip.userStatus.audio" :video="whip.userStatus.video" :self="true" />
-    </center>
+  <div class="flex flex-col items-center gap-6 py-8 px-4">
+    <Player :stream="whip.stream" :muted="false" width="360px" :audio="whip.userStatus.audio" :video="whip.userStatus.video" :self="true" />
 
-    <center class="mb-xs">
-      <label class="text-white">Your Name: </label>
+    <label class="flex items-center gap-3 text-slate-300">
+      <span class="text-sm font-medium whitespace-nowrap">Your Name</span>
       <input
         v-model="displayName"
-        class="text-center"
+        class="input-dark w-56 text-center"
         data-testid="name-input"
       />
-    </center>
+    </label>
 
-    <div class="flex justify-evenly bg-gray-800/80">
+    <div class="panel px-3 py-2">
       <DeviceBar :stream-id="localStreamId" />
     </div>
 
-    <center class="m-xs">
-      <button class="btn-primary flex flex-row justify-center" data-testid="join-room" @click="join()">
-        <center v-if="loading" class="m-2px mr-3"><Loading /></center>
-        Join
-        <template v-if="loading">...</template>
-      </button>
-    </center>
+    <button class="btn-primary min-w-44 text-lg" data-testid="join-room" @click="join()">
+      <Loading v-if="loading" />
+      Join{{ loading ? '...' : '' }}
+    </button>
   </div>
 </template>

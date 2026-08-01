@@ -11,12 +11,19 @@ const props = defineProps<{ streamId: string, userStatus: Stream, width: string 
 const whep = useWhepClient(props.streamId)
 
 onMounted(() => {
-  whep.value.start()
+  // restart() rather than start(): the shared WHEPContext for this streamId
+  // may have been stopped by a previous unmount, and start() would reuse
+  // its closed RTCPeerConnection
+  whep.value.restart()
 })
 
-// remove "presentation stream" when sharing user exits
-// TODO: manage users entering/exiting globally
+// unsubscribe when the tile leaves the visible set: without this the
+// module-level WHEPContext would keep receiving media forever
 onUnmounted(() => {
+  whep.value.stop()
+
+  // remove "presentation stream" when sharing user exits
+  // TODO: manage users entering/exiting globally
   const selfStreamName = `${props.userStatus.name}_Presentation`
   if (presentationStream.value.name === selfStreamName) {
     presentationStream.value = {
@@ -49,8 +56,8 @@ watch([() => props.userStatus.screen, () => whep.value.stream], () => {
 </script>
 
 <template>
-  <center class="relative flex flex-col">
+  <div class="relative flex flex-col">
     <Player :stream="whep.stream" :muted="false" :width="width" :audio="userStatus.audio" :video="userStatus.video && !userStatus.screen" :self="false" />
     <Detail :stream-id="streamId" :conn-status="whep.connStatus" :user-status="userStatus" :restart="whep.restart" />
-  </center>
+  </div>
 </template>

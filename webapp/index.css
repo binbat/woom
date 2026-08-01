@@ -1,15 +1,10 @@
 body {
   margin: 0;
   padding: 0;
-  background-image: linear-gradient(
-  77deg,
-  rgb(11 17 33) 0%,
-  rgb(12 38 61) 30%,
-  rgb(50 30 58) 70%,
-  rgb(12 38 61) 100%
-  );
-  background-size: cover;
-  background-repeat: no-repeat;
+  background-color: #0a0f1e;
+  background-image:
+    radial-gradient(60rem 40rem at 15% 0%, rgba(67, 56, 202, 0.28), transparent 60%),
+    radial-gradient(50rem 36rem at 90% 100%, rgba(162, 28, 175, 0.16), transparent 60%);
   background-attachment: fixed;
 
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',

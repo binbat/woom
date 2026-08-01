@@ -3,13 +3,11 @@ import Join from '../components/join.vue'
 </script>
 
 <template>
-  <div class="flex flex-col justify-around min-h-screen">
-    <center>
-      <div>
-        <h1 class="flex justify-center text-white text-5xl font-bold">WOOM</h1>
-        <p class="text-white">A new meeting</p>
-      </div>
-      <Join />
-    </center>
+  <div class="min-h-screen flex flex-col items-center justify-center gap-10 px-4">
+    <div class="text-center">
+      <h1 class="text-white text-6xl font-extrabold tracking-tight">WOOM</h1>
+      <p class="mt-2 text-slate-400">A new meeting</p>
+    </div>
+    <Join />
   </div>
 </template>

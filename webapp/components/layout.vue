@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Player from './player/player.vue'
 import WhipPlayer from './player/whip-player.vue'
 import WhepPlayer from './player/whep-player.vue'
@@ -17,12 +17,24 @@ import { getRoom, delStream, Stream } from '../lib/api'
 import { getStorageStream } from '../lib/storage'
 import useWhipClient from './use/whip'
 
+// at most 9 video tiles on screen (self + up to 8 remotes); remote users
+// outside the visible set are not subscribed at all (no WhepPlayer is
+// mounted for them, so no WHEP connection is created)
+const MAX_VISIBLE_TILES = 9
+
 const props = defineProps<{ meetingId: string }>()
 
 const copyStatus = ref(false)
 
 const localStreamId = getStorageStream()
 const remoteUserStatus = ref<Record<string, UserStatus>>({})
+
+const visibleRemoteIds = computed(() =>
+  Object.keys(remoteUserStatus.value).slice(0, MAX_VISIBLE_TILES - 1)
+)
+const hiddenRemoteIds = computed(() =>
+  Object.keys(remoteUserStatus.value).slice(MAX_VISIBLE_TILES - 1)
+)
 
 const whip = useWhipClient(localStreamId)
 
@@ -78,45 +90,42 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col justify-between" style="height: 100vh">
-    <div></div>
+  <div class="flex flex-col h-screen">
+    <div class="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-center content-center px-4 overflow-y-auto">
+      <Player
+        v-if="enabledPresentation"
+        :stream="presentationStream.stream"
+        :muted="true"
+        :video="true"
+        :audio="false"
+        width="auto"
+        :self="false"
+      />
 
-    <Player
-      v-if="enabledPresentation"
-      :stream="presentationStream.stream"
-      :muted="true"
-      :video="true"
-      :audio="false"
-      width="auto"
-      :self="false"
-    />
-
-    <div class="flex flex-row flex-wrap justify-evenly">
       <WhipPlayer :stream-id="localStreamId" width="320px" />
-      <WhepPlayer v-for="i in Object.keys(remoteUserStatus)" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" width="320px" />
+      <WhepPlayer v-for="i in visibleRemoteIds" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" width="320px" />
+
+      <div v-if="hiddenRemoteIds.length" class="flex flex-col justify-center items-center min-h-60 rounded-2xl bg-white/5 ring-1 ring-white/10" style="width: 320px" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')">
+        <p class="text-3xl font-bold text-slate-300">+{{ hiddenRemoteIds.length }}</p>
+        <p class="mt-1 text-sm text-slate-400">{{ hiddenRemoteIds.length === 1 ? 'other' : 'others' }}</p>
+      </div>
     </div>
 
-    <center>
-      <div class="flex justify-evenly bg-gray-800/80">
-        <section class="hidden md:flex md:flex-col md:justify-center">
-          <button class="flex flex-row text-rose-400 rounded-md bg-inherit p-2" @click="copyMeetingLink">
-            <code class="mx-sm my-1px" data-testid="meeting-id">{{ meetingId }}</code>
-            <center class="text-rose-400 rounded-md" :style="{ visibility: copyStatus ? 'visible' : 'hidden' }">
-              <SvgDone />
-            </center>
-          </button>
-        </section>
+    <div class="flex justify-center px-4 pb-4">
+      <div class="panel flex items-center gap-3 px-4 py-2">
+        <button class="hidden md:flex items-center gap-2 rounded-xl px-3 py-2 text-indigo-300 transition-colors hover:bg-white/10" @click="copyMeetingLink">
+          <code class="font-mono text-sm tracking-wider" data-testid="meeting-id">{{ meetingId }}</code>
+          <span class="inline-grid place-items-center text-emerald-400" :style="{ visibility: copyStatus ? 'visible' : 'hidden' }">
+            <SvgDone />
+          </span>
+        </button>
 
         <DeviceBar :stream-id="localStreamId" />
 
-        <section class="flex flex-col justify-center">
-          <button class="text-white bg-rose-600 hover:bg-rose-700 duration-1000 shadow-xl rounded-3xl w-18 h-10" data-testid="hang-up" @click="callEnd()">
-            <center>
-              <SvgEnd />
-            </center>
-          </button>
-        </section>
+        <button class="inline-grid place-items-center w-14 h-10 rounded-full text-white bg-rose-600 shadow-lg shadow-rose-950/40 transition-colors hover:bg-rose-500" data-testid="hang-up" aria-label="Hang up" @click="callEnd()">
+          <SvgEnd />
+        </button>
       </div>
-    </center>
+    </div>
   </div>
 </template>

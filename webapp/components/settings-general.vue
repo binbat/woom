@@ -12,10 +12,10 @@ const onChangeLanguage = (language: string) => {
 </script>
 
 <template>
-  <div class="flex flex-col space-y-2">
+  <div class="flex flex-col">
     <SettingItem label="Language">
       <select
-        class="bg-gray-200 rounded max-w-[50%] ml-2 p-1"
+        class="input-dark px-3 py-1.5 text-sm"
         :value="setting.language"
         @change="onChangeLanguage(($event.target as HTMLSelectElement).value)"
       >
