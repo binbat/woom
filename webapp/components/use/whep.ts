@@ -104,12 +104,31 @@ class WHEPContext extends Context {
     await this.start()
   }
 
+  mutedTicks = 0
+
   run() {
     // WatchDog, Auto Restart
     const restartStates = [StreamState.Disconnected, StreamState.Closed, StreamState.Failed]
     if (restartStates.find(i => i === this.userStatus.state) && this.remoteStatus.state === StreamState.Connected) {
       log('warn', 'whep_watchdog_restart', this.userStatus.state, { id: this.id })
       this.restart()
+      return
+    }
+    // Connected but muted: the remote should be sending video yet the
+    // track never unmutes (seen with liveion 0.9 mid-GOP subscribes).
+    // Re-subscribing triggers a fresh keyframe request.
+    const expectsVideo = this.remoteStatus.state === StreamState.Connected && this.remoteStatus.video
+    const videoMuted = this.stream.getVideoTracks().some(t => t.muted)
+    const noVideoTrack = this.stream.getVideoTracks().length === 0
+    if (expectsVideo && (videoMuted || noVideoTrack)) {
+      this.mutedTicks++
+      if (this.mutedTicks >= 2) {
+        log('warn', 'whep_watchdog_muted_restart', this.userStatus.state, { id: this.id })
+        this.mutedTicks = 0
+        this.restart()
+      }
+    } else {
+      this.mutedTicks = 0
     }
   }
 }

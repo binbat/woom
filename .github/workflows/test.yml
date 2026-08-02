@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       live777:
-        image: ghcr.io/binbat/live777-server:0.7.3
+        image: ghcr.io/binbat/liveion:0.9.0
         ports:
           - 7777:7777
     steps:

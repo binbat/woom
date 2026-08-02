@@ -4,17 +4,26 @@ import useWhepClient from '../use/whep'
 import Detail from './detail.vue'
 import Player from './player.vue'
 import { presentationStream } from '../../store/atoms'
-import { Stream } from '../../lib/api'
+import { Stream, StreamState } from '../../lib/api'
 
 const props = defineProps<{ streamId: string, userStatus: Stream, width: string }>()
 
 const whep = useWhepClient(props.streamId)
 
+// Subscribing before the publisher's WHIP connection is fully established
+// can bind to a publish session that gets replaced, leaving a connected
+// but forever-muted track (seen with liveion 0.9). Subscribe only once the
+// remote presence reports `connected`.
 onMounted(() => {
-  // restart() rather than start(): the shared WHEPContext for this streamId
-  // may have been stopped by a previous unmount, and start() would reuse
-  // its closed RTCPeerConnection
-  whep.value.restart()
+  if (props.userStatus.state === StreamState.Connected) {
+    whep.value.restart()
+  }
+})
+
+watch(() => props.userStatus.state, (state, prev) => {
+  if (state === StreamState.Connected && prev !== StreamState.Connected) {
+    whep.value.restart()
+  }
 })
 
 // unsubscribe when the tile leaves the visible set: without this the
