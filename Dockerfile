@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder-node
+FROM node:24-alpine AS builder-node
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY . .
 
 RUN npm run build
 
-FROM rust:1-alpine AS builder
+FROM rust:1.97-alpine AS builder
 
 WORKDIR /app
 
@@ -25,7 +25,7 @@ COPY --from=builder-node /app/static/dist /app/static/dist
 RUN cargo build --release
 
 # Bin
-FROM alpine AS bin
+FROM alpine:3.23 AS bin
 
 COPY --from=builder /app/target/release/woom /usr/bin/woom
 
