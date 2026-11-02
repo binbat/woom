@@ -1,4 +1,6 @@
 woom
+/target
+/data/
 .idea
 .vscode
 node_modules
@@ -6,3 +8,7 @@ node_modules
 dist
 dist-ssr
 *.local
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

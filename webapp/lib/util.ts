@@ -18,19 +18,26 @@ function isWechat() {
   return /MicroMessenger/i.test(window.navigator.userAgent)
 }
 
-const isFullscreenSupported = typeof document.exitFullscreen === 'function' &&
-    typeof document.body.requestFullscreen === 'function'
+const isFullscreenSupported =
+  typeof document.exitFullscreen === 'function' &&
+  typeof document.body.requestFullscreen === 'function'
 
-const isPictureInPictureSupported = typeof document.exitPictureInPicture === 'function' &&
-    typeof HTMLVideoElement.prototype.requestPictureInPicture === 'function'
+const isPictureInPictureSupported =
+  typeof document.exitPictureInPicture === 'function' &&
+  typeof HTMLVideoElement.prototype.requestPictureInPicture === 'function'
 
-const isScreenShareSupported = !(/Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(navigator.userAgent))
+const isMobile = /Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(
+  navigator.userAgent
+)
+
+const isScreenShareSupported = !isMobile
 
 export {
   addSplitSymbol,
   delSplitSymbol,
-  isWechat,
   isFullscreenSupported,
+  isMobile,
   isPictureInPictureSupported,
   isScreenShareSupported,
+  isWechat,
 }

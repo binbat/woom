@@ -32,7 +32,10 @@ export default class WakeLock {
       console.error('Failed to release wake lock:', err)
     } finally {
       this.lock = null
-      document.removeEventListener('visibilitychange', this.handleVisibilityChange)
+      document.removeEventListener(
+        'visibilitychange',
+        this.handleVisibilityChange
+      )
     }
   }
 }

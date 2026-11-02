@@ -1,0 +1,263 @@
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import {
+  isFullscreenSupported,
+  isPictureInPictureSupported,
+  isWechat,
+} from '../../lib/util'
+import { deviceSpeaker, speakerStatus } from '../../store/atoms'
+import SvgExitFullscreen from '../svg/exit-fullscreen.vue'
+import SvgExitPictureInPicture from '../svg/exit-pip.vue'
+import SvgFullscreen from '../svg/fullscreen.vue'
+import SvgMuted from '../svg/muted.vue'
+import SvgPictureInPicture from '../svg/pip.vue'
+import SvgProgress from '../svg/progress.vue'
+import SvgUnmuted from '../svg/unmuted.vue'
+import CircleWave from './circle-wave.vue'
+import Mic from './mic.vue'
+
+const props = defineProps<{
+  stream: MediaStream
+  muted: boolean
+  audio?: boolean
+  video?: boolean
+  width: string
+  self: boolean
+  name?: string
+}>()
+
+const refVideo = ref<HTMLVideoElement>()
+const refControls = ref<HTMLDivElement>()
+const audioTrack = computed(() => props.stream.getAudioTracks()[0])
+const videoTrack = computed(() => props.stream.getVideoTracks()[0])
+const showControls = ref(false)
+const isMuted = ref(false)
+const isFullscreened = ref(false)
+const isPictureInPictured = ref(false)
+const hasTracks = computed(() => props.stream.getTracks().length > 0)
+const mediaEnabled = computed(() => props.audio || props.video)
+const mediaDisabledTip = `All ${props.self ? 'your' : 'their'} media are disabled`
+const initial = computed(() => (props.name || '?').charAt(0).toUpperCase())
+
+let timeoutId: number | undefined
+let playPromise: Promise<void> | undefined
+
+const handleMouseMove = () => {
+  showControls.value = true
+  if (timeoutId) clearTimeout(timeoutId)
+  timeoutId = window.setTimeout(() => {
+    showControls.value = false
+  }, 2000)
+}
+
+const toggleMute = () => {
+  isMuted.value = !isMuted.value
+}
+
+const toggleFullscreen = () => {
+  const container = refVideo.value?.parentElement
+  if (!container) return
+  if (document.fullscreenElement) {
+    document.exitFullscreen()
+  } else {
+    container.requestFullscreen()
+  }
+}
+
+const togglePictureInPicture = () => {
+  const container = refVideo.value
+  if (!container) return
+  if (document.pictureInPictureElement) {
+    document.exitPictureInPicture()
+  } else {
+    container.requestPictureInPicture()
+  }
+}
+
+const onFullScreenChange = () => {
+  isFullscreened.value = !!document.fullscreenElement
+}
+const onEnterPictureInPicture = () => {
+  isPictureInPictured.value = true
+}
+const onLeavePictureInPicture = () => {
+  isPictureInPictured.value = false
+}
+const onVolumeChange = () => {
+  if (refVideo.value) isMuted.value = refVideo.value.muted
+}
+
+onMounted(() => {
+  const video = refVideo.value
+  if (isFullscreenSupported)
+    document.addEventListener('fullscreenchange', onFullScreenChange)
+  if (isPictureInPictureSupported) {
+    video?.addEventListener('enterpictureinpicture', onEnterPictureInPicture)
+    video?.addEventListener('leavepictureinpicture', onLeavePictureInPicture)
+  }
+  video?.addEventListener('volumechange', onVolumeChange)
+  const container = refControls.value?.parentElement
+  container?.addEventListener('mousemove', handleMouseMove)
+})
+
+onUnmounted(() => {
+  const video = refVideo.value
+  document.removeEventListener('fullscreenchange', onFullScreenChange)
+  video?.removeEventListener('enterpictureinpicture', onEnterPictureInPicture)
+  video?.removeEventListener('leavepictureinpicture', onLeavePictureInPicture)
+  video?.removeEventListener('volumechange', onVolumeChange)
+  const container = refControls.value?.parentElement
+  container?.removeEventListener('mousemove', handleMouseMove)
+  if (timeoutId) clearTimeout(timeoutId)
+})
+
+watch(
+  speakerStatus,
+  status => {
+    isMuted.value = !status
+  },
+  { immediate: true }
+)
+
+// play the audio track through a detached <audio> element so that the
+// speaker device (setSinkId) and the mute button can be controlled
+// independently of the <video> element
+let audioEl: HTMLAudioElement | undefined
+const teardownAudio = () => {
+  const el = audioEl
+  audioEl = undefined
+  playPromise = undefined
+  if (el) {
+    el.pause()
+    el.srcObject = null
+    el.remove()
+  }
+}
+const setupAudio = () => {
+  teardownAudio()
+  const track = audioTrack.value
+  const video = refVideo.value
+  if (!video) return
+  video.muted = true
+  if (track && props.audio && !props.muted) {
+    const el = document.createElement('audio')
+    el.srcObject = new MediaStream([track])
+    el.muted = !speakerStatus.value || isMuted.value
+    audioEl = el
+
+    if (el.setSinkId) void el.setSinkId(deviceSpeaker.value).catch(() => {})
+    playPromise = el.play()
+    void playPromise.catch(() => {})
+  }
+}
+
+const applyStream = () => {
+  const video = refVideo.value
+  if (!video) return
+  if (!videoTrack.value) {
+    video.srcObject = null
+    return
+  }
+  video.srcObject = new MediaStream([videoTrack.value])
+
+  // NOTE: About Autoplay
+  // Reference: https://developer.mozilla.org/en-US/docs/Web/Media/Autoplay_guide
+  // NOTE:
+  // iOS Wechat WebView
+  // https://developers.weixin.qq.com/community/develop/doc/0006a61de48ab0165f99e1dcd51c00
+  if (isWechat()) void video.play().catch(() => {})
+}
+
+// NOTE: template refs are only attached after mount, so both bindings must
+// be (re)applied from onMounted as well as on later changes
+onMounted(() => {
+  setupAudio()
+  applyStream()
+})
+watch(
+  [
+    audioTrack,
+    deviceSpeaker,
+    speakerStatus,
+    isMuted,
+    () => props.audio,
+    () => props.muted,
+  ],
+  setupAudio
+)
+watch(videoTrack, applyStream)
+onUnmounted(() => {
+  teardownAudio()
+  if (refVideo.value) refVideo.value.srcObject = null
+})
+</script>
+
+<!-- NOTE: iOS can't display video
+https://webkit.org/blog/6784/new-video-policies-for-ios/ -->
+<template>
+  <div class="relative flex flex-col justify-center items-center min-h-60 rounded-2xl bg-black/70 ring-1 ring-white/10 overflow-hidden shadow-xl" :style="{ width: width }">
+    <div
+      v-if="!video"
+      class="absolute inset-0 flex flex-col items-center justify-center gap-2"
+      data-testid="video-off-avatar"
+    >
+      <div class="relative">
+        <CircleWave v-if="audioTrack" :stream="stream" />
+        <span class="inline-grid place-items-center w-16 h-16 rounded-full bg-indigo-600/80 text-white text-2xl font-bold">{{ initial }}</span>
+      </div>
+      <p v-if="name" class="text-sm text-slate-300 max-w-full px-4 truncate">{{ name }}</p>
+    </div>
+    <p
+      v-if="!mediaEnabled"
+      class="absolute bottom-2 text-slate-400 text-xs transition-opacity duration-300"
+      :class="showControls ? 'opacity-100' : 'opacity-0'"
+    >{{ mediaDisabledTip }}</p>
+    <SvgProgress v-if="mediaEnabled && !hasTracks" />
+    <video
+      ref="refVideo"
+      class="aspect-ratio-[4/3] w-full h-full object-contain"
+      :data-testid="self ? 'video-self' : 'video-remote'"
+      :playsinline="true"
+      :autoplay="true"
+      :controls="false"
+      :muted="true"
+      :style="stream?.getVideoTracks().length
+        ? { display: video ? 'inline' : 'none' }
+        : { height: '0px' }"
+    />
+    <Mic :stream="stream" />
+    <div
+      ref="refControls"
+      class="absolute bottom-0 left-0 right-0 px-3 py-2 flex justify-between items-center bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300"
+      :class="showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+    >
+      <button
+        class="inline-grid place-items-center w-8 h-8 rounded-lg text-white transition-colors hover:bg-white/15"
+        :class="muted ? 'opacity-0 pointer-events-none' : 'disabled:opacity-40'"
+        :disabled="!speakerStatus"
+        @click="toggleMute"
+      >
+        <SvgMuted v-if="isMuted" />
+        <SvgUnmuted v-else />
+      </button>
+      <div class="flex items-center gap-1">
+        <button
+          class="inline-grid place-items-center w-8 h-8 rounded-lg text-white transition-colors hover:bg-white/15 disabled:hidden"
+          :disabled="!isFullscreenSupported || isPictureInPictured"
+          @click="toggleFullscreen"
+        >
+          <SvgExitFullscreen v-if="isFullscreened" />
+          <SvgFullscreen v-else />
+        </button>
+        <button
+          class="inline-grid place-items-center w-8 h-8 rounded-lg text-white transition-colors hover:bg-white/15 disabled:hidden"
+          :disabled="!isPictureInPictureSupported || !video"
+          @click="togglePictureInPicture"
+        >
+          <SvgExitPictureInPicture v-if="isPictureInPictured" />
+          <SvgPictureInPicture v-else />
+        </button>
+      </div>
+    </div>
+  </div>
+</template>

@@ -4,26 +4,50 @@ const TokenKey = 'token'
 const NameKey = 'name'
 
 interface Storage {
-  meeting?: string,
-  stream?: string,
-  token?: string,
-  name?: string,
+  meeting?: string
+  stream?: string
+  token?: string
+  name?: string
 }
 
-function setStorageMeeting(value: string) { localStorage.setItem(MeetingKey, value) }
-function setStorageStream(value: string) { localStorage.setItem(StreamKey, value) }
-function setStorageToken(value: string) { localStorage.setItem(TokenKey, value) }
-function setStorageName(value: string) { localStorage.setItem(NameKey, value) }
+function setStorageMeeting(value: string) {
+  localStorage.setItem(MeetingKey, value)
+}
+function setStorageStream(value: string) {
+  localStorage.setItem(StreamKey, value)
+}
+function setStorageToken(value: string) {
+  localStorage.setItem(TokenKey, value)
+}
+function setStorageName(value: string) {
+  localStorage.setItem(NameKey, value)
+}
 
-function getStorageMeeting(): string { return localStorage.getItem(MeetingKey) || '' }
-function getStorageStream(): string { return localStorage.getItem(StreamKey) || '' }
-function getStorageToken(): string { return localStorage.getItem(TokenKey) || '' }
-function getStorageName(): string { return localStorage.getItem(NameKey) || '' }
+function getStorageMeeting(): string {
+  return localStorage.getItem(MeetingKey) || ''
+}
+function getStorageStream(): string {
+  return localStorage.getItem(StreamKey) || ''
+}
+function getStorageToken(): string {
+  return localStorage.getItem(TokenKey) || ''
+}
+function getStorageName(): string {
+  return localStorage.getItem(NameKey) || ''
+}
 
-function delStorageMeeting() { localStorage.removeItem(MeetingKey) }
-function delStorageStream() { localStorage.removeItem(StreamKey) }
-function delStorageToken() { localStorage.removeItem(TokenKey) }
-function delStorageName() { localStorage.removeItem(NameKey) }
+function delStorageMeeting() {
+  localStorage.removeItem(MeetingKey)
+}
+function delStorageStream() {
+  localStorage.removeItem(StreamKey)
+}
+function delStorageToken() {
+  localStorage.removeItem(TokenKey)
+}
+function delStorageName() {
+  localStorage.removeItem(NameKey)
+}
 
 function setStorage(opt: Storage) {
   if (opt.meeting) setStorageMeeting(opt.meeting)
@@ -49,17 +73,15 @@ function delStorage() {
 }
 
 export {
-  setStorageMeeting,
-  setStorageStream,
-  setStorageToken,
-  setStorageName,
-
+  delStorage,
+  getStorage,
   getStorageMeeting,
+  getStorageName,
   getStorageStream,
   getStorageToken,
-  getStorageName,
-
   setStorage,
-  getStorage,
-  delStorage,
+  setStorageMeeting,
+  setStorageName,
+  setStorageStream,
+  setStorageToken,
 }

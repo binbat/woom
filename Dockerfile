@@ -1,34 +1,37 @@
-FROM node:20-alpine as builder-node
+FROM node:26-alpine AS builder-node
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
 RUN npm run build
 
-FROM golang:1.21-alpine AS builder
+FROM rust:1.99-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+RUN apk add --no-cache musl-dev
 
-RUN go mod download
+COPY Cargo.toml Cargo.lock ./
 
 COPY . .
 
 COPY --from=builder-node /app/static/dist /app/static/dist
 
-RUN go build -tags release -o woom
+RUN cargo build --release --locked
 
-# Bin
-FROM alpine AS bin
+FROM alpine:3.23 AS bin
 
-COPY --from=builder /app/woom /usr/bin/woom
+RUN mkdir -p /data
 
+COPY --from=builder /app/target/release/woom /usr/bin/woom
+
+ENV DATA_FILE=/data/woom.json
+VOLUME ["/data"]
 EXPOSE 4000/tcp
 
 ENTRYPOINT ["/usr/bin/woom"]
