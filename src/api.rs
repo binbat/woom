@@ -1,46 +1,77 @@
+use std::collections::HashMap;
 use std::convert::Infallible;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
+use std::time::Duration;
 
 use axum::{
-    extract::{Path, Query, Request, State},
+    body::Body,
+    extract::{DefaultBodyLimit, Path, Query, Request, State},
     http::{header, HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{sse::Event, IntoResponse, Response, Sse},
-    routing::{delete, get, patch, post},
+    routing::{any, delete, get, patch, post},
     Json, Router,
 };
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tokio_stream::wrappers::BroadcastStream;
-use tokio_stream::StreamExt;
+use tokio::sync::Mutex;
+use tokio_stream::{wrappers::BroadcastStream, Stream, StreamExt};
 use tower_http::trace::TraceLayer;
 
 use crate::{
     config::Config,
-    events::{self, EventBus},
-    helper,
-    model::{Meeting, Message, Participant, Presence, Record, Role, Room},
+    events::{EventBus, RoomEvent},
+    log::{ClientLogBatch, ClientLogFilter, ClientLogStore},
+    model::{Participant, Presence, Record, Room},
     proxy, spa,
-    store::{now_millis, now_secs, Store},
+    store::{
+        Command, JoinResult, RoomPatch, RoomState, Store, StoreError, PARTICIPANT_TTL_SECS,
+        PRESENCE_TTL_SECS,
+    },
 };
+
+const TICKET_TTL_SECS: i64 = 60;
+const MAX_CLIENT_LOG_BODY: usize = 64 * 1024;
+
+#[derive(Clone)]
+struct EventTicket {
+    room_id: String,
+    user_id: String,
+    expires_at: i64,
+}
 
 #[derive(Clone)]
 pub struct AppState {
-    pub store: Arc<dyn Store>,
+    pub store: Arc<Store>,
     pub bus: EventBus,
     pub cfg: Config,
     pub http: reqwest::Client,
+    pub(crate) logs: ClientLogStore,
+    pub(crate) media_sessions: Arc<Mutex<HashMap<String, proxy::MediaSession>>>,
+    pub(crate) write_gate: Arc<Mutex<()>>,
+    tickets: Arc<Mutex<HashMap<String, EventTicket>>>,
 }
 
-pub fn router(store: Arc<dyn Store>, bus: EventBus, cfg: Config) -> Router {
-    let state = AppState {
-        store,
-        bus,
-        cfg,
-        http: reqwest::Client::new(),
-    };
+impl AppState {
+    pub fn new(store: Arc<Store>, bus: EventBus, cfg: Config) -> Self {
+        Self {
+            store,
+            bus,
+            cfg,
+            http: reqwest::Client::new(),
+            logs: ClientLogStore::new(),
+            media_sessions: Arc::new(Mutex::new(HashMap::new())),
+            write_gate: Arc::new(Mutex::new(())),
+            tickets: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+}
 
+pub fn router(state: AppState) -> Router {
     let protected = Router::new()
         .route("/room/", post(create_room))
         .route("/room/{roomId}", get(show_room).patch(update_room))
@@ -48,33 +79,78 @@ pub fn router(store: Arc<dyn Store>, bus: EventBus, cfg: Config) -> Router {
         .route("/room/{roomId}/leave", post(leave_meeting))
         .route("/room/{roomId}/end", post(end_meeting))
         .route("/room/{roomId}/mute", post(mute_all))
-        .route("/room/{roomId}/participant/{userId}", delete(remove_participant))
+        .route(
+            "/room/{roomId}/participant/{userId}",
+            delete(remove_participant),
+        )
         .route("/room/{roomId}/presence", patch(set_presence))
         .route("/room/{roomId}/message", post(create_message))
         .route("/room/{roomId}/records", get(room_records))
+        .route("/room/{roomId}/events/ticket", post(create_event_ticket))
         .route("/user/records", get(user_records))
+        .merge(media_routes())
         .route_layer(middleware::from_fn_with_state(state.clone(), jwt_auth));
 
     Router::new()
         .merge(protected)
         .route("/user/", post(create_user))
-        // browser log intake. Unauthenticated on purpose: failures must be
-        // reportable even before the client managed to get a token
-        .route("/log", post(client_log))
-        // EventSource cannot set headers: this route accepts the JWT via
-        // the Authorization header or the ?token= query parameter
+        .route(
+            "/log",
+            post(client_log)
+                .get(read_client_logs)
+                .layer(DefaultBodyLimit::max(MAX_CLIENT_LOG_BODY)),
+        )
         .route("/room/{roomId}/events", get(room_events))
-        .route("/whip/{uuid}", any(proxy::forward))
-        .route("/whep/{uuid}", any(proxy::forward))
         .fallback(spa::handler)
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<Body>| {
+                tracing::info_span!(
+                    "http.request",
+                    method = %request.method(),
+                    path = %request.uri().path()
+                )
+            }),
+        )
         .with_state(state)
 }
 
-use axum::routing::any;
+fn media_routes() -> Router<AppState> {
+    Router::new()
+        .route("/whip/{uuid}", any(proxy::forward))
+        .route("/whip/{uuid}/{*rest}", any(proxy::forward))
+        .route("/whep/{uuid}", any(proxy::forward))
+        .route("/whep/{uuid}/{*rest}", any(proxy::forward))
+        .route("/session/{*rest}", any(proxy::forward))
+}
+
+pub async fn sweep(state: &AppState) {
+    sweep_at(
+        state,
+        crate::store::now_secs(),
+        PRESENCE_TTL_SECS,
+        PARTICIPANT_TTL_SECS,
+    )
+    .await;
+}
+
+async fn sweep_at(state: &AppState, now: i64, presence_ttl: u64, participant_ttl: u64) {
+    {
+        let _guard = state.write_gate.lock().await;
+        match state.store.sweep(now, presence_ttl, participant_ttl).await {
+            Ok(events) => {
+                for event in events {
+                    state.bus.publish(event);
+                }
+            }
+            Err(error) => tracing::error!("participant/presence sweep failed: {error}"),
+        }
+    }
+    let invalid = proxy::take_invalid_media_sessions(state).await;
+    proxy::revoke_media_sessions(state, invalid).await;
+}
 
 #[derive(Clone)]
-struct UserId(String);
+pub(crate) struct UserId(pub String);
 
 #[derive(Serialize, Deserialize)]
 struct Claims {
@@ -84,16 +160,10 @@ struct Claims {
     nbf: usize,
 }
 
-fn token_from_header(headers: &HeaderMap) -> &str {
-    let bearer = headers
-        .get(header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-    if bearer.len() > 7 && bearer[..6].eq_ignore_ascii_case("bearer") {
-        &bearer[7..]
-    } else {
-        ""
-    }
+fn token_from_header(headers: &HeaderMap) -> Option<&str> {
+    let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
+    let (scheme, token) = value.split_once(' ')?;
+    (scheme.eq_ignore_ascii_case("bearer") && !token.is_empty()).then_some(token)
 }
 
 fn decode_token(secret: &str, token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
@@ -106,34 +176,43 @@ fn decode_token(secret: &str, token: &str) -> Result<Claims, jsonwebtoken::error
 }
 
 async fn jwt_auth(State(state): State<AppState>, mut req: Request, next: Next) -> Response {
-    let token = token_from_header(req.headers()).to_string();
-    match decode_token(&state.cfg.secret, &token) {
-        Ok(claims) => {
+    let Some(token) = token_from_header(req.headers()) else {
+        return error(StatusCode::UNAUTHORIZED, "invalid token");
+    };
+    match decode_token(&state.cfg.secret, token) {
+        Ok(claims) if !claims.id.is_empty() => {
             req.extensions_mut().insert(UserId(claims.id));
             next.run(req).await
         }
-        Err(e) => (StatusCode::UNAUTHORIZED, e.to_string()).into_response(),
+        _ => error(StatusCode::UNAUTHORIZED, "invalid token"),
     }
 }
 
-/// JWT from header or ?token= (for EventSource)
-fn auth_user(state: &AppState, headers: &HeaderMap, query: &Query<AuthQuery>) -> Option<UserId> {
-    let header_token = token_from_header(headers);
-    let token = if header_token.is_empty() {
-        query.token.as_deref().unwrap_or("")
-    } else {
-        header_token
+fn error(status: StatusCode, message: &str) -> Response {
+    (status, message.to_string()).into_response()
+}
+
+fn store_error(error: StoreError) -> Response {
+    let status = match error {
+        StoreError::NotFound | StoreError::NoMeeting => StatusCode::NOT_FOUND,
+        StoreError::NotParticipant | StoreError::Forbidden => StatusCode::FORBIDDEN,
+        StoreError::Invalid(_) => StatusCode::BAD_REQUEST,
+        StoreError::RoomIdExhausted => StatusCode::SERVICE_UNAVAILABLE,
+        StoreError::InvalidData(_)
+        | StoreError::Io(_)
+        | StoreError::Json(_)
+        | StoreError::Task(_) => {
+            tracing::error!("store command failed: {error}");
+            return self::error(StatusCode::INTERNAL_SERVER_ERROR, "storage error");
+        }
     };
-    decode_token(&state.cfg.secret, token).ok().map(|c| UserId(c.id))
+    self::error(status, &error.to_string())
 }
 
-#[derive(Deserialize)]
-struct AuthQuery {
-    token: Option<String>,
-}
-
-fn error(status: StatusCode, msg: &str) -> Response {
-    (status, msg.to_string()).into_response()
+async fn publish<T>(state: &AppState, command: &Command<T>) {
+    if let Some(event) = command.event.clone() {
+        state.bus.publish(event);
+    }
 }
 
 // ---------- user ----------
@@ -153,12 +232,82 @@ async fn create_user(State(state): State<AppState>) -> Response {
         &EncodingKey::from_secret(state.cfg.secret.as_bytes()),
     ) {
         Ok(token) => Json(json!({ "streamId": stream_id, "token": token })).into_response(),
-        Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+        Err(error) => {
+            tracing::error!("JWT encoding failed: {error}");
+            self::error(StatusCode::INTERNAL_SERVER_ERROR, "token error")
+        }
     }
 }
 
-async fn user_records(State(state): State<AppState>, axum::Extension(user): axum::Extension<UserId>) -> Json<Vec<Record>> {
+async fn user_records(
+    State(state): State<AppState>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Json<Vec<Record>> {
     Json(state.store.records_for_user(&user.0).await)
+}
+
+// ---------- room output ----------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RoomView {
+    room_id: String,
+    owner: String,
+    topic: String,
+    locked: bool,
+    presenter: String,
+    mute_all_at: i64,
+    created_at: i64,
+}
+
+impl From<Room> for RoomView {
+    fn from(room: Room) -> Self {
+        Self {
+            room_id: room.room_id,
+            owner: room.owner,
+            topic: room.topic,
+            locked: room.locked,
+            presenter: room.presenter,
+            mute_all_at: room.mute_all_at,
+            created_at: room.created_at,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RoomDetail {
+    #[serde(flatten)]
+    room: RoomView,
+    meeting: Option<crate::model::Meeting>,
+    participants: Vec<Participant>,
+}
+
+impl RoomDetail {
+    fn new(state: RoomState) -> Self {
+        Self {
+            room: state.room.into(),
+            meeting: state.meeting,
+            participants: state.participants,
+        }
+    }
+}
+
+async fn room_detail(
+    state: &AppState,
+    room_id: &str,
+    user_id: String,
+) -> Result<RoomDetail, Box<Response>> {
+    let mut room = state
+        .store
+        .room_state(room_id)
+        .await
+        .ok_or_else(|| Box::new(error(StatusCode::NOT_FOUND, "room not found")))?;
+    if !state.store.is_active(room_id, &user_id).await {
+        room.meeting = None;
+        room.participants.clear();
+    }
+    Ok(RoomDetail::new(room))
 }
 
 // ---------- room ----------
@@ -167,46 +316,31 @@ async fn create_room(
     State(state): State<AppState>,
     axum::Extension(user): axum::Extension<UserId>,
 ) -> Response {
-    let room = Room {
-        room_id: helper::add_split_symbol(&helper::gen_number_secret(9)),
-        owner: user.0,
-        created_at: now_secs(),
-        ..Default::default()
-    };
-    state.store.create_room(room.clone()).await;
-    Json(room).into_response()
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RoomDetail {
-    #[serde(flatten)]
-    room: Room,
-    meeting: Option<Meeting>,
-    participants: Vec<Participant>,
+    let _guard = state.write_gate.lock().await;
+    match state.store.create_room(&user.0).await {
+        Ok(room) => Json(RoomDetail::new(RoomState {
+            room,
+            meeting: None,
+            participants: Vec::new(),
+            streams: HashMap::new(),
+        }))
+        .into_response(),
+        Err(error) => store_error(error),
+    }
 }
 
 async fn show_room(
     State(state): State<AppState>,
     Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
 ) -> Response {
-    let Some(room) = state.store.get_room(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "room not found");
-    };
-    let meeting = state.store.current_meeting(&room_id).await;
-    let participants = match &meeting {
-        Some(m) => state.store.participants(&m.meeting_no).await,
-        None => Vec::new(),
-    };
-    Json(RoomDetail {
-        room,
-        meeting,
-        participants,
-    })
-    .into_response()
+    match room_detail(&state, &room_id, user.0).await {
+        Ok(room) => Json(room).into_response(),
+        Err(response) => *response,
+    }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 struct UpdateRoom {
     topic: Option<String>,
@@ -215,62 +349,55 @@ struct UpdateRoom {
     presenter: Option<String>,
 }
 
-impl Default for UpdateRoom {
-    fn default() -> Self {
-        Self {
-            topic: None,
-            password: None,
-            locked: None,
-            presenter: None,
-        }
-    }
-}
-
 async fn update_room(
     State(state): State<AppState>,
     Path(room_id): Path<String>,
     axum::Extension(user): axum::Extension<UserId>,
     Json(body): Json<UpdateRoom>,
 ) -> Response {
-    let Some(mut room) = state.store.get_room(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "room not found");
-    };
-    if room.owner != user.0 {
-        return error(StatusCode::FORBIDDEN, "only the room owner can update the room");
+    let _guard = state.write_gate.lock().await;
+    let command = state
+        .store
+        .update_room(
+            &room_id,
+            &user.0,
+            RoomPatch {
+                topic: body.topic,
+                password: body.password,
+                locked: body.locked,
+                presenter: body.presenter,
+            },
+        )
+        .await;
+    match command {
+        Ok(command) => {
+            publish(&state, &command).await;
+            match room_detail(&state, &room_id, user.0).await {
+                Ok(room) => Json(room).into_response(),
+                Err(response) => *response,
+            }
+        }
+        Err(error) => store_error(error),
     }
-    if let Some(topic) = body.topic {
-        room.topic = topic;
-    }
-    if let Some(password) = body.password {
-        room.password = password;
-    }
-    if let Some(locked) = body.locked {
-        room.locked = locked;
-    }
-    if let Some(presenter) = body.presenter {
-        room.presenter = presenter;
-    }
-    state.store.update_room(room.clone()).await;
-    events::publish_room(&state.store, &state.bus, &room_id).await;
-    Json(room).into_response()
 }
 
 // ---------- meeting ----------
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 struct JoinRequest {
     name: Option<String>,
     password: Option<String>,
 }
 
-impl Default for JoinRequest {
-    fn default() -> Self {
-        Self {
-            name: None,
-            password: None,
-        }
-    }
+fn join_response(result: JoinResult) -> Response {
+    Json(json!({
+        "meetingNo": result.meeting_no,
+        "userId": result.user_id,
+        "role": result.role,
+        "name": result.name,
+    }))
+    .into_response()
 }
 
 async fn join_meeting(
@@ -279,59 +406,18 @@ async fn join_meeting(
     axum::Extension(user): axum::Extension<UserId>,
     Json(body): Json<JoinRequest>,
 ) -> Response {
-    let Some(room) = state.store.get_room(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "room not found");
-    };
-    let is_owner = room.owner == user.0;
-    if room.locked && !is_owner {
-        return error(StatusCode::FORBIDDEN, "room is locked");
-    }
-    if !room.password.is_empty() && !is_owner && body.password.as_deref() != Some(room.password.as_str()) {
-        return error(StatusCode::FORBIDDEN, "invalid password");
-    }
-
-    // first participant starts the meeting instance
-    let meeting = match state.store.current_meeting(&room_id).await {
-        Some(m) => m,
-        None => {
-            let meeting = Meeting {
-                meeting_no: uuid::Uuid::new_v4().to_string(),
-                room_id: room_id.clone(),
-                started_at: now_secs(),
-                ended_at: None,
-                max_concurrent: 0,
-            };
-            state.store.create_meeting(meeting.clone()).await;
-            meeting
-        }
-    };
-
-    let role = if is_owner { Role::Owner } else { Role::Member };
-    let name = body.name.filter(|n| !n.is_empty()).unwrap_or_else(|| user.0.clone());
-    let participants = state
+    let _guard = state.write_gate.lock().await;
+    match state
         .store
-        .join_participant(
-            &meeting.meeting_no,
-            Participant {
-                user_id: user.0.clone(),
-                name: name.clone(),
-                role: role.clone(),
-                join_at: now_secs(),
-                leave_at: None,
-            },
-        )
-        .await;
-    let active = participants.iter().filter(|p| p.leave_at.is_none()).count();
-    state.store.bump_concurrent(&meeting.meeting_no, active).await;
-    events::publish_room(&state.store, &state.bus, &room_id).await;
-
-    Json(json!({
-        "meetingNo": meeting.meeting_no,
-        "userId": user.0,
-        "role": role,
-        "name": name,
-    }))
-    .into_response()
+        .join(&room_id, &user.0, body.name, body.password.as_deref())
+        .await
+    {
+        Ok(command) => {
+            publish(&state, &command).await;
+            join_response(command.value)
+        }
+        Err(error) => store_error(error),
+    }
 }
 
 async fn leave_meeting(
@@ -339,56 +425,17 @@ async fn leave_meeting(
     Path(room_id): Path<String>,
     axum::Extension(user): axum::Extension<UserId>,
 ) -> Response {
-    let Some(meeting) = state.store.current_meeting(&room_id).await else {
-        return StatusCode::NO_CONTENT.into_response();
-    };
-    state
-        .store
-        .leave_participant(&meeting.meeting_no, &user.0, now_secs())
-        .await;
-    state.store.remove_presence(&meeting.meeting_no, &user.0).await;
-    archive_if_empty(&state, &room_id, &meeting).await;
-    events::publish_room(&state.store, &state.bus, &room_id).await;
-    StatusCode::NO_CONTENT.into_response()
-}
-
-/// End the meeting when nobody is left, archiving the record.
-async fn archive_if_empty(state: &AppState, room_id: &str, meeting: &Meeting) {
-    let participants = state.store.participants(&meeting.meeting_no).await;
-    if participants.iter().any(|p| p.leave_at.is_none()) {
-        return;
+    let guard = state.write_gate.lock().await;
+    match state.store.leave(&room_id, &user.0).await {
+        Ok(command) => {
+            let sessions = proxy::take_media_sessions(&state, &room_id, Some(&user.0)).await;
+            publish(&state, &command).await;
+            drop(guard);
+            proxy::revoke_media_sessions(&state, sessions).await;
+            StatusCode::NO_CONTENT.into_response()
+        }
+        Err(error) => store_error(error),
     }
-    end_and_archive(state, room_id, meeting).await;
-}
-
-async fn end_and_archive(state: &AppState, room_id: &str, meeting: &Meeting) {
-    let ended_at = now_secs();
-    // mark everyone left, so the record has complete durations
-    let participants = state.store.participants(&meeting.meeting_no).await;
-    for p in participants.iter().filter(|p| p.leave_at.is_none()) {
-        state
-            .store
-            .leave_participant(&meeting.meeting_no, &p.user_id, ended_at)
-            .await;
-    }
-    state.store.clear_presence(&meeting.meeting_no).await;
-    let Some(ended) = state.store.end_meeting(&meeting.meeting_no, ended_at).await else {
-        return;
-    };
-    let participants = state.store.participants(&meeting.meeting_no).await;
-    let messages = state.store.take_messages(&meeting.meeting_no).await;
-    state
-        .store
-        .archive_record(Record {
-            meeting_no: ended.meeting_no,
-            room_id: room_id.to_string(),
-            started_at: ended.started_at,
-            ended_at,
-            max_concurrent: ended.max_concurrent,
-            participants,
-            messages,
-        })
-        .await;
 }
 
 async fn end_meeting(
@@ -396,37 +443,32 @@ async fn end_meeting(
     Path(room_id): Path<String>,
     axum::Extension(user): axum::Extension<UserId>,
 ) -> Response {
-    let Some(room) = state.store.get_room(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "room not found");
-    };
-    if room.owner != user.0 {
-        return error(StatusCode::FORBIDDEN, "only the room owner can end the meeting");
+    let guard = state.write_gate.lock().await;
+    match state.store.end(&room_id, &user.0).await {
+        Ok(command) => {
+            let sessions = proxy::take_media_sessions(&state, &room_id, None).await;
+            publish(&state, &command).await;
+            drop(guard);
+            proxy::revoke_media_sessions(&state, sessions).await;
+            StatusCode::NO_CONTENT.into_response()
+        }
+        Err(error) => store_error(error),
     }
-    let Some(meeting) = state.store.current_meeting(&room_id).await else {
-        return StatusCode::NO_CONTENT.into_response();
-    };
-    end_and_archive(&state, &room_id, &meeting).await;
-    events::publish_room(&state.store, &state.bus, &room_id).await;
-    StatusCode::NO_CONTENT.into_response()
 }
 
-/// Mute everyone (except the owner, exempted client-side). This only bumps
-/// the broadcast timestamp; clients mute their own mic when they see it.
 async fn mute_all(
     State(state): State<AppState>,
     Path(room_id): Path<String>,
     axum::Extension(user): axum::Extension<UserId>,
 ) -> Response {
-    let Some(mut room) = state.store.get_room(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "room not found");
-    };
-    if room.owner != user.0 {
-        return error(StatusCode::FORBIDDEN, "only the room owner can mute everyone");
+    let _guard = state.write_gate.lock().await;
+    match state.store.mute(&room_id, &user.0).await {
+        Ok(command) => {
+            publish(&state, &command).await;
+            StatusCode::NO_CONTENT.into_response()
+        }
+        Err(error) => store_error(error),
     }
-    room.mute_all_at = now_millis();
-    state.store.update_room(room).await;
-    events::publish_room(&state.store, &state.bus, &room_id).await;
-    StatusCode::NO_CONTENT.into_response()
 }
 
 async fn remove_participant(
@@ -434,37 +476,17 @@ async fn remove_participant(
     Path((room_id, target)): Path<(String, String)>,
     axum::Extension(user): axum::Extension<UserId>,
 ) -> Response {
-    let Some(room) = state.store.get_room(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "room not found");
-    };
-    if room.owner != user.0 {
-        return error(StatusCode::FORBIDDEN, "only the room owner can remove participants");
+    let guard = state.write_gate.lock().await;
+    match state.store.kick(&room_id, &user.0, &target).await {
+        Ok(command) => {
+            let sessions = proxy::take_media_sessions(&state, &room_id, Some(&target)).await;
+            publish(&state, &command).await;
+            drop(guard);
+            proxy::revoke_media_sessions(&state, sessions).await;
+            StatusCode::NO_CONTENT.into_response()
+        }
+        Err(error) => store_error(error),
     }
-    if target == user.0 {
-        return error(StatusCode::BAD_REQUEST, "cannot remove yourself");
-    }
-    let Some(meeting) = state.store.current_meeting(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "no ongoing meeting");
-    };
-    let participants = state.store.participants(&meeting.meeting_no).await;
-    let Some(p) = participants
-        .iter()
-        .find(|p| p.user_id == target && p.leave_at.is_none())
-    else {
-        return error(StatusCode::NOT_FOUND, "participant not found");
-    };
-    if p.role == Role::Owner {
-        return error(StatusCode::FORBIDDEN, "cannot remove the room owner");
-    }
-
-    state
-        .store
-        .leave_participant(&meeting.meeting_no, &target, now_secs())
-        .await;
-    state.store.remove_presence(&meeting.meeting_no, &target).await;
-    archive_if_empty(&state, &room_id, &meeting).await;
-    events::publish_room(&state.store, &state.bus, &room_id).await;
-    StatusCode::NO_CONTENT.into_response()
 }
 
 async fn room_records(
@@ -472,13 +494,10 @@ async fn room_records(
     Path(room_id): Path<String>,
     axum::Extension(user): axum::Extension<UserId>,
 ) -> Response {
-    let Some(room) = state.store.get_room(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "room not found");
-    };
-    if room.owner != user.0 {
-        return error(StatusCode::FORBIDDEN, "only the room owner can list room records");
+    match state.store.records_for_room(&room_id, &user.0).await {
+        Ok(records) => Json(records).into_response(),
+        Err(error) => store_error(error),
     }
-    Json(state.store.records_for_room(&room_id).await).into_response()
 }
 
 // ---------- presence ----------
@@ -489,22 +508,14 @@ async fn set_presence(
     axum::Extension(user): axum::Extension<UserId>,
     Json(presence): Json<Presence>,
 ) -> Response {
-    let Some(room) = state.store.get_room(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "room not found");
-    };
-    let Some(meeting) = state.store.current_meeting(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "no ongoing meeting");
-    };
-    // only the designated presenter (or the owner) may share their screen
-    if presence.screen && !room.presenter.is_empty() && room.presenter != user.0 && room.owner != user.0 {
-        return error(StatusCode::FORBIDDEN, "only the presenter can share screen");
+    let _guard = state.write_gate.lock().await;
+    match state.store.set_presence(&room_id, &user.0, presence).await {
+        Ok(command) => {
+            publish(&state, &command).await;
+            StatusCode::NO_CONTENT.into_response()
+        }
+        Err(error) => store_error(error),
     }
-    state
-        .store
-        .set_presence(&meeting.meeting_no, &user.0, presence)
-        .await;
-    events::publish_room(&state.store, &state.bus, &room_id).await;
-    StatusCode::NO_CONTENT.into_response()
 }
 
 // ---------- chat ----------
@@ -532,96 +543,242 @@ async fn create_message(
     if content.is_empty() {
         return error(StatusCode::BAD_REQUEST, "empty message");
     }
-    let Some(meeting) = state.store.current_meeting(&room_id).await else {
-        return error(StatusCode::NOT_FOUND, "no ongoing meeting");
-    };
-    // display name comes from the participant record (what others see),
-    // falling back to the user id
-    let name = state
-        .store
-        .participants(&meeting.meeting_no)
-        .await
-        .iter()
-        .find(|p| p.user_id == user.0)
-        .map(|p| p.name.clone())
-        .unwrap_or_else(|| user.0.clone());
-    let msg = Message {
-        id: uuid::Uuid::new_v4().to_string(),
-        user_id: user.0,
-        name,
-        content,
-        ts: now_secs(),
-    };
-    state.store.add_message(&meeting.meeting_no, msg.clone()).await;
-    events::publish_message(&state.bus, &room_id, &msg);
-    (StatusCode::CREATED, Json(msg)).into_response()
+    let _guard = state.write_gate.lock().await;
+    match state.store.add_message(&room_id, &user.0, content).await {
+        Ok(command) => {
+            publish(&state, &command).await;
+            (StatusCode::CREATED, Json(command.value)).into_response()
+        }
+        Err(error) => store_error(error),
+    }
 }
 
 // ---------- browser log intake ----------
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ClientLogBatch {
-    session_id: Option<String>,
-    meeting_id: Option<String>,
-    logs: Vec<ClientLogEntry>,
-}
-
-#[derive(Deserialize)]
-struct ClientLogEntry {
-    ts: Option<i64>,
-    level: Option<String>,
-    event: Option<String>,
-    msg: Option<String>,
-    data: Option<serde_json::Value>,
-}
-
-/// Write browser-reported logs as NDJSON lines on the `client_log` target;
-/// `docker logs woom | grep client_log` answers "what did users hit".
-async fn client_log(Json(batch): Json<ClientLogBatch>) -> StatusCode {
-    for entry in batch.logs.iter().take(100) {
-        let line = json!({
-            "src": "browser",
-            "sessionId": batch.session_id,
-            "meetingId": batch.meeting_id,
-            "ts": entry.ts,
-            "level": entry.level.as_deref().unwrap_or("info"),
-            "event": entry.event,
-            "msg": entry.msg.as_deref().map(|m| m.chars().take(500).collect::<String>()),
-            "data": entry.data,
-        });
-        tracing::info!(target: "client_log", "{}", line.to_string());
+async fn client_log(
+    State(state): State<AppState>,
+    Json(batch): Json<ClientLogBatch>,
+) -> StatusCode {
+    for record in state.logs.append_batch(batch) {
+        match serde_json::to_string(&record) {
+            Ok(line) => tracing::info!(target: "client_log", "{}", line),
+            Err(error) => tracing::warn!("client log JSON encoding failed: {error}"),
+        }
     }
     StatusCode::NO_CONTENT
 }
 
+async fn read_client_logs(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(filter): Query<ClientLogFilter>,
+) -> Response {
+    let Some(expected_token) = state.cfg.log_read_token.as_deref() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if token_from_header(&headers) != Some(expected_token) {
+        return error(StatusCode::UNAUTHORIZED, "invalid log read token");
+    }
+
+    let mut body = String::new();
+    for record in state.logs.query(&filter) {
+        match serde_json::to_string(&record) {
+            Ok(line) => {
+                body.push_str(&line);
+                body.push('\n');
+            }
+            Err(error) => {
+                tracing::warn!("client log JSON encoding failed: {error}");
+                return self::error(StatusCode::INTERNAL_SERVER_ERROR, "log encoding error");
+            }
+        }
+    }
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/x-ndjson")
+        .header(
+            header::CONTENT_DISPOSITION,
+            "attachment; filename=\"woom-client-logs.ndjson\"",
+        )
+        .body(Body::from(body))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
 // ---------- SSE ----------
+
+async fn create_event_ticket(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    if !state.store.is_active(&room_id, &user.0).await {
+        return error(StatusCode::FORBIDDEN, "not an active participant");
+    }
+    let now = crate::store::now_secs();
+    let expires_at = now + TICKET_TTL_SECS;
+    let ticket = format!(
+        "{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    );
+    let mut tickets = state.tickets.lock().await;
+    tickets.retain(|_, ticket| ticket.expires_at > now);
+    tickets.insert(
+        ticket.clone(),
+        EventTicket {
+            room_id,
+            user_id: user.0,
+            expires_at,
+        },
+    );
+    Json(json!({ "ticket": ticket, "expiresAt": expires_at })).into_response()
+}
+
+#[derive(Deserialize)]
+struct AuthQuery {
+    ticket: Option<String>,
+}
+
+async fn event_user(
+    state: &AppState,
+    room_id: &str,
+    headers: &HeaderMap,
+    query: &AuthQuery,
+) -> Option<UserId> {
+    if let Some(token) = token_from_header(headers) {
+        return decode_token(&state.cfg.secret, token)
+            .ok()
+            .map(|claims| UserId(claims.id));
+    }
+    let ticket_value = query.ticket.as_deref()?;
+    let now = crate::store::now_secs();
+    let mut tickets = state.tickets.lock().await;
+    tickets.retain(|_, ticket| ticket.expires_at > now);
+    let ticket = tickets.get(ticket_value)?;
+    (ticket.room_id == room_id && ticket.expires_at > now).then(|| UserId(ticket.user_id.clone()))
+}
+
+type SnapshotFuture = Pin<Box<dyn Future<Output = Option<RoomEvent>> + Send>>;
+
+struct RoomEventStream {
+    receiver: BroadcastStream<RoomEvent>,
+    state: AppState,
+    room_id: String,
+    user_id: String,
+    initial: Option<RoomEvent>,
+    last_revision: u64,
+    lagged_snapshot: Option<SnapshotFuture>,
+    done: bool,
+}
+
+impl Stream for RoomEventStream {
+    type Item = RoomEvent;
+
+    fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = &mut *self;
+        if this.done {
+            return Poll::Ready(None);
+        }
+        if let Some(initial) = this.initial.take() {
+            return Poll::Ready(Some(initial));
+        }
+
+        loop {
+            if let Some(future) = this.lagged_snapshot.as_mut() {
+                match future.as_mut().poll(context) {
+                    Poll::Pending => return Poll::Pending,
+                    Poll::Ready(event) => {
+                        this.lagged_snapshot = None;
+                        let Some(event) = event else {
+                            this.done = true;
+                            return Poll::Ready(None);
+                        };
+                        this.last_revision = event.revision;
+                        if event
+                            .snapshot_ref()
+                            .is_some_and(|snapshot| !snapshot.is_active(&this.user_id))
+                        {
+                            this.done = true;
+                            return Poll::Ready(Some(RoomEvent::snapshot(
+                                &this.room_id,
+                                crate::events::Snapshot::ended(event.revision),
+                            )));
+                        }
+                        return Poll::Ready(Some(event));
+                    }
+                }
+            }
+
+            match Pin::new(&mut this.receiver).poll_next(context) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(Some(Ok(event))) => {
+                    if event.revision <= this.last_revision {
+                        continue;
+                    }
+                    this.last_revision = event.revision;
+                    this.done = event
+                        .snapshot_ref()
+                        .is_some_and(|snapshot| !snapshot.is_active(&this.user_id));
+                    return Poll::Ready(Some(event));
+                }
+                Poll::Ready(Some(Err(_))) => {
+                    let state = this.state.clone();
+                    let room_id = this.room_id.clone();
+                    this.lagged_snapshot = Some(Box::pin(async move {
+                        let snapshot = state.store.snapshot(&room_id).await.ok()?;
+                        Some(RoomEvent::snapshot(&room_id, snapshot))
+                    }));
+                }
+                Poll::Ready(None) => {
+                    this.done = true;
+                    return Poll::Ready(None);
+                }
+            }
+        }
+    }
+}
 
 async fn room_events(
     State(state): State<AppState>,
     Path(room_id): Path<String>,
     headers: HeaderMap,
-    query: Query<AuthQuery>,
+    Query(query): Query<AuthQuery>,
 ) -> Response {
-    if auth_user(&state, &headers, &query).is_none() {
-        return error(StatusCode::UNAUTHORIZED, "invalid token");
-    }
-    if state.store.get_room(&room_id).await.is_none() {
-        return error(StatusCode::NOT_FOUND, "room not found");
-    }
-
-    let initial = events::snapshot(&state.store, &room_id).await;
-    let stream = BroadcastStream::new(state.bus.subscribe()).filter_map(move |msg| {
-        match msg {
-            Ok(event) if event.room_id == room_id => {
-                Some(Ok::<_, Infallible>(Event::default().data(event.payload)))
-            }
-            // lagged behind: the next publish carries a full snapshot anyway
-            _ => None,
+    let Some(user) = event_user(&state, &room_id, &headers, &query).await else {
+        return error(StatusCode::UNAUTHORIZED, "invalid ticket or token");
+    };
+    match state.store.require_active(&room_id, &user.0).await {
+        Ok(()) => {}
+        Err(StoreError::NotFound) => return error(StatusCode::NOT_FOUND, "room not found"),
+        Err(StoreError::NotParticipant) => {
+            return error(StatusCode::FORBIDDEN, "not an active participant")
         }
-    });
-    let initial_stream = tokio_stream::once(Ok(Event::default().data(initial)));
-    Sse::new(initial_stream.chain(stream))
-        .keep_alive(axum::response::sse::KeepAlive::default())
+        Err(error) => return store_error(error),
+    }
+    let receiver = state.bus.subscribe(&room_id);
+    let initial = match state.store.snapshot(&room_id).await {
+        Ok(snapshot) if snapshot.is_active(&user.0) => snapshot,
+        Ok(_) => return error(StatusCode::FORBIDDEN, "not an active participant"),
+        Err(StoreError::NotFound) => return error(StatusCode::NOT_FOUND, "room not found"),
+        Err(error) => return store_error(error),
+    };
+    let initial_event = RoomEvent::snapshot(&room_id, initial);
+    let stream = RoomEventStream {
+        receiver: BroadcastStream::new(receiver),
+        state,
+        room_id,
+        user_id: user.0,
+        last_revision: initial_event.revision,
+        initial: Some(initial_event),
+        lagged_snapshot: None,
+        done: false,
+    };
+    let stream =
+        stream.map(|event| Ok::<_, Infallible>(Event::default().data(event.payload_json())));
+    Sse::new(stream)
+        .keep_alive(axum::response::sse::KeepAlive::new().interval(Duration::from_secs(15)))
         .into_response()
 }
+
+#[cfg(test)]
+mod tests;

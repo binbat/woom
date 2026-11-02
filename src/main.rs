@@ -2,6 +2,7 @@ mod api;
 mod config;
 mod events;
 mod helper;
+mod log;
 mod model;
 mod proxy;
 mod spa;
@@ -9,8 +10,9 @@ mod store;
 
 use std::sync::Arc;
 
+use api::AppState;
 use config::Config;
-use store::{MemoryStore, Store, PRESENCE_TTL_SECS};
+use store::Store;
 
 #[tokio::main]
 async fn main() {
@@ -21,30 +23,28 @@ async fn main() {
         )
         .init();
 
-    let cfg = Config::from_env();
-    tracing::info!("{:?}", cfg);
+    let cfg = Config::from_env().unwrap_or_else(|error| panic!("invalid configuration: {error}"));
+    tracing::info!("{cfg:?}");
 
-    let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-    let bus = events::new_bus();
+    let store = Arc::new(
+        Store::open(&cfg.data_file)
+            .await
+            .unwrap_or_else(|error| panic!("failed to open data file: {error}")),
+    );
+    let state = AppState::new(store, events::new_bus(), cfg.clone());
 
-    // presence sweeper: clients heartbeat every 15s; entries older than the
-    // TTL (crashed tabs, lost connections) are removed and broadcast
     {
-        let store = store.clone();
-        let bus = bus.clone();
+        let state = state.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
             loop {
                 interval.tick().await;
-                for room_id in store.sweep_presence(PRESENCE_TTL_SECS).await {
-                    events::publish_room(&store, &bus, &room_id).await;
-                }
+                api::sweep(&state).await;
             }
         });
     }
 
-    let app = api::router(store, bus, cfg.clone());
-
+    let app = api::router(state);
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", cfg.port))
         .await
         .expect("failed to bind port");

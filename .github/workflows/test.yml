@@ -1,14 +1,41 @@
 name: Test
 
-on: [push, pull_request]
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request: {}
+  workflow_call: {}
+
+permissions:
+  contents: read
 
 jobs:
+  rust:
+    name: Rust quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - name: Build embedded WebApp and audit production dependencies
+        run: npm ci && npm run build && npm audit --omit=dev
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check format, lints and tests
+        run: npm run test:rust
+
   e2e:
     name: Playwright e2e
     runs-on: ubuntu-latest
     services:
       live777:
-        image: ghcr.io/binbat/liveion:0.9.0
+        image: ghcr.io/binbat/liveion:0.10.2
         ports:
           - 7777:7777
     steps:
@@ -16,7 +43,7 @@ jobs:
         uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
           cache: npm
       - name: Install npm dependencies
         run: npm ci
@@ -33,3 +60,36 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  docker:
+    name: Docker smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Build image
+        run: docker build -t woom:ci .
+      - name: Start container
+        run: |
+          docker run -d --name woom-ci \
+            -p 4000:4000 \
+            -v woom-ci-data:/data \
+            -e SECRET=ci-9f6c2a84d17b43e0a5c98f21e6d04b7a \
+            woom:ci
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:4000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs woom-ci
+          exit 1
+      - name: Check SPA and missing asset responses
+        run: |
+          curl -fsS -H 'Accept: text/html' http://localhost:4000/meeting/example >/dev/null
+          test "$(curl -sS -o /dev/null -w '%{http_code}' -H 'Accept: application/javascript' http://localhost:4000/assets/missing.js)" = 404
+      - name: Clean up
+        if: ${{ !cancelled() }}
+        run: |
+          docker rm -f woom-ci
+          docker volume rm woom-ci-data

@@ -18,9 +18,10 @@ export default defineConfig({
   globalSetup: './tests/global-setup',
   timeout: 60_000,
   expect: { timeout: 15_000 },
+  forbidOnly: true,
   // WebRTC tests are timing sensitive; run serially for stability.
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
   reporter: process.env.CI ? [['github'], ['html']] : [['list']],
   use: {
     baseURL,
@@ -36,11 +37,16 @@ export default defineConfig({
   webServer: {
     // Release binary serves webapp + API + WHIP/WHEP proxy on one origin.
     // Build it first: `npm run build && cargo build --release`
-    // (or just use `npm run test:e2e`). Redis and Live777 must be running,
+    // (or just use `npm run test:e2e`). Live777 must be running,
     // see tests/global-setup.ts.
     command: './target/release/woom',
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: process.env.E2E_REUSE_SERVER === 'true',
     timeout: 30_000,
+    env: {
+      SECRET: 'e2e-9f6c2a84d17b43e0a5c98f21e6d04b7a',
+      LOG_READ_TOKEN: 'e2e-log-reader-9f6c2a84d17b43e0a5c98f21e6d04b7a',
+      DATA_FILE: ':memory:',
+    },
   },
 })

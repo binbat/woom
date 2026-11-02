@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import Welcome from './pages/welcome.vue'
 import Meeting from './pages/meeting.vue'
+import Welcome from './pages/welcome.vue'
 import { meetingId } from './store/atoms'
 </script>
 

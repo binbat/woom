@@ -8,25 +8,34 @@ const props = defineProps<{ stream: MediaStream }>()
 const volumeValue = ref(0)
 const rest = computed(() => 100 - volumeValue.value)
 
-let stopFlag = { stopped: false }
+let extractor: VolumeExtractor | undefined
+let animationFrame = 0
 
-watch(() => props.stream, (stream) => {
-  stopFlag.stopped = true
-  stopFlag = { stopped: false }
-  const flag = stopFlag
-  if (stream.getAudioTracks().length) {
-    const extractor = new VolumeExtractor(stream)
-    const updateVolume = () => {
-      volumeValue.value = extractor.calculateVolume()
-      if (!flag.stopped) requestAnimationFrame(updateVolume)
+const stop = () => {
+  cancelAnimationFrame(animationFrame)
+  extractor?.close()
+  extractor = undefined
+  volumeValue.value = 0
+}
+
+watch(
+  () => props.stream,
+  stream => {
+    stop()
+    if (stream.getAudioTracks().length) {
+      extractor = new VolumeExtractor(stream)
+      const updateVolume = () => {
+        if (!extractor) return
+        volumeValue.value = extractor.calculateVolume()
+        animationFrame = requestAnimationFrame(updateVolume)
+      }
+      updateVolume()
     }
-    updateVolume()
-  }
-}, { immediate: true })
+  },
+  { immediate: true }
+)
 
-onUnmounted(() => {
-  stopFlag.stopped = true
-})
+onUnmounted(stop)
 </script>
 
 <template>

@@ -2,11 +2,11 @@ CTR=docker
 NAME=woom
 
 .PHONY: default
-default: webapp build
+default: build
 
 .PHONY: build
-build:
-	cargo build --release
+build: webapp
+	cargo build --release --locked
 
 .PHONY: webapp
 webapp:
@@ -14,7 +14,7 @@ webapp:
 
 .PHONY: webapp-clean
 webapp-clean:
-	rm -r static/dist
+	rm -rf static/dist
 
 .PHONY: clean
 clean: webapp-clean

@@ -1,43 +1,43 @@
 <script setup lang="ts">
+import copy from 'copy-to-clipboard'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import Player from './player/player.vue'
-import WhipPlayer from './player/whip-player.vue'
-import WhepPlayer from './player/whep-player.vue'
-import DeviceBar from './device.vue'
 import {
-  UserStatus,
+  ApiError,
+  getRoom,
+  leaveMeeting,
+  leaveMeetingKeepalive,
+  type Message,
+  openRoomEvents,
+  type RoomEvent,
+  type RoomSnapshot,
+  type Stream,
+  StreamState,
+  setPresence,
+} from '../lib/api'
+import { log, setLogMeeting } from '../lib/log'
+import { getStorageStream } from '../lib/storage'
+import {
   enabledPresentation,
+  joinedMeetingNo,
+  joinPassword,
   meetingJoined,
   presentationStream,
   roomInfo,
   roomParticipants,
+  type UserStatus,
 } from '../store/atoms'
-import copy from 'copy-to-clipboard'
+import Chat from './chat.vue'
+import DeviceBar from './device.vue'
+import Members from './members.vue'
+import Player from './player/player.vue'
+import WhepPlayer from './player/whep-player.vue'
+import WhipPlayer from './player/whip-player.vue'
+import SvgChat from './svg/chat.vue'
 import SvgDone from './svg/done.vue'
 import SvgEnd from './svg/end.vue'
-import SvgChat from './svg/chat.vue'
 import SvgMembers from './svg/members.vue'
-import Chat from './chat.vue'
-import Members from './members.vue'
-import {
-  getRoom,
-  joinMeeting,
-  leaveMeeting,
-  leaveMeetingKeepalive,
-  setPresence,
-  openRoomEvents,
-  Message,
-  RoomSnapshot,
-  Stream,
-  StreamState,
-} from '../lib/api'
-import { getStorageStream } from '../lib/storage'
-import { log, setLogMeeting } from '../lib/log'
 import useWhipClient from './use/whip'
 
-// at most 9 video tiles on screen (self + up to 8 remotes); remote users
-// outside the visible set are not subscribed at all (no WhepPlayer is
-// mounted for them, so no WHEP connection is created)
 const MAX_VISIBLE_TILES = 9
 
 const props = defineProps<{ meetingId: string }>()
@@ -49,11 +49,24 @@ const remoteUserStatus = ref<Record<string, UserStatus>>({})
 
 const whip = useWhipClient(localStreamId)
 
+const orderedRemoteIds = computed(() =>
+  Object.keys(remoteUserStatus.value)
+    .map((id, index) => ({ id, index }))
+    .sort((a, b) => {
+      const rank = (id: string) => {
+        if (roomInfo.value.presenter === id) return 0
+        if (remoteUserStatus.value[id].screen) return 1
+        return 2
+      }
+      return rank(a.id) - rank(b.id) || a.index - b.index
+    })
+    .map(({ id }) => id)
+)
 const visibleRemoteIds = computed(() =>
-  Object.keys(remoteUserStatus.value).slice(0, MAX_VISIBLE_TILES - 1)
+  orderedRemoteIds.value.slice(0, MAX_VISIBLE_TILES - 1)
 )
 const hiddenRemoteIds = computed(() =>
-  Object.keys(remoteUserStatus.value).slice(MAX_VISIBLE_TILES - 1)
+  orderedRemoteIds.value.slice(MAX_VISIBLE_TILES - 1)
 )
 
 const chatOpen = ref(false)
@@ -62,7 +75,9 @@ const unread = ref(0)
 const messages = ref<Message[]>([])
 const streamsAll = ref<Record<string, Stream>>({})
 
-const activeCount = computed(() => roomParticipants.value.filter(p => !p.leaveAt).length)
+const activeCount = computed(
+  () => roomParticipants.value.filter(p => !p.leaveAt).length
+)
 
 const toggleChat = () => {
   chatOpen.value = !chatOpen.value
@@ -77,136 +92,275 @@ const toggleMembers = () => {
   if (membersOpen.value) chatOpen.value = false
 }
 
-// the newest mute-all timestamp already acted on; null = nothing seen yet
+let active = true
+let lifecycle = 0
+let events: EventSource | undefined
+let eventsGeneration = 0
+let eventsRetry: number | undefined
+let heartbeat: number | undefined
+let restorePromise: Promise<void> | undefined
+let sseOpenedOnce = false
 let lastMuteAllAt: number | null = null
 
+const isCurrent = (generation: number) => active && generation === lifecycle
+
+const invalidate = () => {
+  active = false
+  lifecycle++
+  eventsGeneration++
+  events?.close()
+  events = undefined
+  window.clearTimeout(eventsRetry)
+  window.clearInterval(heartbeat)
+  window.removeEventListener('beforeunload', cleanup)
+  window.removeEventListener('unload', cleanup)
+  window.removeEventListener('offline', handleOffline)
+  window.removeEventListener('online', handleOnline)
+  joinedMeetingNo.value = ''
+  joinPassword.value = ''
+}
+
+const callEnd = () => {
+  if (!active) return
+  log('info', 'leave_meeting', '', { meetingId: props.meetingId })
+  invalidate()
+  meetingJoined.value = false
+  whip.value.setSyncUserStatus(() => {})
+  void whip.value.stop()
+  void leaveMeeting(props.meetingId).catch(e => {
+    log('warn', 'leave_meeting_failed', String(e), {
+      meetingId: props.meetingId,
+    })
+  })
+}
+
 const applySnapshot = (data: RoomSnapshot) => {
-  roomInfo.value = { owner: roomInfo.value.owner, presenter: data.presenter, locked: data.locked }
-  roomParticipants.value = data.participants
-  messages.value = data.messages
-  // the meeting was ended (by the owner, or everyone else left): hang up locally
-  if (meetingNoSeen && !data.meetingNo) {
+  if (joinedMeetingNo.value && data.meetingNo !== joinedMeetingNo.value) {
     callEnd()
     return
   }
-  if (data.meetingNo) meetingNoSeen = true
-  // removed by the owner: my participant entry is marked as left
+
+  roomInfo.value = {
+    owner: roomInfo.value.owner,
+    presenter: data.presenter,
+    locked: data.locked,
+  }
+  roomParticipants.value = data.participants
+  messages.value = data.messages
   const me = data.participants.find(p => p.userId === localStreamId)
   if (data.meetingNo && me?.leaveAt) {
     callEnd()
     return
   }
-  // host muted everyone: mute my own mic (the owner is exempt)
   if (lastMuteAllAt === null) {
     lastMuteAllAt = data.muteAllAt
   } else if (data.muteAllAt > lastMuteAllAt) {
     lastMuteAllAt = data.muteAllAt
     if (roomInfo.value.owner !== localStreamId && whip.value.userStatus.audio) {
-      whip.value.toggleEnableAudio()
+      void whip.value.toggleEnableAudio()
     }
   }
   streamsAll.value = data.streams || {}
-  const r = Object.keys(data.streams || {})
-    .filter(i => i !== localStreamId)
-    .filter(i => !!i)
-    .reduce((map, i) => {
-      map[i] = data.streams[i]
-      return map
-    }, {} as { [_: string]: Stream })
-  remoteUserStatus.value = r
-}
-
-const onRoomEvent = (raw: string) => {
-  const data = JSON.parse(raw)
-  if (data.type === 'message') {
-    messages.value.push(data.message)
-    if (!chatOpen.value) unread.value++
-  } else {
-    applySnapshot(data)
-  }
-}
-
-let meetingNoSeen = false
-
-const callEnd = async () => {
-  log('info', 'leave_meeting', '', { meetingId: props.meetingId })
-  leaveMeeting(props.meetingId)
-
-  meetingJoined.value = false
-  whip.value.stop()
-  whip.value.setSyncUserStatus(() => {})
+  remoteUserStatus.value = Object.keys(data.streams || {})
+    .filter(i => i !== localStreamId && !!i)
+    .reduce(
+      (map, i) => {
+        map[i] = data.streams[i]
+        return map
+      },
+      {} as Record<string, Stream>
+    )
 }
 
 const copyMeetingLink = () => {
   copy(window.location.href)
   copyStatus.value = true
-  setTimeout(() => copyStatus.value = false, 3000)
+  setTimeout(() => (copyStatus.value = false), 3000)
 }
 
-// NOTE:
-// https://github.com/binbat/woom/pull/27
-// https://developer.mozilla.org/en-US/docs/Web/API/Window/unload_event
-// `unload` event is Deprecated, But Firefox need `unload`
 const cleanup = () => {
-  leaveMeetingKeepalive(props.meetingId)
+  if (active) leaveMeetingKeepalive(props.meetingId)
 }
 
-let events: EventSource | undefined
-let heartbeat: number | undefined
-let sseConnected = false
+const handleOffline = () => {
+  if (!active) return
+  eventsGeneration++
+  events?.close()
+  events = undefined
+  window.clearTimeout(eventsRetry)
+  eventsRetry = undefined
+}
 
-// after an SSE reconnect the server-side meeting state may have moved on
-// (presence expired, participant marked left, or the process restarted):
-// re-join idempotently and re-publish presence immediately
-const rejoinMeeting = async () => {
-  log('warn', 'sse_reconnected_rejoin', '', { meetingId: props.meetingId })
+const handleOnline = () => {
+  if (!active) return
+  eventsGeneration++
+  events?.close()
+  events = undefined
+  void restoreMeeting()
+  void connectEvents()
+}
+
+const isTerminalApiError = (e: unknown) =>
+  e instanceof ApiError && [401, 403, 404].includes(e.status)
+
+const restoreMeeting = (): Promise<void> => {
+  if (restorePromise) return restorePromise
+  const generation = lifecycle
+  const run = (async () => {
+    log('warn', 'sse_reconnected_restore', '', { meetingId: props.meetingId })
+    try {
+      const detail = await getRoom(props.meetingId)
+      if (!isCurrent(generation)) return
+      const me = detail.participants.find(
+        p => p.userId === localStreamId && !p.leaveAt
+      )
+      if (detail.meeting?.meetingNo !== joinedMeetingNo.value || !me) {
+        callEnd()
+        return
+      }
+      if (!(await setPresence(props.meetingId, whip.value.userStatus))) {
+        throw new Error('presence rejected')
+      }
+      if (!isCurrent(generation)) return
+      const dead = [
+        StreamState.Failed,
+        StreamState.Closed,
+        StreamState.Disconnected,
+      ]
+      if (dead.includes(whip.value.userStatus.state)) await whip.value.restart()
+    } catch (e) {
+      if (!isCurrent(generation)) return
+      if (isTerminalApiError(e)) {
+        callEnd()
+        return
+      }
+      log('error', 'restore_failed', String(e), { meetingId: props.meetingId })
+    }
+  })()
+  restorePromise = run
+  void run.then(() => {
+    if (restorePromise === run) restorePromise = undefined
+  })
+  return run
+}
+
+const heartbeatPresence = async () => {
+  if (!navigator.onLine) return
+  const generation = lifecycle
+  const present = await setPresence(props.meetingId, whip.value.userStatus)
+  if (isCurrent(generation) && !present) await restoreMeeting()
+}
+
+const scheduleEventsReconnect = () => {
+  if (eventsRetry !== undefined || !active) return
+  const generation = lifecycle
+  eventsRetry = window.setTimeout(() => {
+    eventsRetry = undefined
+    if (isCurrent(generation)) void connectEvents()
+  }, 500)
+}
+
+const connectEvents = async () => {
+  const generation = lifecycle
+  const connection = ++eventsGeneration
+  const previous = events
+  events = undefined
+  previous?.close()
+  window.clearTimeout(eventsRetry)
+  eventsRetry = undefined
   try {
-    await joinMeeting(props.meetingId, whip.value.userStatus.name || localStreamId)
-    await setPresence(props.meetingId, whip.value.userStatus)
-    // the WHIP watchdog normally recovers publishing itself, but give a
-    // dead connection a nudge right away
-    const dead = [StreamState.Failed, StreamState.Closed, StreamState.Disconnected]
-    if (dead.includes(whip.value.userStatus.state)) {
-      whip.value.restart()
+    const source = await openRoomEvents(props.meetingId)
+    if (!isCurrent(generation) || connection !== eventsGeneration) {
+      source.close()
+      return
+    }
+    events = source
+    let lastRevision = -1
+    source.onmessage = e => {
+      if (
+        !isCurrent(generation) ||
+        connection !== eventsGeneration ||
+        events !== source
+      )
+        return
+      try {
+        const data = JSON.parse(e.data) as RoomEvent
+        if (typeof data.revision === 'number') {
+          if (data.revision <= lastRevision) return
+          lastRevision = data.revision
+        }
+        if (data.type === 'message') {
+          messages.value.push(data.message)
+          if (!chatOpen.value) unread.value++
+        } else {
+          applySnapshot(data)
+        }
+      } catch (e) {
+        log('warn', 'sse_event_invalid', String(e), {
+          meetingId: props.meetingId,
+        })
+      }
+    }
+    source.onopen = () => {
+      if (
+        !isCurrent(generation) ||
+        connection !== eventsGeneration ||
+        events !== source
+      )
+        return
+      if (sseOpenedOnce) void restoreMeeting()
+      sseOpenedOnce = true
+    }
+    source.onerror = () => {
+      if (!isCurrent(generation) || connection !== eventsGeneration) return
+      log('warn', 'sse_error', '', { meetingId: props.meetingId })
+      if (source.readyState === EventSource.CLOSED) {
+        source.close()
+        if (events === source) events = undefined
+        scheduleEventsReconnect()
+      }
     }
   } catch (e) {
-    log('error', 'rejoin_failed', String(e), { meetingId: props.meetingId })
+    if (!isCurrent(generation) || connection !== eventsGeneration) return
+    log('warn', 'sse_ticket_failed', String(e), { meetingId: props.meetingId })
+    if (isTerminalApiError(e)) {
+      callEnd()
+      return
+    }
+    scheduleEventsReconnect()
   }
 }
 
 onMounted(async () => {
   window.addEventListener('beforeunload', cleanup)
   window.addEventListener('unload', cleanup)
+  window.addEventListener('offline', handleOffline)
+  window.addEventListener('online', handleOnline)
   setLogMeeting(props.meetingId)
 
-  // static room info (owner) once; live state arrives over SSE
+  const generation = lifecycle
   try {
     const detail = await getRoom(props.meetingId)
-    roomInfo.value = { ...roomInfo.value, owner: detail.owner }
-  } catch { /* room may be gone */ }
-
-  events = openRoomEvents(props.meetingId)
-  events.onmessage = (e) => onRoomEvent(e.data)
-  events.onopen = () => {
-    if (sseConnected) rejoinMeeting()
-    sseConnected = true
-  }
-  events.onerror = () => {
-    sseConnected = false
-    log('warn', 'sse_error', '', { meetingId: props.meetingId })
+    if (isCurrent(generation))
+      roomInfo.value = { ...roomInfo.value, owner: detail.owner }
+  } catch {
+    /* room may be gone */
   }
 
-  // presence heartbeat: the server expires entries after 45s without one
-  heartbeat = window.setInterval(() => {
-    setPresence(props.meetingId, whip.value.userStatus)
-  }, 15000)
+  if (isCurrent(generation)) {
+    await connectEvents()
+    if (isCurrent(generation)) {
+      heartbeat = window.setInterval(() => {
+        void heartbeatPresence()
+      }, 15000)
+    }
+  }
 })
 
 onUnmounted(() => {
-  window.removeEventListener('beforeunload', cleanup)
-  window.removeEventListener('unload', cleanup)
-  events?.close()
-  window.clearInterval(heartbeat)
+  invalidate()
+  whip.value.setSyncUserStatus(() => {})
+  void whip.value.stop()
 })
 </script>
 

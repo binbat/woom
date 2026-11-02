@@ -13,7 +13,9 @@ const defaultState = (): SettingState => ({
   language: 'English',
   videoResolution: '480',
   screenShareResolution: '720',
-  screenShareButtonShowed: /Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(navigator.userAgent),
+  screenShareButtonShowed: /Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(
+    navigator.userAgent
+  ),
 })
 
 function load(): SettingState {
@@ -29,15 +31,16 @@ function load(): SettingState {
 
 const setting = reactive<SettingState>(load())
 
-watch(setting, (s) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    language: s.language,
-    videoResolution: s.videoResolution,
-    screenShareResolution: s.screenShareResolution,
-    screenShareButtonShowed: s.screenShareButtonShowed,
-  }))
+watch(setting, s => {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      language: s.language,
+      videoResolution: s.videoResolution,
+      screenShareResolution: s.screenShareResolution,
+      screenShareButtonShowed: s.screenShareButtonShowed,
+    })
+  )
 })
 
-export {
-  setting,
-}
+export { setting }

@@ -1,5 +1,10 @@
-import { test, expect } from '@playwright/test'
-import { createMeeting, joinMeetingFromWelcome, joinRoom, expectVideoPlaying } from './helper'
+import { expect, test } from '@playwright/test'
+import {
+  createMeeting,
+  expectVideoPlaying,
+  joinMeetingFromWelcome,
+  joinRoom,
+} from './helper'
 
 // Joining before device init completes must not lose the publish: start()
 // waits for the first track instead of returning silently.
@@ -13,9 +18,13 @@ test.describe('slow device join (start race)', () => {
     try {
       // make every getUserMedia call take 2s on Alice's side
       await alice.addInitScript(() => {
-        const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
-        navigator.mediaDevices.getUserMedia = (constraints) =>
-          new Promise((resolve) => setTimeout(() => resolve(original(constraints)), 2000))
+        const original = navigator.mediaDevices.getUserMedia.bind(
+          navigator.mediaDevices
+        )
+        navigator.mediaDevices.getUserMedia = constraints =>
+          new Promise(resolve =>
+            setTimeout(() => resolve(original(constraints)), 2000)
+          )
       })
 
       const roomId = await createMeeting(alice)
@@ -57,9 +66,9 @@ test.describe('video-off avatar', () => {
       await expect(bobRemote).toHaveCount(1, { timeout: 30_000 })
       await expectVideoPlaying(bobRemote)
 
-      // Alice turns her camera off (bar buttons: copy, speaker, audio, video):
-      // her tile on Bob's side shows the avatar ringed by the spectrum
-      await alice.locator('.flex.justify-center .panel button').nth(3).click()
+      // Alice turns her camera off: her tile on Bob's side shows the avatar
+      // ringed by the spectrum.
+      await alice.getByTestId('toggle-video').click()
       const avatar = bob.getByTestId('video-off-avatar')
       await expect(avatar).toBeVisible({ timeout: 15_000 })
       await expect(avatar).toContainText('A')

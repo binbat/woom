@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import useWhipClient from './use/whip'
-import DeviceBar from './device.vue'
-import Loading from './svg/loading.vue'
-import Player from './player/player.vue'
-import { meetingJoined } from '../store/atoms'
-import { getStorageName, setStorageName, getStorageStream } from '../lib/storage'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { joinMeeting, setPresence } from '../lib/api'
 import { log, setLogMeeting } from '../lib/log'
+import {
+  getStorageName,
+  getStorageStream,
+  setStorageName,
+} from '../lib/storage'
+import { joinedMeetingNo, joinPassword, meetingJoined } from '../store/atoms'
+import DeviceBar from './device.vue'
+import Player from './player/player.vue'
+import Loading from './svg/loading.vue'
+import useWhipClient from './use/whip'
 
 const props = defineProps<{ meetingId: string }>()
 
@@ -19,34 +23,54 @@ const displayName = ref<string>('')
 const localStreamId = getStorageStream()
 
 const whip = useWhipClient(localStreamId)
+let joinGeneration = 0
+let handedOff = false
 
 const join = async () => {
+  if (loading.value) return
+  const generation = ++joinGeneration
   loading.value = true
   joinError.value = ''
 
   const name = displayName.value || localStreamId
   try {
-    await joinMeeting(props.meetingId, name, password.value || undefined)
+    const joined = await joinMeeting(
+      props.meetingId,
+      name,
+      password.value || undefined
+    )
+    if (generation !== joinGeneration) return
+
+    setLogMeeting(props.meetingId)
+    log('info', 'joined_meeting', '', { meetingId: props.meetingId, name })
+    joinedMeetingNo.value = joined.meetingNo
+    joinPassword.value = password.value
+    whip.value.setUserName(name)
+    setStorageName(displayName.value)
+
+    handedOff = true
+    meetingJoined.value = true
+    whip.value.setSyncUserStatus(status => {
+      if (meetingJoined.value) void setPresence(props.meetingId, status)
+    })
+    void whip.value.restart()
   } catch (e) {
+    if (generation !== joinGeneration) return
     joinError.value = e instanceof Error ? e.message : String(e)
-    log('error', 'join_meeting_failed', joinError.value, { meetingId: props.meetingId })
-    loading.value = false
-    return
+    log('error', 'join_meeting_failed', joinError.value, {
+      meetingId: props.meetingId,
+    })
+  } finally {
+    if (generation === joinGeneration) loading.value = false
   }
-  setLogMeeting(props.meetingId)
-  log('info', 'joined_meeting', '', { meetingId: props.meetingId, name })
-
-  whip.value.setUserName(name)
-
-  meetingJoined.value = true
-  setStorageName(displayName.value)
-  await whip.value.restart()
-  whip.value.setSyncUserStatus((status) => setPresence(props.meetingId, status))
-  loading.value = false
 }
 
 onMounted(() => {
   displayName.value = getStorageName() || ''
+})
+
+onUnmounted(() => {
+  if (!handedOff) joinGeneration++
 })
 </script>
 
@@ -63,7 +87,7 @@ onMounted(() => {
       />
     </label>
 
-    <label v-if="joinError.includes('password')" class="flex items-center gap-3 text-slate-300">
+    <label v-if="joinError" class="flex items-center gap-3 text-slate-300">
       <span class="text-sm font-medium whitespace-nowrap">Password</span>
       <input
         v-model="password"
@@ -73,13 +97,13 @@ onMounted(() => {
       />
     </label>
 
-    <p v-if="joinError" class="text-sm text-rose-400">{{ joinError }}</p>
+    <p v-if="joinError" class="text-sm text-rose-400" data-testid="join-error">{{ joinError }}</p>
 
     <div class="panel px-3 py-2">
       <DeviceBar :stream-id="localStreamId" />
     </div>
 
-    <button class="btn-primary min-w-44 text-lg" data-testid="join-room" @click="join()">
+    <button class="btn-primary min-w-44 text-lg" data-testid="join-room" :disabled="loading" @click="join()">
       <Loading v-if="loading" />
       Join{{ loading ? '...' : '' }}
     </button>

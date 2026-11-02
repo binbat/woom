@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import SettingItem from './setting-item.vue'
 import { setting } from '../store/setting'
+import SettingItem from './setting-item.vue'
 
 const languageOptions = ['English']
 

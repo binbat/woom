@@ -1,7 +1,6 @@
-version: "3"
 services:
   live777:
-    image: ghcr.io/binbat/liveion:0.9.0
+    image: ghcr.io/binbat/liveion:0.10.2
     container_name: live777
     hostname: live777
     ports:

@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import SettingItem from './setting-item.vue'
-import { meetingId, roomInfo, roomParticipants } from '../store/atoms'
-import { delStorage, getStorageStream } from '../lib/storage'
 import { endMeeting, patchRoom } from '../lib/api'
+import { delStorage, getStorageStream } from '../lib/storage'
+import { meetingId, roomInfo, roomParticipants } from '../store/atoms'
 import { setting } from '../store/setting'
+import SettingItem from './setting-item.vue'
 
 const isReset = ref(false)
 
-const isOwner = computed(() => !!meetingId.value && roomInfo.value.owner === getStorageStream())
+const isOwner = computed(
+  () => !!meetingId.value && roomInfo.value.owner === getStorageStream()
+)
 
-const activeParticipants = computed(() => roomParticipants.value.filter(p => !p.leaveAt))
+const activeParticipants = computed(() =>
+  roomParticipants.value.filter(p => !p.leaveAt)
+)
 
 const onToggleLocked = async () => {
   await patchRoom(meetingId.value, { locked: !roomInfo.value.locked })

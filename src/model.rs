@@ -1,15 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-/// Persistent meeting room (the "number"). Lives until the process restarts;
-/// a future PostgreSQL `Store` implementation will make it durable.
+/// Persistent meeting room (the "number"). API responses use a separate view
+/// so the password can be persisted without being exposed to clients.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Room {
     pub room_id: String,
     pub owner: String,
     pub topic: String,
-    // never serialized to clients
-    #[serde(skip_serializing)]
     pub password: String,
     pub locked: bool,
     /// user id of the designated presenter; empty means anyone may share
@@ -74,7 +72,7 @@ pub struct Message {
 }
 
 /// Archived meeting: the "meeting record" listed in history.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Record {
     pub meeting_no: String,

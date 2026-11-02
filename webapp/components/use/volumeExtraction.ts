@@ -28,4 +28,10 @@ export default class VolumeExtractor {
     const volumeValue = Math.round(perceptual * 100)
     return volumeValue
   }
+
+  public close = () => {
+    this.source.disconnect()
+    this.analyser.disconnect()
+    void this.audioContext.close().catch(() => {})
+  }
 }

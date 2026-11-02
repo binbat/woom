@@ -13,7 +13,9 @@ onMounted(async () => {
   setApiToken(token)
   try {
     records.value = (await getMyRecords()).slice().reverse()
-  } catch { /* no records yet */ }
+  } catch {
+    /* no records yet */
+  }
 })
 
 const formatTime = (secs: number) => new Date(secs * 1000).toLocaleString()

@@ -1,5 +1,10 @@
-import { test, expect } from '@playwright/test'
-import { createMeeting, joinMeetingFromWelcome, joinRoom, expectVideoPlaying } from './helper'
+import { expect, test } from '@playwright/test'
+import {
+  createMeeting,
+  expectVideoPlaying,
+  joinMeetingFromWelcome,
+  joinRoom,
+} from './helper'
 
 test.describe('single user meeting', () => {
   test('create, join with media, hang up', async ({ page }) => {

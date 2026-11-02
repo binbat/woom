@@ -4,7 +4,7 @@
     "paths": {
       "@/*": ["./*"]
     },
-    "types": [""],
+    "types": ["node"],
     "target": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "useDefineForClassFields": true,
@@ -20,10 +20,7 @@
     "strict": true,
     "skipLibCheck": false
   },
-  "include": ["webapp"],
-  "exclude": [
-    "webapp/vite.config.ts",
-    "webapp/uno.config.ts"
-  ],
+  "include": ["webapp", "tests", "playwright.config.ts"],
+  "exclude": ["webapp/vite.config.ts", "webapp/uno.config.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

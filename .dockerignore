@@ -1,6 +1,11 @@
 /woom
 /target
 /dist
+/static/dist
+/data
+/.git
+/test-results
+/playwright-report
 .idea
 .vscode
 node_modules

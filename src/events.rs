@@ -1,88 +1,144 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use tokio::sync::broadcast;
 
 use crate::model::{Message, Participant, Presence};
-use crate::store::Store;
 
-/// How many recent chat messages ride each state snapshot (enough for a
-/// late joiner to catch up; live delivery uses `publish_message`).
-const SNAPSHOT_MESSAGE_LIMIT: usize = 50;
+pub const SNAPSHOT_MESSAGE_LIMIT: usize = 50;
+const EVENT_BUFFER: usize = 64;
 
-/// A room event broadcast to all SSE subscribers of a room.
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Snapshot {
+    #[serde(rename = "type")]
+    pub kind: &'static str,
+    pub revision: u64,
+    pub meeting_no: Option<String>,
+    pub streams: HashMap<String, Presence>,
+    pub presenter: String,
+    pub locked: bool,
+    pub participants: Vec<Participant>,
+    pub messages: Vec<Message>,
+    pub mute_all_at: i64,
+}
+
+impl Snapshot {
+    pub fn is_active(&self, user_id: &str) -> bool {
+        self.meeting_no.is_some()
+            && self
+                .participants
+                .iter()
+                .any(|participant| participant.user_id == user_id && participant.leave_at.is_none())
+    }
+
+    pub fn ended(revision: u64) -> Self {
+        Self {
+            kind: "snapshot",
+            revision,
+            meeting_no: None,
+            streams: HashMap::new(),
+            presenter: String::new(),
+            locked: false,
+            participants: Vec::new(),
+            messages: Vec::new(),
+            mute_all_at: 0,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageEvent {
+    #[serde(rename = "type")]
+    pub kind: &'static str,
+    pub revision: u64,
+    pub message: Message,
+}
+
+#[derive(Clone, Debug)]
+pub enum EventPayload {
+    Snapshot(Snapshot),
+    Message(MessageEvent),
+}
+
+#[derive(Clone, Debug)]
 pub struct RoomEvent {
     pub room_id: String,
-    pub payload: String, // pre-serialized JSON, tagged with a "type" field
+    pub revision: u64,
+    pub payload: EventPayload,
 }
 
-pub type EventBus = broadcast::Sender<RoomEvent>;
+impl RoomEvent {
+    pub fn snapshot(room_id: &str, snapshot: Snapshot) -> Self {
+        Self {
+            room_id: room_id.to_string(),
+            revision: snapshot.revision,
+            payload: EventPayload::Snapshot(snapshot),
+        }
+    }
+
+    pub fn message(room_id: &str, revision: u64, message: Message) -> Self {
+        Self {
+            room_id: room_id.to_string(),
+            revision,
+            payload: EventPayload::Message(MessageEvent {
+                kind: "message",
+                revision,
+                message,
+            }),
+        }
+    }
+
+    pub fn payload_json(&self) -> String {
+        match &self.payload {
+            EventPayload::Snapshot(snapshot) => serde_json::to_string(snapshot),
+            EventPayload::Message(message) => serde_json::to_string(message),
+        }
+        .unwrap_or_else(|_| "{}".to_string())
+    }
+
+    pub fn snapshot_ref(&self) -> Option<&Snapshot> {
+        match &self.payload {
+            EventPayload::Snapshot(snapshot) => Some(snapshot),
+            EventPayload::Message(_) => None,
+        }
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct EventBus {
+    rooms: Arc<Mutex<HashMap<String, broadcast::Sender<RoomEvent>>>>,
+}
+
+impl EventBus {
+    pub fn subscribe(&self, room_id: &str) -> broadcast::Receiver<RoomEvent> {
+        let mut rooms = self.rooms.lock().expect("event bus lock poisoned");
+        rooms
+            .entry(room_id.to_string())
+            .or_insert_with(|| broadcast::channel(EVENT_BUFFER).0)
+            .subscribe()
+    }
+
+    pub fn publish(&self, event: RoomEvent) {
+        let sender = self
+            .rooms
+            .lock()
+            .expect("event bus lock poisoned")
+            .get(&event.room_id)
+            .cloned();
+        if let Some(sender) = sender {
+            let _ = sender.send(event);
+        }
+    }
+
+    #[cfg(test)]
+    pub fn room_count(&self) -> usize {
+        self.rooms.lock().expect("event bus lock poisoned").len()
+    }
+}
 
 pub fn new_bus() -> EventBus {
-    broadcast::channel(64).0
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Snapshot<'a> {
-    #[serde(rename = "type")]
-    kind: &'static str,
-    meeting_no: Option<&'a str>,
-    streams: &'a HashMap<String, Presence>,
-    presenter: &'a str,
-    locked: bool,
-    participants: &'a [Participant],
-    messages: &'a [Message],
-    mute_all_at: i64,
-}
-
-pub async fn snapshot(store: &Arc<dyn Store>, room_id: &str) -> String {
-    let Some(room) = store.get_room(room_id).await else {
-        return String::new();
-    };
-    let meeting = store.current_meeting(room_id).await;
-    let (streams, participants, messages) = match &meeting {
-        Some(m) => (
-            store.presence_map(&m.meeting_no).await,
-            store.participants(&m.meeting_no).await,
-            store.messages(&m.meeting_no, SNAPSHOT_MESSAGE_LIMIT).await,
-        ),
-        None => (HashMap::new(), Vec::new(), Vec::new()),
-    };
-    serde_json::to_string(&Snapshot {
-        kind: "snapshot",
-        meeting_no: meeting.as_ref().map(|m| m.meeting_no.as_str()),
-        streams: &streams,
-        presenter: &room.presenter,
-        locked: room.locked,
-        participants: &participants,
-        messages: &messages,
-        mute_all_at: room.mute_all_at,
-    })
-    .unwrap_or_default()
-}
-
-/// Push a fresh snapshot of the room to all subscribers. Send failures are
-/// ignored: they only mean nobody is listening.
-pub async fn publish_room(store: &Arc<dyn Store>, bus: &EventBus, room_id: &str) {
-    let payload = snapshot(store, room_id).await;
-    let _ = bus.send(RoomEvent {
-        room_id: room_id.to_string(),
-        payload,
-    });
-}
-
-/// Broadcast a single chat message to all subscribers of the room.
-pub fn publish_message(bus: &EventBus, room_id: &str, msg: &Message) {
-    let payload = serde_json::json!({
-        "type": "message",
-        "message": msg,
-    })
-    .to_string();
-    let _ = bus.send(RoomEvent {
-        room_id: room_id.to_string(),
-        payload,
-    });
+    EventBus::default()
 }

@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
-  isWechat,
   isFullscreenSupported,
   isPictureInPictureSupported,
+  isWechat,
 } from '../../lib/util'
-import SvgProgress from '../svg/progress.vue'
 import { deviceSpeaker, speakerStatus } from '../../store/atoms'
-import SvgMuted from '../svg/muted.vue'
-import SvgUnmuted from '../svg/unmuted.vue'
-import SvgFullscreen from '../svg/fullscreen.vue'
 import SvgExitFullscreen from '../svg/exit-fullscreen.vue'
-import SvgPictureInPicture from '../svg/pip.vue'
 import SvgExitPictureInPicture from '../svg/exit-pip.vue'
+import SvgFullscreen from '../svg/fullscreen.vue'
+import SvgMuted from '../svg/muted.vue'
+import SvgPictureInPicture from '../svg/pip.vue'
+import SvgProgress from '../svg/progress.vue'
+import SvgUnmuted from '../svg/unmuted.vue'
 import CircleWave from './circle-wave.vue'
 import Mic from './mic.vue'
 
@@ -55,7 +55,8 @@ const toggleMute = () => {
 }
 
 const toggleFullscreen = () => {
-  const container = refVideo.value!.parentElement!
+  const container = refVideo.value?.parentElement
+  if (!container) return
   if (document.fullscreenElement) {
     document.exitFullscreen()
   } else {
@@ -64,7 +65,8 @@ const toggleFullscreen = () => {
 }
 
 const togglePictureInPicture = () => {
-  const container = refVideo.value!
+  const container = refVideo.value
+  if (!container) return
   if (document.pictureInPictureElement) {
     document.exitPictureInPicture()
   } else {
@@ -87,7 +89,8 @@ const onVolumeChange = () => {
 
 onMounted(() => {
   const video = refVideo.value
-  if (isFullscreenSupported) document.addEventListener('fullscreenchange', onFullScreenChange)
+  if (isFullscreenSupported)
+    document.addEventListener('fullscreenchange', onFullScreenChange)
   if (isPictureInPictureSupported) {
     video?.addEventListener('enterpictureinpicture', onEnterPictureInPicture)
     video?.addEventListener('leavepictureinpicture', onLeavePictureInPicture)
@@ -108,9 +111,13 @@ onUnmounted(() => {
   if (timeoutId) clearTimeout(timeoutId)
 })
 
-watch(speakerStatus, (status) => {
-  isMuted.value = !status
-}, { immediate: true })
+watch(
+  speakerStatus,
+  status => {
+    isMuted.value = !status
+  },
+  { immediate: true }
+)
 
 // play the audio track through a detached <audio> element so that the
 // speaker device (setSinkId) and the mute button can be controlled
@@ -119,42 +126,46 @@ let audioEl: HTMLAudioElement | undefined
 const teardownAudio = () => {
   const el = audioEl
   audioEl = undefined
-  playPromise?.finally(() => {
-    el?.pause()
-    if (el) el.srcObject = null
-    el?.remove()
-  })
   playPromise = undefined
+  if (el) {
+    el.pause()
+    el.srcObject = null
+    el.remove()
+  }
 }
 const setupAudio = () => {
   teardownAudio()
   const track = audioTrack.value
-  if (track && props.audio && !props.muted && refVideo.value) {
+  const video = refVideo.value
+  if (!video) return
+  video.muted = true
+  if (track && props.audio && !props.muted) {
     const el = document.createElement('audio')
     el.srcObject = new MediaStream([track])
-
-    if (el.setSinkId) {
-      el.setSinkId(deviceSpeaker.value)
-    }
-
     el.muted = !speakerStatus.value || isMuted.value
-    refVideo.value.muted = !speakerStatus.value || isMuted.value
     audioEl = el
+
+    if (el.setSinkId) void el.setSinkId(deviceSpeaker.value).catch(() => {})
     playPromise = el.play()
+    void playPromise.catch(() => {})
   }
 }
 
 const applyStream = () => {
-  if (refVideo.value && videoTrack.value) {
-    refVideo.value.srcObject = new MediaStream([videoTrack.value])
-
-    // NOTE: About Autoplay
-    // Reference: https://developer.mozilla.org/en-US/docs/Web/Media/Autoplay_guide
-    // NOTE:
-    // iOS Wechat WebView
-    // https://developers.weixin.qq.com/community/develop/doc/0006a61de48ab0165f99e1dcd51c00
-    if (isWechat()) refVideo.value.play()
+  const video = refVideo.value
+  if (!video) return
+  if (!videoTrack.value) {
+    video.srcObject = null
+    return
   }
+  video.srcObject = new MediaStream([videoTrack.value])
+
+  // NOTE: About Autoplay
+  // Reference: https://developer.mozilla.org/en-US/docs/Web/Media/Autoplay_guide
+  // NOTE:
+  // iOS Wechat WebView
+  // https://developers.weixin.qq.com/community/develop/doc/0006a61de48ab0165f99e1dcd51c00
+  if (isWechat()) void video.play().catch(() => {})
 }
 
 // NOTE: template refs are only attached after mount, so both bindings must
@@ -163,9 +174,22 @@ onMounted(() => {
   setupAudio()
   applyStream()
 })
-watch([audioTrack, videoTrack, deviceSpeaker, speakerStatus, isMuted], setupAudio)
+watch(
+  [
+    audioTrack,
+    deviceSpeaker,
+    speakerStatus,
+    isMuted,
+    () => props.audio,
+    () => props.muted,
+  ],
+  setupAudio
+)
 watch(videoTrack, applyStream)
-onUnmounted(teardownAudio)
+onUnmounted(() => {
+  teardownAudio()
+  if (refVideo.value) refVideo.value.srcObject = null
+})
 </script>
 
 <!-- NOTE: iOS can't display video

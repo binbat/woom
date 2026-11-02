@@ -28,6 +28,8 @@ const start = () => {
   const canvas = canvasRef.value
   const tracks = props.stream?.getAudioTracks() ?? []
   if (!canvas || !tracks.length) return
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas 2D context is not available')
 
   audioContext = new AudioContext()
   audioContext.resume().catch(() => {})
@@ -38,7 +40,6 @@ const start = () => {
   source.connect(analyser)
 
   const data = new Uint8Array(analyser.frequencyBinCount)
-  const ctx = canvas.getContext('2d')!
   const center = SIZE / 2
 
   const draw = () => {

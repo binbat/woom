@@ -5,7 +5,9 @@ const SPLIT_SYMBOL_SEPARATOR: char = '-';
 
 pub fn gen_number_secret(n: usize) -> String {
     let mut rng = rand::rng();
-    (0..n).map(|_| rng.random_range(b'0'..=b'9') as char).collect()
+    (0..n)
+        .map(|_| rng.random_range(b'0'..=b'9') as char)
+        .collect()
 }
 
 pub fn add_split_symbol(s: &str) -> String {

@@ -1,5 +1,10 @@
-import { test, expect } from '@playwright/test'
-import { createMeeting, joinMeetingFromWelcome, joinRoom, expectVideoPlaying } from './helper'
+import { expect, test } from '@playwright/test'
+import {
+  createMeeting,
+  expectVideoPlaying,
+  joinMeetingFromWelcome,
+  joinRoom,
+} from './helper'
 
 // Full-stack WebRTC scenario: Alice publishes (WHIP), Bob subscribes (WHEP)
 // through Live777, and vice versa. Remote stream list is polled every 3s,
@@ -29,7 +34,9 @@ test.describe('two users in one room', () => {
 
       // Bob hangs up: his remote player disappears from Alice's view
       await bob.getByTestId('hang-up').click()
-      await expect(alice.getByTestId('video-remote')).toHaveCount(0, { timeout: 30_000 })
+      await expect(alice.getByTestId('video-remote')).toHaveCount(0, {
+        timeout: 30_000,
+      })
     } finally {
       await contextAlice.close()
       await contextBob.close()

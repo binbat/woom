@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { createMeeting, joinMeetingFromWelcome, joinRoom } from './helper'
 
 // In-meeting chat: messages are delivered over SSE and visible to all
@@ -21,17 +21,29 @@ test.describe('meeting chat', () => {
       await alice.getByTestId('chat-toggle').click()
       await alice.getByTestId('chat-input').fill('hello from alice')
       await alice.getByTestId('chat-send').click()
-      await expect(alice.getByTestId('chat-message').filter({ hasText: 'hello from alice' })).toHaveCount(1)
+      await expect(
+        alice
+          .getByTestId('chat-message')
+          .filter({ hasText: 'hello from alice' })
+      ).toHaveCount(1)
 
       // Bob receives it: unread badge appears, message visible after opening
-      await expect(bob.getByTestId('chat-unread')).toHaveText('1', { timeout: 15_000 })
+      await expect(bob.getByTestId('chat-unread')).toHaveText('1', {
+        timeout: 15_000,
+      })
       await bob.getByTestId('chat-toggle').click()
-      await expect(bob.getByTestId('chat-message').filter({ hasText: 'hello from alice' })).toHaveCount(1)
+      await expect(
+        bob.getByTestId('chat-message').filter({ hasText: 'hello from alice' })
+      ).toHaveCount(1)
 
       // Bob replies, Alice sees it live
       await bob.getByTestId('chat-input').fill('hi alice, bob here')
       await bob.getByTestId('chat-input').press('Enter')
-      await expect(alice.getByTestId('chat-message').filter({ hasText: 'hi alice, bob here' })).toHaveCount(1, { timeout: 15_000 })
+      await expect(
+        alice
+          .getByTestId('chat-message')
+          .filter({ hasText: 'hi alice, bob here' })
+      ).toHaveCount(1, { timeout: 15_000 })
     } finally {
       await contextAlice.close()
       await contextBob.close()
@@ -57,7 +69,11 @@ test.describe('meeting chat', () => {
       await joinMeetingFromWelcome(bob, roomId)
       await joinRoom(bob, 'Bob')
       await bob.getByTestId('chat-toggle').click()
-      await expect(bob.getByTestId('chat-message').filter({ hasText: 'early bird message' })).toHaveCount(1, { timeout: 15_000 })
+      await expect(
+        bob
+          .getByTestId('chat-message')
+          .filter({ hasText: 'early bird message' })
+      ).toHaveCount(1, { timeout: 15_000 })
     } finally {
       await contextAlice.close()
       await contextBob.close()

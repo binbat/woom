@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { kickParticipant, muteAll, Participant, Stream } from '../lib/api'
-import { roomInfo, roomParticipants } from '../store/atoms'
 import { getStorageStream } from '../lib/storage'
+import { roomInfo, roomParticipants } from '../store/atoms'
 import SvgAudio from './svg/audio.vue'
 import SvgVideo from './svg/video.vue'
 
@@ -22,12 +22,15 @@ const activeParticipants = computed(() =>
   roomParticipants.value
     .filter(p => !p.leaveAt)
     .slice()
-    .sort((a, b) => (a.role === b.role ? a.joinAt - b.joinAt : a.role === 'owner' ? -1 : 1))
+    .sort((a, b) =>
+      a.role === b.role ? a.joinAt - b.joinAt : a.role === 'owner' ? -1 : 1
+    )
 )
 
 const isOwner = computed(() => roomInfo.value.owner === localUserId)
 
-const presenceOf = (p: Participant): Stream | undefined => props.streams[p.userId]
+const presenceOf = (p: Participant): Stream | undefined =>
+  props.streams[p.userId]
 
 const onMuteAll = async () => {
   actionError.value = ''

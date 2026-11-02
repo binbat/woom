@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import SettingAdvanced from './settings-advanced.vue'
+import SettingGeneral from './settings-general.vue'
+import SettingMedia from './settings-media.vue'
+import SvgAdvanced from './svg/advanced.vue'
 import SvgClose from './svg/close.vue'
 import SvgGeneral from './svg/general.vue'
 import SvgMedia from './svg/media.vue'
-import SvgAdvanced from './svg/advanced.vue'
-import SettingGeneral from './settings-general.vue'
-import SettingMedia from './settings-media.vue'
-import SettingAdvanced from './settings-advanced.vue'
 
 const emit = defineEmits<{
   close: []
@@ -16,7 +16,7 @@ const activeTab = ref('General')
 const settingsOptions = [
   { label: 'General', icon: SvgGeneral },
   { label: 'Media', icon: SvgMedia },
-  { label: 'Advanced', icon: SvgAdvanced }
+  { label: 'Advanced', icon: SvgAdvanced },
 ]
 </script>
 

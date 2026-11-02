@@ -1,5 +1,6 @@
 woom
 /target
+/data/
 .idea
 .vscode
 node_modules

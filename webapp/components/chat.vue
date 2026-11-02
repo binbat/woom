@@ -31,13 +31,20 @@ const send = async () => {
 }
 
 // keep the list pinned to the latest message
-watch(() => props.messages.length, async () => {
-  await nextTick()
-  listRef.value?.scrollTo({ top: listRef.value.scrollHeight })
-}, { immediate: true })
+watch(
+  () => props.messages.length,
+  async () => {
+    await nextTick()
+    listRef.value?.scrollTo({ top: listRef.value.scrollHeight })
+  },
+  { immediate: true }
+)
 
 const formatTime = (secs: number) =>
-  new Date(secs * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  new Date(secs * 1000).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 </script>
 
 <template>

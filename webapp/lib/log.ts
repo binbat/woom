@@ -43,14 +43,22 @@ function flush() {
   fetch('/log', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiToken}`,
+      Authorization: `Bearer ${apiToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ sessionId, meetingId, logs }),
+    body: JSON.stringify({
+      sessionId,
+      meetingId,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      logs,
+    }),
     // keepalive lets entries survive page unload
     keepalive: true,
   })
-    .catch(() => { /* never log the logger's own failure (loop risk) */ })
+    .catch(() => {
+      /* never log the logger's own failure (loop risk) */
+    })
     .finally(() => {
       flushing = false
     })
@@ -60,10 +68,13 @@ const FLUSH_INTERVAL = 5000
 setInterval(flush, FLUSH_INTERVAL)
 window.addEventListener('beforeunload', flush)
 
-window.addEventListener('error', (e) => {
-  log('error', 'window_error', e.message, { source: e.filename, line: e.lineno })
+window.addEventListener('error', e => {
+  log('error', 'window_error', e.message, {
+    source: e.filename,
+    line: e.lineno,
+  })
 })
-window.addEventListener('unhandledrejection', (e) => {
+window.addEventListener('unhandledrejection', e => {
   log('error', 'unhandled_rejection', String(e.reason))
 })
 

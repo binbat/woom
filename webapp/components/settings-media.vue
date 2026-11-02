@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import SettingItem from './setting-item.vue'
 import { setting } from '../store/setting'
+import SettingItem from './setting-item.vue'
 
-const videoResolutionOptions = [
-  { label: '480p (Default)', value: '480' },
-]
+const videoResolutionOptions = [{ label: '480p (Default)', value: '480' }]
 const screenShareResolutionOptions = [
   { label: '720p (Default)', value: '720' },
   { label: '1080p', value: '1080' },
-  { label: 'Native', value: 'native' }
+  { label: 'Native', value: 'native' },
 ]
 
 const onChangeVideoResolution = (resolution: string) => {

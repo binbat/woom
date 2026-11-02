@@ -16,7 +16,11 @@ async function checkHttp(url: string): Promise<boolean> {
   }
 }
 
-async function waitFor(name: string, hint: string, check: () => Promise<boolean>) {
+async function waitFor(
+  name: string,
+  hint: string,
+  check: () => Promise<boolean>
+) {
   const start = Date.now()
   while (Date.now() - start < WAIT_TIMEOUT) {
     if (await check()) {
@@ -32,6 +36,6 @@ export default async function globalSetup() {
   await waitFor(
     `Live777 (${LIVE777_URL})`,
     'Start it with: docker compose up -d',
-    () => checkHttp(LIVE777_URL),
+    () => checkHttp(LIVE777_URL)
   )
 }

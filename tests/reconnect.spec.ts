@@ -1,10 +1,14 @@
-import { test, expect, devices } from '@playwright/test'
-import { createMeeting, joinMeetingFromWelcome, joinRoom, expectVideoPlaying } from './helper'
+import { devices, expect, test } from '@playwright/test'
+import {
+  createMeeting,
+  expectVideoPlaying,
+  joinMeetingFromWelcome,
+  joinRoom,
+} from './helper'
 
-// Auto-rejoin: when the network drops and recovers, the client reconnects
-// the SSE stream, re-joins the meeting idempotently and re-publishes
-// presence; WHIP/WHEP recover via their watchdogs.
-test.describe('auto rejoin after network drop', () => {
+// Recovery restores the persisted participant's presence without joining
+// again; WHIP/WHEP recover via their watchdogs.
+test.describe('presence recovery after network drop', () => {
   test('remote video recovers after offline/online', async ({ browser }) => {
     const contextAlice = await browser.newContext()
     const contextBob = await browser.newContext()
@@ -20,20 +24,39 @@ test.describe('auto rejoin after network drop', () => {
       const bobRemote = bob.getByTestId('video-remote')
       await expect(bobRemote).toHaveCount(1, { timeout: 30_000 })
       await expectVideoPlaying(bobRemote)
+      let joinRequests = 0
+      bob.on('request', request => {
+        if (
+          request.method() === 'POST' &&
+          new URL(request.url()).pathname === `/room/${roomId}/join`
+        ) {
+          joinRequests++
+        }
+      })
 
-      // drop Bob's network: his presence will expire on the server (45s TTL
-      // is not hit here because we come back sooner), SSE errors out
+      // Drop Bob's network without reaching the 45s presence TTL.
       await contextBob.setOffline(true)
+      const presenceResponse = bob.waitForResponse(response => {
+        const request = response.request()
+        return (
+          request.method() === 'PATCH' &&
+          response.ok() &&
+          new URL(response.url()).pathname === `/room/${roomId}/presence`
+        )
+      })
       await bob.waitForTimeout(3000)
       await contextBob.setOffline(false)
 
-      // Bob re-joins and Alice is visible again
+      await presenceResponse
+      expect(joinRequests).toBe(0)
       await expect(bobRemote).toHaveCount(1, { timeout: 30_000 })
       await expectVideoPlaying(bobRemote)
 
       // and Alice still sees Bob (no duplicate participants)
       await alice.getByTestId('members-toggle').click()
-      await expect(alice.getByTestId('member-row')).toHaveCount(2, { timeout: 30_000 })
+      await expect(alice.getByTestId('member-row')).toHaveCount(2, {
+        timeout: 30_000,
+      })
     } finally {
       await contextAlice.close()
       await contextBob.close()
@@ -51,7 +74,9 @@ test.describe('mobile adaptation', () => {
 
     try {
       await createMeeting(page)
-      await expect(page.getByTestId('switch-camera')).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByTestId('switch-camera')).toBeVisible({
+        timeout: 15_000,
+      })
     } finally {
       await context.close()
     }

@@ -1,31 +1,34 @@
 <script setup lang="ts">
 import { watch } from 'vue'
+import { presentationStream } from '../../store/atoms'
 import useWhipClient from '../use/whip'
 import Detail from './detail.vue'
 import Player from './player.vue'
-import { presentationStream } from '../../store/atoms'
 
-const props = defineProps<{ streamId: string, width: string }>()
+const props = defineProps<{ streamId: string; width: string }>()
 
 const whip = useWhipClient(props.streamId)
 
-// TODO: refactor "presentation stream" handling for more precise control
-watch([() => whip.value.userStatus.screen, () => whip.value.stream], () => {
-  // set/clear "presentation stream" when self starts/stops sharing
-  const stream = whip.value.stream
-  const selfStreamName = `${whip.value.userStatus.name}_Presentation`
-  if (whip.value.userStatus.screen && presentationStream.value.stream !== stream) {
-    presentationStream.value = {
-      name: selfStreamName,
-      stream: stream,
+watch(
+  [() => whip.value.userStatus.screen, () => whip.value.stream],
+  () => {
+    const stream = whip.value.stream
+    if (whip.value.userStatus.screen) {
+      presentationStream.value = {
+        streamId: props.streamId,
+        name: `${whip.value.userStatus.name}_Presentation`,
+        stream,
+      }
+    } else if (presentationStream.value.streamId === props.streamId) {
+      presentationStream.value = {
+        streamId: '',
+        name: '',
+        stream: new MediaStream(),
+      }
     }
-  } else if (!whip.value.userStatus.screen && presentationStream.value.name === selfStreamName) {
-    presentationStream.value = {
-      name: '',
-      stream: new MediaStream(),
-    }
-  }
-})
+  },
+  { immediate: true }
+)
 </script>
 
 <template>

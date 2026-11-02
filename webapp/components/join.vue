@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { meetingId } from '../store/atoms'
-import { getStorage, setStorage, delStorage, setStorageStream, setStorageMeeting } from '../lib/storage'
 import { newRoom, newUser, setApiToken } from '../lib/api'
-import SvgSetting from './svg/setting.vue'
+import {
+  delStorage,
+  getStorage,
+  setStorage,
+  setStorageMeeting,
+  setStorageStream,
+} from '../lib/storage'
+import { meetingId } from '../store/atoms'
 import Settings from './settings.vue'
+import SvgSetting from './svg/setting.vue'
 
 const tmpId = ref<string>('')
 const isSetting = ref(false)
