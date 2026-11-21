@@ -21,6 +21,29 @@ async function mockDisplayMedia(page: Page, delay = 0) {
   }, delay)
 }
 
+async function holdFirstCamera(page: Page) {
+  await page.addInitScript(() => {
+    const getUserMedia = navigator.mediaDevices.getUserMedia.bind(
+      navigator.mediaDevices
+    )
+    let cameraRequestCount = 0
+    Object.assign(window, { __cameraRequestCount: 0 })
+    navigator.mediaDevices.getUserMedia = async constraints => {
+      const video = constraints?.video
+      if (typeof video === 'object' && video.deviceId) {
+        cameraRequestCount++
+        Object.assign(window, { __cameraRequestCount: cameraRequestCount })
+        if (cameraRequestCount === 1) {
+          await new Promise<void>(resolve => {
+            Object.assign(window, { __releaseCamera: resolve })
+          })
+        }
+      }
+      return getUserMedia(constraints)
+    }
+  })
+}
+
 test.describe('device and media lifecycle', () => {
   test('stops every temporary device probe track', async ({ page }) => {
     await page.addInitScript(() => {
@@ -146,6 +169,7 @@ test.describe('device and media lifecycle', () => {
       await joinMeetingFromWelcome(bob, roomId)
       await joinRoom(bob, 'Bob')
 
+      await expectVideoPlaying(alice.getByTestId('video-self'))
       const toggle = alice.getByTestId('toggle-screen')
       await toggle.click()
       await expect(toggle).toHaveAttribute('data-active', 'true')
@@ -156,6 +180,7 @@ test.describe('device and media lifecycle', () => {
       })
       expect(response.ok()).toBe(true)
       await expect(toggle).toHaveAttribute('data-active', 'false')
+      await expectVideoPlaying(alice.getByTestId('video-self'))
     } finally {
       await aliceContext.close()
       await bobContext.close()
@@ -171,8 +196,18 @@ test.describe('device and media lifecycle', () => {
     const bob = await bobContext.newPage()
     try {
       await mockDisplayMedia(alice, 1000)
+      await holdFirstCamera(alice)
       const roomId = await createMeeting(alice)
       await joinRoom(alice, 'Alice')
+      await expect
+        .poll(() =>
+          alice.evaluate(
+            () =>
+              (window as unknown as Window & { __cameraRequestCount: number })
+                .__cameraRequestCount
+          )
+        )
+        .toBe(1)
       await joinMeetingFromWelcome(bob, roomId)
       await joinRoom(bob, 'Bob')
 
@@ -198,6 +233,12 @@ test.describe('device and media lifecycle', () => {
         data: { presenter: bobId },
       })
       expect(response.ok()).toBe(true)
+      await alice.evaluate(() => {
+        const testWindow = window as unknown as Window & {
+          __releaseCamera: () => void
+        }
+        testWindow.__releaseCamera()
+      })
       await expect
         .poll(() =>
           alice.evaluate(() => {
