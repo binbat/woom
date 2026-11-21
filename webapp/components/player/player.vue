@@ -243,6 +243,8 @@ https://webkit.org/blog/6784/new-video-policies-for-ios/ -->
       <div class="flex items-center gap-1">
         <button
           class="inline-grid place-items-center w-8 h-8 rounded-lg text-white transition-colors hover:bg-white/15 disabled:hidden"
+          :aria-label="isFullscreened ? 'Exit fullscreen' : 'Enter fullscreen'"
+          data-testid="fullscreen-toggle"
           :disabled="!isFullscreenSupported || isPictureInPictured"
           @click="toggleFullscreen"
         >

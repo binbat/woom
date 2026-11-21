@@ -5,21 +5,8 @@ import {
   getApiToken,
   joinMeetingFromWelcome,
   joinRoom,
+  mockDisplayMedia,
 } from './helper'
-
-async function mockDisplayMedia(page: Page, delay = 0) {
-  await page.addInitScript(delayMs => {
-    const getUserMedia = navigator.mediaDevices.getUserMedia.bind(
-      navigator.mediaDevices
-    )
-    navigator.mediaDevices.getDisplayMedia = async () => {
-      if (delayMs) await new Promise(resolve => setTimeout(resolve, delayMs))
-      const stream = await getUserMedia({ audio: false, video: true })
-      Object.assign(window, { __displayStream: stream })
-      return stream
-    }
-  }, delay)
-}
 
 async function holdFirstCamera(page: Page) {
   await page.addInitScript(() => {

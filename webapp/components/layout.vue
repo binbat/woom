@@ -371,6 +371,7 @@ onUnmounted(() => {
         <!-- presenter mode: shared screen takes the main stage -->
         <div v-if="enabledPresentation" class="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
           <Player
+            data-testid="presentation-player"
             :stream="presentationStream.stream"
             :muted="true"
             :video="true"

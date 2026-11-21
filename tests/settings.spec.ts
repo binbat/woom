@@ -1,5 +1,10 @@
 import { expect, type Page, test } from '@playwright/test'
-import { createMeeting, joinRoom } from './helper'
+import {
+  createMeeting,
+  expectVideoPlaying,
+  joinRoom,
+  mockDisplayMedia,
+} from './helper'
 
 const expectViewportOverlay = async (page: Page) => {
   const viewport = page.viewportSize()
@@ -71,6 +76,43 @@ test.describe('settings', () => {
         return !el.contains(top)
       })
     ).toBe(true)
+
+    await page.getByTestId('settings-close').click()
+    await expect(page.getByTestId('settings-dialog')).toHaveCount(0)
+  })
+
+  test('stays above a fullscreen presentation', async ({ page }) => {
+    await mockDisplayMedia(page)
+    await createMeeting(page)
+    await joinRoom(page, 'Alice')
+    const toggle = page.getByTestId('toggle-screen')
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('data-active', 'true')
+
+    const presentation = page.getByTestId('presentation-player')
+    await expectVideoPlaying(presentation.getByTestId('video-remote'))
+    await presentation.getByTestId('video-remote').hover()
+    await presentation.getByTestId('fullscreen-toggle').click()
+    await expect
+      .poll(() => page.evaluate(() => !!document.fullscreenElement))
+      .toBe(true)
+
+    // The fullscreen element hides the toolbar, so activate its button directly.
+    await page
+      .getByTestId('settings-toggle')
+      .evaluate((el: HTMLButtonElement) => el.click())
+    await expectViewportOverlay(page)
+    await expect(page.getByTestId('settings-overlay')).toHaveJSProperty(
+      'open',
+      true
+    )
+    expect(
+      await page.getByTestId('settings-dialog').evaluate(el => {
+        const top = document.elementFromPoint(innerWidth / 2, innerHeight / 2)
+        return el.contains(top)
+      })
+    ).toBe(true)
+    expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(true)
 
     await page.getByTestId('settings-close').click()
     await expect(page.getByTestId('settings-dialog')).toHaveCount(0)

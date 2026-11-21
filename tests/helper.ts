@@ -33,6 +33,20 @@ export async function joinRoom(page: Page, name: string, password?: string) {
   await expect(page.getByTestId('hang-up')).toBeVisible()
 }
 
+export async function mockDisplayMedia(page: Page, delay = 0) {
+  await page.addInitScript(delayMs => {
+    const getUserMedia = navigator.mediaDevices.getUserMedia.bind(
+      navigator.mediaDevices
+    )
+    navigator.mediaDevices.getDisplayMedia = async () => {
+      if (delayMs) await new Promise(resolve => setTimeout(resolve, delayMs))
+      const stream = await getUserMedia({ audio: false, video: true })
+      Object.assign(window, { __displayStream: stream })
+      return stream
+    }
+  }, delay)
+}
+
 export async function expectVideoPlaying(video: Locator) {
   await expect(video).toBeVisible({ timeout: 30_000 })
   await expect
