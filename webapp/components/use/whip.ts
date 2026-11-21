@@ -72,6 +72,10 @@ class WHIPContext extends Context {
   private audioGeneration = 0
   private videoGeneration = 0
   private pendingScreenGeneration: number | undefined
+  private normalVideoRequest: {
+    current: string
+    constraints?: MediaTrackConstraints
+  } = { current: deviceNone.deviceId }
 
   toggleEnableAudio = async () =>
     this.setCurrentDeviceAudio(
@@ -88,14 +92,18 @@ class WHIPContext extends Context {
         : deviceSegmenter.deviceId
     )
   stopScreenSharing = async () =>
-    this.updateVideo(deviceNone.deviceId, undefined, true)
+    this.updateVideo(
+      this.normalVideoRequest.current,
+      this.normalVideoRequest.constraints,
+      true
+    )
   revokeScreenSharing = async () => {
-    const pending = this.pendingScreenGeneration
-    if (pending !== undefined) {
-      this.pendingScreenGeneration = undefined
-      if (pending === this.videoGeneration) this.videoGeneration++
+    if (
+      this.pendingScreenGeneration === this.videoGeneration ||
+      this.userStatus.screen
+    ) {
+      await this.stopScreenSharing()
     }
-    if (this.userStatus.screen) await this.stopScreenSharing()
   }
 
   constructor(id: string) {
@@ -269,6 +277,9 @@ class WHIPContext extends Context {
     force = false
   ) {
     const generation = ++this.videoGeneration
+    if (current !== deviceScreen.deviceId) {
+      this.normalVideoRequest = { current, constraints }
+    }
     this.pendingScreenGeneration =
       current === deviceScreen.deviceId ? generation : undefined
     if (
@@ -297,6 +308,7 @@ class WHIPContext extends Context {
       if (this.pendingScreenGeneration === generation)
         this.pendingScreenGeneration = undefined
       segmentation?.destroyStream()
+      if (generation !== this.videoGeneration) return
       throw e
     }
 
