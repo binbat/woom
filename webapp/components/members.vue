@@ -4,6 +4,7 @@ import { kickParticipant, muteAll, Participant, Stream } from '../lib/api'
 import { getStorageStream } from '../lib/storage'
 import { roomInfo, roomParticipants } from '../store/atoms'
 import SvgAudio from './svg/audio.vue'
+import SvgClose from './svg/close.vue'
 import SvgVideo from './svg/video.vue'
 
 const props = defineProps<{
@@ -55,8 +56,13 @@ const onKick = async (userId: string) => {
   <div class="flex flex-col w-full h-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
       <h3 class="text-sm font-semibold text-slate-200">Members ({{ activeParticipants.length }})</h3>
-      <button class="text-slate-400 hover:text-white transition-colors" aria-label="Close members" data-testid="members-close" @click="emit('close')">
-        ✕
+      <button
+        class="inline-grid place-items-center w-8 h-8 rounded-lg bg-transparent text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+        aria-label="Close members"
+        data-testid="members-close"
+        @click="emit('close')"
+      >
+        <SvgClose />
       </button>
     </div>
 

@@ -2,6 +2,7 @@
 import { nextTick, ref, watch } from 'vue'
 import { Message, sendMessage } from '../lib/api'
 import { getStorageStream } from '../lib/storage'
+import SvgClose from './svg/close.vue'
 
 const props = defineProps<{
   meetingId: string
@@ -51,8 +52,13 @@ const formatTime = (secs: number) =>
   <div class="flex flex-col w-full h-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
       <h3 class="text-sm font-semibold text-slate-200">Chat</h3>
-      <button class="text-slate-400 hover:text-white transition-colors" aria-label="Close chat" data-testid="chat-close" @click="emit('close')">
-        ✕
+      <button
+        class="inline-grid place-items-center w-8 h-8 rounded-lg bg-transparent text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+        aria-label="Close chat"
+        data-testid="chat-close"
+        @click="emit('close')"
+      >
+        <SvgClose />
       </button>
     </div>
 

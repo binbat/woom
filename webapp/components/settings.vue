@@ -25,7 +25,7 @@ const settingsOptions = [
     <div class="flex flex-col w-screen h-screen lg:w-[42rem] lg:h-[30rem] bg-slate-900 lg:border lg:border-white/10 lg:rounded-2xl lg:shadow-2xl text-slate-200 overflow-hidden">
       <div class="relative flex items-center justify-center border-b border-white/10 py-3">
         <h1 class="text-lg font-semibold tracking-wide">Settings</h1>
-        <button class="absolute right-3 inline-grid place-items-center w-8 h-8 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-colors" aria-label="Close settings" @click="emit('close')">
+        <button class="absolute right-3 inline-grid place-items-center w-8 h-8 rounded-lg bg-transparent text-slate-400 hover:bg-white/10 hover:text-white transition-colors" aria-label="Close settings" @click="emit('close')">
           <SvgClose />
         </button>
       </div>
