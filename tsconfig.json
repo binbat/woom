@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
-    "baseUrl": "./webapp",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./webapp/*"]
     },
     "types": ["node"],
     "target": "ESNext",
@@ -15,7 +14,6 @@
     "noEmit": true,
     "isolatedModules": true,
     "allowSyntheticDefaultImports": true,
-    "esModuleInterop": false,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": false

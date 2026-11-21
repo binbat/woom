@@ -167,12 +167,8 @@ fn token_from_header(headers: &HeaderMap) -> Option<&str> {
 }
 
 fn decode_token(secret: &str, token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
-    Ok(decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(secret.as_bytes()),
-        &Validation::new(Algorithm::HS512),
-    )?
-    .claims)
+    let key = DecodingKey::from_secret(secret.as_bytes())?;
+    Ok(decode::<Claims>(token, &key, &Validation::new(Algorithm::HS512))?.claims)
 }
 
 async fn jwt_auth(State(state): State<AppState>, mut req: Request, next: Next) -> Response {
@@ -226,11 +222,9 @@ async fn create_user(State(state): State<AppState>) -> Response {
         iat: now as usize,
         nbf: now as usize,
     };
-    match encode(
-        &Header::new(Algorithm::HS512),
-        &claims,
-        &EncodingKey::from_secret(state.cfg.secret.as_bytes()),
-    ) {
+    let result = EncodingKey::from_secret(state.cfg.secret.as_bytes())
+        .and_then(|key| encode(&Header::new(Algorithm::HS512), &claims, &key));
+    match result {
         Ok(token) => Json(json!({ "streamId": stream_id, "token": token })).into_response(),
         Err(error) => {
             tracing::error!("JWT encoding failed: {error}");

@@ -18,13 +18,13 @@
     "test:e2e": "npm run build && cargo build --release --locked && playwright test"
   },
   "dependencies": {
-    "@mediapipe/tasks-vision": "^0.10.35",
+    "@mediapipe/tasks-vision": "^1.2.3",
     "copy-to-clipboard": "^4.0.2",
     "vue": "^3.5.44",
     "whip-whep": "1.2.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.4",
+    "@biomejs/biome": "2.6.8",
     "@eslint/js": "^10.0.1",
     "@iconify-json/logos": "^1.2.3",
     "@playwright/test": "^1.62.1",
@@ -38,7 +38,7 @@
     "cross-env": "^10.1.0",
     "eslint": "^10.14.0",
     "eslint-plugin-vue": "^10.10.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.14.0",
     "unocss": "^66.7.5",
     "vite": "^8.2.0",

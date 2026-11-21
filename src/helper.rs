@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::RngExt;
 
 const SPLIT_SYMBOL_LENGTH: usize = 3;
 const SPLIT_SYMBOL_SEPARATOR: char = '-';
