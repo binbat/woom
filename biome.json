@@ -1,0 +1,50 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "files": {
+    "includes": [
+      "webapp/**",
+      "tests/**",
+      "*.json",
+      "*.js",
+      "*.ts",
+      "!static",
+      "!target",
+      "!test-results",
+      "!playwright-report",
+      "!blob-report",
+      "!data",
+      "!node_modules",
+      "!package-lock.json"
+    ]
+  },
+  "formatter": {
+    "formatWithErrors": true,
+    "useEditorconfig": true
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "trailingCommas": "es5",
+      "arrowParentheses": "asNeeded"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.vue"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useConst": "off",
+            "useImportType": "off",
+            "useVueMultiWordComponentNames": "off"
+          },
+          "correctness": {
+            "noUnusedImports": "off",
+            "noUnusedVariables": "off"
+          }
+        }
+      }
+    }
+  ]
+}

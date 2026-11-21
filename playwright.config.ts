@@ -1,0 +1,52 @@
+import { defineConfig, devices } from '@playwright/test'
+
+const baseURL = process.env.E2E_BASE_URL || 'http://localhost:4000'
+
+// WebRTC flags learned from https://github.com/binbat/live777 browser tests:
+// fake media devices + auto-accept permission + autoplay without gesture.
+// Full Chromium ("new headless", channel: 'chromium') is used instead of the
+// headless shell for complete WebRTC support.
+const chromiumArgs = [
+  '--use-fake-device-for-media-stream',
+  '--use-fake-ui-for-media-stream',
+  '--autoplay-policy=no-user-gesture-required',
+  ...(process.env.CI ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
+]
+
+export default defineConfig({
+  testDir: './tests',
+  globalSetup: './tests/global-setup',
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
+  forbidOnly: true,
+  // WebRTC tests are timing sensitive; run serially for stability.
+  workers: 1,
+  retries: 0,
+  reporter: process.env.CI ? [['github'], ['html']] : [['list']],
+  use: {
+    baseURL,
+    trace: 'retain-on-failure',
+    launchOptions: { args: chromiumArgs },
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+    },
+  ],
+  webServer: {
+    // Release binary serves webapp + API + WHIP/WHEP proxy on one origin.
+    // Build it first: `npm run build && cargo build --release`
+    // (or just use `npm run test:e2e`). Live777 must be running,
+    // see tests/global-setup.ts.
+    command: './target/release/woom',
+    url: baseURL,
+    reuseExistingServer: process.env.E2E_REUSE_SERVER === 'true',
+    timeout: 30_000,
+    env: {
+      SECRET: 'e2e-9f6c2a84d17b43e0a5c98f21e6d04b7a',
+      LOG_READ_TOKEN: 'e2e-log-reader-9f6c2a84d17b43e0a5c98f21e6d04b7a',
+      DATA_FILE: ':memory:',
+    },
+  },
+})

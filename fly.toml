@@ -23,3 +23,8 @@ primary_region = "nrt"
 
 [env]
   LIVE777_URL = "http://live777.binbat.com:7777"
+  DATA_FILE = "/data/woom.json"
+
+[mounts]
+  source = "woom_data"
+  destination = "/data"

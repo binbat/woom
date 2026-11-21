@@ -1,11 +1,11 @@
-import { Stream, StreamState } from '../../lib/api'
+import { type Stream, StreamState } from '../../lib/api'
 
 const event = new Event('sync')
 
 interface Data {
-  id: string,
-  stream: MediaStream,
-  userStatus: Stream,
+  id: string
+  stream: MediaStream
+  userStatus: Stream
 
   stop: () => Promise<void>
   start: () => Promise<void>
@@ -14,7 +14,6 @@ interface Data {
 
 class Context extends EventTarget {
   id: string = ''
-  pc: RTCPeerConnection = new RTCPeerConnection()
   stream: MediaStream = new MediaStream()
   userStatus: Stream = {
     name: '',
@@ -35,16 +34,9 @@ class Context extends EventTarget {
   async start() {}
   async restart() {
     await this.stop()
-    this.pc = new RTCPeerConnection()
     await this.start()
   }
 }
 
-export {
-  Context,
-  event,
-}
-
-export type {
-  Data,
-}
+export type { Data }
+export { Context, event }

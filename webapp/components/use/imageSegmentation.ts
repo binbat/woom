@@ -1,4 +1,7 @@
-import { ImageSegmenter, type ImageSegmenterResult } from '@mediapipe/tasks-vision'
+import {
+  ImageSegmenter,
+  type ImageSegmenterResult,
+} from '@mediapipe/tasks-vision'
 
 // import mediapipe wasm files as url https://vite.dev/guide/assets#explicit-url-imports
 import wasmLoaderPath from '@mediapipe/tasks-vision/wasm/vision_wasm_internal.js?url'
@@ -9,7 +12,7 @@ import modelAssetPath from '@/assets/models/selfie_multiclass_256x256.tflite?url
 
 const wasmFileset = {
   wasmLoaderPath,
-  wasmBinaryPath
+  wasmBinaryPath,
 }
 
 export class VirtualBackgroundStream {
@@ -45,12 +48,17 @@ export class VirtualBackgroundStream {
     this.canvas = document.createElement('canvas')
     this.canvas.width = this.videoWidth
     this.canvas.height = this.videoHeight
-    this.canvasCtx = this.canvas.getContext('2d')!
+    const canvasCtx = this.canvas.getContext('2d')
+    if (!canvasCtx) throw new Error('Canvas 2D context is not available')
+    this.canvasCtx = canvasCtx
 
     this.tempCanvas = document.createElement('canvas')
     this.tempCanvas.width = this.videoWidth
     this.tempCanvas.height = this.videoHeight
-    this.tempCtx = this.tempCanvas.getContext('2d')!
+    const tempCtx = this.tempCanvas.getContext('2d')
+    if (!tempCtx)
+      throw new Error('Temporary canvas 2D context is not available')
+    this.tempCtx = tempCtx
   }
 
   private async createImageSegmenter() {
@@ -58,10 +66,10 @@ export class VirtualBackgroundStream {
       this.segmenter = await ImageSegmenter.createFromOptions(wasmFileset, {
         baseOptions: {
           modelAssetPath,
-          delegate: 'GPU'
+          delegate: 'GPU',
         },
         outputCategoryMask: true,
-        runningMode: 'VIDEO'
+        runningMode: 'VIDEO',
       })
     } catch (error) {
       console.error('failed to create a segmenter:', error)
@@ -69,8 +77,13 @@ export class VirtualBackgroundStream {
   }
 
   private callbackForVideo = (segmentationResult: ImageSegmenterResult) => {
-    if (!segmentationResult || !segmentationResult.categoryMask) return
-    const imageData = this.tempCtx.getImageData(0, 0, this.video.videoWidth, this.video.videoHeight).data
+    if (!segmentationResult?.categoryMask) return
+    const imageData = this.tempCtx.getImageData(
+      0,
+      0,
+      this.video.videoWidth,
+      this.video.videoHeight
+    ).data
     // get results of segmentation
     // 0 - background
     // 1 - hair
@@ -78,7 +91,9 @@ export class VirtualBackgroundStream {
     // 3 - face-skin
     // 4 - clothes
     // 5 - others (accessories)
-    const maskData = segmentationResult.categoryMask.getAsFloat32Array().map(val => Math.round(val * 255.0))
+    const maskData = segmentationResult.categoryMask
+      .getAsFloat32Array()
+      .map(val => Math.round(val * 255.0))
     const categoryChosen = 0
 
     // draw the top layer on tempCanvas
@@ -88,7 +103,7 @@ export class VirtualBackgroundStream {
       }
       const w = this.videoWidth
       const h = this.videoHeight
-      const getPixelIndex = (x: number, y: number) => (y * w + x)
+      const getPixelIndex = (x: number, y: number) => y * w + x
       for (let i = 0; i < h; i++) {
         for (let j = 0; j < w; j++) {
           let sum = 0
@@ -113,13 +128,18 @@ export class VirtualBackgroundStream {
 
       this.tempCtx.putImageData(dataNew, 0, 0)
     }
-
-    // draw the bottom layer on canvas
-    {
-      this.canvasCtx.clearRect(0, 0, this.videoWidth, this.videoHeight)
-      if (this.backgroundImage.complete && this.backgroundImage.naturalHeight !== 0) {
-        this.canvasCtx.drawImage(this.backgroundImage, 0, 0, this.video.videoWidth, this.video.videoHeight)
-      }
+    this.canvasCtx.clearRect(0, 0, this.videoWidth, this.videoHeight)
+    if (
+      this.backgroundImage.complete &&
+      this.backgroundImage.naturalHeight !== 0
+    ) {
+      this.canvasCtx.drawImage(
+        this.backgroundImage,
+        0,
+        0,
+        this.video.videoWidth,
+        this.video.videoHeight
+      )
     }
 
     // put two layers together
@@ -132,8 +152,18 @@ export class VirtualBackgroundStream {
     if (!this.segmenter || !this.webcamRunning) return
     try {
       // draw video frame on tempCanvas
-      this.tempCtx.drawImage(this.video, 0, 0, this.video.videoWidth, this.video.videoHeight)
-      this.segmenter.segmentForVideo(this.video, performance.now(), this.callbackForVideo)
+      this.tempCtx.drawImage(
+        this.video,
+        0,
+        0,
+        this.video.videoWidth,
+        this.video.videoHeight
+      )
+      this.segmenter.segmentForVideo(
+        this.video,
+        performance.now(),
+        this.callbackForVideo
+      )
     } catch (error) {
       console.error('error when processing frame:', error)
     }
@@ -147,8 +177,8 @@ export class VirtualBackgroundStream {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
-          deviceId: this.deviceId
-        }
+          deviceId: this.deviceId,
+        },
       })
       return new Promise(resolve => {
         this.video.srcObject = stream
@@ -170,7 +200,9 @@ export class VirtualBackgroundStream {
     if (stream === null) return
     this.webcamRunning = false
     const tracks = stream.getTracks()
-    tracks.forEach(track => track.stop())
+    tracks.forEach(track => {
+      track.stop()
+    })
     this.video.srcObject = null
     this.canvasCtx.clearRect(0, 0, this.videoWidth, this.videoHeight)
   }

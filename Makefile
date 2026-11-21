@@ -1,14 +1,12 @@
 CTR=docker
 NAME=woom
-GOBUILD=CGO_ENABLED=0 \
-				go build -tags release -trimpath
 
 .PHONY: default
-default: webapp build
+default: build
 
 .PHONY: build
-build:
-	$(GOBUILD) -o $(NAME)
+build: webapp
+	cargo build --release --locked
 
 .PHONY: webapp
 webapp:
@@ -16,15 +14,8 @@ webapp:
 
 .PHONY: webapp-clean
 webapp-clean:
-	rm -r static/dist
+	rm -rf static/dist
 
 .PHONY: clean
 clean: webapp-clean
-	go clean -cache
-
-.PHONY: cli-redis
-cli-redis:
-	$(CTR) run -it --rm --network=host \
-		-e IREDIS_URL=redis://localhost:6379/0 \
-		dbcliorg/iredis
-
+	cargo clean

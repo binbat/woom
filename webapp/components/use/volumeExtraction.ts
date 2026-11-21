@@ -2,7 +2,7 @@ export default class VolumeExtractor {
   private audioContext: AudioContext
   private source: MediaStreamAudioSourceNode
   private analyser: AnalyserNode
-  private dataArray: Uint8Array
+  private dataArray: Uint8Array<ArrayBuffer>
   private bufferLength: number
 
   constructor(stream: MediaStream) {
@@ -27,5 +27,11 @@ export default class VolumeExtractor {
     const perceptual = Math.log10(1 + 9 * normalized)
     const volumeValue = Math.round(perceptual * 100)
     return volumeValue
+  }
+
+  public close = () => {
+    this.source.disconnect()
+    this.analyser.disconnect()
+    void this.audioContext.close().catch(() => {})
   }
 }
