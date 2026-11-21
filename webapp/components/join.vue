@@ -65,7 +65,7 @@ onMounted(() => {
         maxlength="11"
       />
       <button class="btn-primary" data-testid="join-meeting" :disabled="!tmpId" @click="joinMeeting()">Join</button>
-      <button class="icon-btn" aria-label="Settings" @click="isSetting = true"><SvgSetting /></button>
+      <button class="icon-btn" aria-label="Settings" data-testid="settings-toggle" @click="isSetting = true"><SvgSetting /></button>
     </div>
     <p class="text-center text-sm text-slate-400">
       If have some problems, Please click this:

@@ -12,7 +12,7 @@ const tooltipVisible = ref(false)
 
 <template>
   <div class="rounded-xl px-3 py-3 transition-colors hover:bg-white/5">
-    <div class="flex flex-row justify-between items-center gap-2">
+    <div class="flex flex-row flex-wrap justify-between items-center gap-2">
       <div class="flex flex-row items-center gap-1.5 pr-3">
         <label class="text-sm font-medium text-slate-200 whitespace-nowrap">
           {{ label }}
