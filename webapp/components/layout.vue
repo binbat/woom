@@ -367,7 +367,7 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col h-screen">
     <div class="flex-1 min-h-0 flex overflow-hidden">
-      <div class="flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row' : 'flex-col'">
+      <div class="flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row' : 'flex-col'" data-testid="video-stage">
         <!-- presenter mode: shared screen takes the main stage -->
         <div v-if="enabledPresentation" class="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
           <Player
@@ -387,7 +387,7 @@ onUnmounted(() => {
              WHEP connection, which flips the layout back and loops -->
         <div :class="enabledPresentation
           ? 'flex lg:flex-col flex-row gap-3 shrink-0 overflow-auto lg:w-48'
-          : 'flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-center content-center overflow-y-auto'">
+          : 'flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-center content-center-safe overflow-y-auto'" data-testid="video-grid">
           <WhipPlayer :stream-id="localStreamId" :width="enabledPresentation ? '160px' : 'min(320px, 92vw)'" />
           <WhepPlayer v-for="i in visibleRemoteIds" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" :width="enabledPresentation ? '160px' : 'min(320px, 92vw)'" />
 
@@ -398,16 +398,16 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div v-if="chatOpen" class="shrink-0 py-4 pr-4 w-[85vw] max-w-xs sm:w-auto">
+      <div v-if="chatOpen" class="shrink-0 py-4 pr-4 w-[85vw] max-w-xs sm:w-auto" data-testid="chat-panel">
         <Chat :meeting-id="meetingId" :messages="messages" @close="chatOpen = false" />
       </div>
-      <div v-if="membersOpen" class="shrink-0 py-4 pr-4 w-[85vw] max-w-xs sm:w-auto">
+      <div v-if="membersOpen" class="shrink-0 py-4 pr-4 w-[85vw] max-w-xs sm:w-auto" data-testid="members-panel">
         <Members :meeting-id="meetingId" :streams="streamsAll" @close="membersOpen = false" />
       </div>
     </div>
 
     <div class="flex justify-center px-4 pb-4">
-      <div class="panel flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 max-w-[calc(100vw-1rem)] overflow-x-auto">
+      <div class="panel flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 max-w-[calc(100vw-1rem)] overflow-x-auto" data-testid="meeting-controls">
         <button class="hidden md:flex items-center gap-2 rounded-xl px-3 py-2 text-indigo-300 transition-colors hover:bg-white/10" @click="copyMeetingLink">
           <code class="font-mono text-sm tracking-wider" data-testid="meeting-id">{{ meetingId }}</code>
           <span class="inline-grid place-items-center text-emerald-400" :style="{ visibility: copyStatus ? 'visible' : 'hidden' }">

@@ -78,7 +78,7 @@ watch(
 </script>
 
 <template>
-  <div class="relative flex flex-col">
+  <div class="relative flex flex-col" data-testid="video-tile">
     <Player :stream="whep.stream" :muted="false" :width="width" :audio="userStatus.audio" :video="userStatus.video && !userStatus.screen" :self="false" :name="userStatus.name" />
     <Detail :stream-id="streamId" :conn-status="whep.connStatus" :user-status="userStatus" :restart="whep.restart" />
   </div>
