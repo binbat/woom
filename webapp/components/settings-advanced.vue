@@ -50,7 +50,7 @@ const onEndMeeting = async () => {
     ]">
       <button
         class="relative flex h-6 w-11 items-center rounded-full transition-colors duration-300"
-        :class="setting.screenShareButtonShowed ? 'bg-indigo-500' : 'bg-slate-600'"
+        :class="setting.screenShareButtonShowed ? 'bg-indigo-500' : 'bg-control-hover'"
         @click="setting.screenShareButtonShowed = !setting.screenShareButtonShowed"
       >
         <span
@@ -61,7 +61,7 @@ const onEndMeeting = async () => {
     </SettingItem>
 
     <template v-if="isOwner">
-      <div class="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <div class="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-subtle">
         Room Owner
       </div>
       <SettingItem label="Lock Meeting" :tooltips="[
@@ -69,7 +69,7 @@ const onEndMeeting = async () => {
       ]">
         <button
           class="relative flex h-6 w-11 items-center rounded-full transition-colors duration-300"
-          :class="roomInfo.locked ? 'bg-indigo-500' : 'bg-slate-600'"
+          :class="roomInfo.locked ? 'bg-indigo-500' : 'bg-control-hover'"
           @click="onToggleLocked"
         >
           <span
@@ -83,7 +83,7 @@ const onEndMeeting = async () => {
         '2. Select Anyone to allow everyone.'
       ]">
         <select
-          class="input-dark px-3 py-1.5 text-sm"
+          class="input-control px-3 py-1.5 text-sm"
           :value="roomInfo.presenter"
           @change="onChangePresenter(($event.target as HTMLSelectElement).value)"
         >

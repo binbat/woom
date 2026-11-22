@@ -49,11 +49,11 @@ const formatTime = (secs: number) =>
 </script>
 
 <template>
-  <div class="flex flex-col w-full h-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
-      <h3 class="text-sm font-semibold text-slate-200">Chat</h3>
+  <div class="flex flex-col w-full h-full bg-surface border border-line rounded-2xl overflow-hidden" data-testid="chat-dialog">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-line">
+      <h3 class="text-sm font-semibold text-foreground">Chat</h3>
       <button
-        class="inline-grid place-items-center w-8 h-8 rounded-lg bg-transparent text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+        class="inline-grid place-items-center w-8 h-8 rounded-lg bg-transparent text-muted transition-colors hover:bg-control-hover hover:text-heading"
         aria-label="Close chat"
         data-testid="chat-close"
         @click="emit('close')"
@@ -63,36 +63,36 @@ const formatTime = (secs: number) =>
     </div>
 
     <div ref="listRef" class="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2" data-testid="chat-list">
-      <p v-if="!messages.length" class="text-center text-xs text-slate-500 mt-4">No messages yet</p>
+      <p v-if="!messages.length" class="text-center text-xs text-subtle mt-4">No messages yet</p>
       <div
         v-for="m in messages"
         :key="m.id"
         class="flex flex-col max-w-[85%]"
         :class="m.userId === localUserId ? 'self-end items-end ml-auto' : 'self-start items-start'"
       >
-        <p class="text-[10px] text-slate-500 px-1">
+        <p class="text-[10px] text-subtle px-1">
           {{ m.userId === localUserId ? 'Me' : m.name }} · {{ formatTime(m.ts) }}
         </p>
         <p
           class="mt-0.5 px-3 py-1.5 rounded-2xl text-sm break-words whitespace-pre-wrap"
-          :class="m.userId === localUserId ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-white/10 text-slate-200 rounded-bl-sm'"
+          :class="m.userId === localUserId ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-control text-foreground rounded-bl-sm'"
           data-testid="chat-message"
         >{{ m.content }}</p>
       </div>
     </div>
 
-    <div class="border-t border-white/10 p-2">
-      <p v-if="sendError" class="text-xs text-rose-400 px-1 pb-1">{{ sendError }}</p>
+    <div class="border-t border-line p-2">
+      <p v-if="sendError" class="text-xs text-danger px-1 pb-1">{{ sendError }}</p>
       <div class="flex items-center gap-2">
         <input
           v-model="draft"
-          class="input-dark flex-1 px-3 py-1.5 text-sm"
+          class="input-control min-w-0 flex-1 px-3 py-1.5 text-sm"
           placeholder="Send a message"
           data-testid="chat-input"
           maxlength="500"
           @keydown.enter="send"
         />
-        <button class="btn-primary px-3 py-1.5 text-sm" data-testid="chat-send" @click="send">Send</button>
+        <button class="btn-primary shrink-0 px-3 py-1.5 text-sm" data-testid="chat-send" @click="send">Send</button>
       </div>
     </div>
   </div>

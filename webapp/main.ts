@@ -6,6 +6,7 @@ import 'virtual:uno.css'
 import App from './app.vue'
 import './index.css'
 import './lib/log'
+import './store/setting'
 
 // PWA: installable app shell (production only; dev proxies would fight the SW cache)
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

@@ -117,4 +117,161 @@ test.describe('settings', () => {
     await page.getByTestId('settings-close').click()
     await expect(page.getByTestId('settings-dialog')).toHaveCount(0)
   })
+
+  test('switches and persists light and dark themes', async ({ page }) => {
+    await page.goto('/')
+    await page.getByTestId('settings-toggle').click()
+    await expect(page.getByTestId('theme-select')).toHaveValue('dark')
+
+    for (const theme of ['light', 'dark'] as const) {
+      await page.getByTestId('theme-select').selectOption(theme)
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+        .toBe(theme)
+      await expect(page.getByTestId('settings-dialog')).toHaveCSS(
+        'background-color',
+        theme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(15, 23, 42)'
+      )
+      await expect
+        .poll(() =>
+          page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+        )
+        .toBe(theme === 'light' ? 'rgb(241, 245, 249)' : 'rgb(10, 15, 30)')
+
+      await page.reload()
+      await page.getByTestId('settings-toggle').click()
+      await expect(page.getByTestId('theme-select')).toHaveValue(theme)
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+        .toBe(theme)
+    }
+  })
+
+  for (const viewport of [
+    { name: 'desktop', width: 1280, height: 800 },
+    { name: 'mobile', width: 390, height: 844 },
+    { name: 'small mobile', width: 320, height: 700 },
+  ]) {
+    test(`themes meeting surfaces without overflow on ${viewport.name}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport)
+      await createMeeting(page)
+      await joinRoom(page, 'Alice')
+
+      await expect(page.getByTestId('meeting-controls')).toHaveCSS(
+        'background-color',
+        'rgba(15, 23, 42, 0.92)'
+      )
+      if (viewport.name === 'desktop') {
+        await expect(page.getByTestId('meeting-id-copy')).toHaveCSS(
+          'background-color',
+          'rgba(0, 0, 0, 0)'
+        )
+        await expect(page.getByTestId('meeting-id')).toHaveCSS(
+          'color',
+          'rgb(165, 180, 252)'
+        )
+      } else {
+        const controlIds = [
+          'toggle-speaker',
+          'toggle-audio',
+          'toggle-video',
+          'toggle-background',
+          'toggle-screen',
+          'settings-toggle',
+          'members-toggle',
+          'chat-toggle',
+          'hang-up',
+        ]
+        const panelBounds = await page
+          .getByTestId('meeting-controls')
+          .boundingBox()
+        if (!panelBounds) throw new Error('Meeting controls are missing')
+        const controlBounds = await Promise.all(
+          controlIds.map(async id => {
+            const bounds = await page.getByTestId(id).boundingBox()
+            if (!bounds) throw new Error(`${id} is missing`)
+            return bounds
+          })
+        )
+        const rowCenters = controlBounds
+          .map(bounds => bounds.y + bounds.height / 2)
+          .sort((a, b) => a - b)
+        const rows = rowCenters.filter(
+          (center, index) => index === 0 || center - rowCenters[index - 1] > 10
+        )
+        expect(rows).toHaveLength(2)
+        for (const bounds of controlBounds) {
+          expect(bounds.x).toBeGreaterThanOrEqual(panelBounds.x)
+          expect(bounds.x + bounds.width).toBeLessThanOrEqual(
+            panelBounds.x + panelBounds.width
+          )
+        }
+      }
+
+      await page.getByTestId('settings-toggle').click()
+      await page.getByTestId('theme-select').selectOption('light')
+      await page.getByTestId('settings-close').click()
+      await expect(page.getByTestId('meeting-controls')).toHaveCSS(
+        'background-color',
+        'rgba(255, 255, 255, 0.94)'
+      )
+      if (viewport.name === 'desktop') {
+        await expect(page.getByTestId('meeting-id')).toHaveCSS(
+          'color',
+          'rgb(79, 70, 229)'
+        )
+      }
+
+      await page.getByTestId('chat-toggle').click()
+      await expect(page.getByTestId('chat-dialog')).toHaveCSS(
+        'background-color',
+        'rgb(255, 255, 255)'
+      )
+      const chatBounds = await page.getByTestId('chat-dialog').boundingBox()
+      const sendBounds = await page.getByTestId('chat-send').boundingBox()
+      if (!chatBounds || !sendBounds)
+        throw new Error('Chat controls are missing')
+      expect(sendBounds.x).toBeGreaterThanOrEqual(chatBounds.x)
+      expect(sendBounds.x + sendBounds.width).toBeLessThanOrEqual(
+        chatBounds.x + chatBounds.width
+      )
+      await page.getByTestId('chat-input').fill('Light theme message')
+      await page.getByTestId('chat-send').click()
+      await expect(page.getByTestId('chat-message')).toHaveText(
+        'Light theme message'
+      )
+      await page.getByTestId('chat-close').click()
+
+      await page.getByTestId('members-toggle').click()
+      await expect(page.getByTestId('members-dialog')).toHaveCSS(
+        'background-color',
+        'rgb(255, 255, 255)'
+      )
+      await expect(page.getByTestId('member-row')).toHaveCSS(
+        'color',
+        'rgb(30, 41, 59)'
+      )
+      await page.getByTestId('members-close').click()
+
+      await page.getByTestId('stream-details-toggle').click()
+      await expect(page.getByTestId('stream-details-dialog')).toHaveCSS(
+        'background-color',
+        'rgb(255, 255, 255)'
+      )
+      await expect(page.getByTestId('stream-details-dialog')).toHaveCSS(
+        'color',
+        'rgb(30, 41, 59)'
+      )
+      await page.getByTestId('stream-details-close').click()
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth
+          )
+        )
+        .toBe(true)
+    })
+  }
 })

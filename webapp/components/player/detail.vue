@@ -47,8 +47,8 @@ const statusDotClass = computed(() => {
   return connectionFailed.value ? 'bg-rose-400' : 'bg-amber-400'
 })
 const statusTextClass = computed(() => {
-  if (props.connStatus === StreamState.Connected) return 'text-emerald-300'
-  return connectionFailed.value ? 'text-rose-300' : 'text-amber-300'
+  if (props.connStatus === StreamState.Connected) return 'text-success'
+  return connectionFailed.value ? 'text-danger' : 'text-warning'
 })
 
 const openDetails = async () => {
@@ -112,15 +112,15 @@ onUnmounted(() => {
         data-testid="stream-details-backdrop"
         @click="onBackdropClick"
       >
-        <section class="flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-slate-900 text-slate-200 shadow-2xl sm:max-w-sm sm:rounded-2xl" data-testid="stream-details-dialog">
-          <header class="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+        <section class="flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-line bg-surface text-foreground shadow-2xl sm:max-w-sm sm:rounded-2xl" data-testid="stream-details-dialog">
+          <header class="flex shrink-0 items-center justify-between gap-3 border-b border-line px-4 py-3">
             <div class="min-w-0">
-              <h2 id="stream-details-title" class="truncate text-base font-semibold text-slate-100">{{ userStatus.name }}</h2>
-              <p class="mt-0.5 text-xs text-slate-400">Connection details</p>
+              <h2 id="stream-details-title" class="truncate text-base font-semibold text-heading">{{ userStatus.name }}</h2>
+              <p class="mt-0.5 text-xs text-muted">Connection details</p>
             </div>
             <button
               type="button"
-              class="inline-grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-transparent text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+              class="inline-grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-transparent text-muted transition-colors hover:bg-control-hover hover:text-heading"
               aria-label="Close connection details"
               data-testid="stream-details-close"
               @click="modal?.close()"
@@ -130,7 +130,7 @@ onUnmounted(() => {
           </header>
 
           <div class="min-h-0 overflow-y-auto p-4">
-            <div class="flex items-center justify-between rounded-xl bg-white/5 px-3 py-3 text-sm" data-testid="stream-connection">
+            <div class="flex items-center justify-between rounded-xl bg-control px-3 py-3 text-sm" data-testid="stream-connection">
               <div class="flex items-center gap-2">
                 <span class="h-2 w-2 rounded-full" :class="statusDotClass" />
                 <span>Connection</span>
@@ -140,27 +140,27 @@ onUnmounted(() => {
 
             <dl class="mt-3 space-y-1 text-sm" data-testid="stream-media-status">
               <div class="flex items-center justify-between rounded-lg px-3 py-2">
-                <dt class="text-slate-400">Microphone</dt>
-                <dd :class="userStatus.audio ? 'text-slate-200' : 'text-slate-500'">{{ userStatus.audio ? 'On' : 'Off' }}</dd>
+                <dt class="text-muted">Microphone</dt>
+                <dd :class="userStatus.audio ? 'text-foreground' : 'text-subtle'">{{ userStatus.audio ? 'On' : 'Off' }}</dd>
               </div>
               <div class="flex items-center justify-between rounded-lg px-3 py-2">
-                <dt class="text-slate-400">Camera</dt>
-                <dd :class="userStatus.video ? 'text-slate-200' : 'text-slate-500'">{{ userStatus.video ? 'On' : 'Off' }}</dd>
+                <dt class="text-muted">Camera</dt>
+                <dd :class="userStatus.video ? 'text-foreground' : 'text-subtle'">{{ userStatus.video ? 'On' : 'Off' }}</dd>
               </div>
               <div class="flex items-center justify-between rounded-lg px-3 py-2">
-                <dt class="text-slate-400">Screen sharing</dt>
-                <dd :class="userStatus.screen ? 'text-slate-200' : 'text-slate-500'">{{ userStatus.screen ? 'On' : 'Off' }}</dd>
+                <dt class="text-muted">Screen sharing</dt>
+                <dd :class="userStatus.screen ? 'text-foreground' : 'text-subtle'">{{ userStatus.screen ? 'On' : 'Off' }}</dd>
               </div>
             </dl>
 
-            <details class="mt-4 rounded-xl border border-white/10 bg-black/20" data-testid="stream-technical-details">
-              <summary class="cursor-pointer list-none rounded-xl px-3 py-2 text-xs font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200" data-testid="stream-technical-toggle">Technical details</summary>
-              <div class="border-t border-white/10 p-3">
-                <p class="text-xs text-slate-500">Stream ID</p>
-                <code class="mt-1 block break-all text-xs text-slate-400" data-testid="stream-id">{{ streamId }}</code>
+            <details class="mt-4 rounded-xl border border-line bg-control" data-testid="stream-technical-details">
+              <summary class="cursor-pointer list-none rounded-xl px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-control-hover hover:text-foreground" data-testid="stream-technical-toggle">Technical details</summary>
+              <div class="border-t border-line p-3">
+                <p class="text-xs text-subtle">Stream ID</p>
+                <code class="mt-1 block break-all text-xs text-muted" data-testid="stream-id">{{ streamId }}</code>
                 <button
                   type="button"
-                  class="mt-3 w-full rounded-lg bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-white/10"
+                  class="mt-3 w-full rounded-lg bg-control px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-control-hover"
                   data-testid="stream-id-copy"
                   @click="copyStreamId"
                 >
@@ -170,10 +170,10 @@ onUnmounted(() => {
             </details>
           </div>
 
-          <footer class="shrink-0 border-t border-white/10 p-4">
+          <footer class="shrink-0 border-t border-line p-4">
             <button
               type="button"
-              class="w-full rounded-lg bg-white/10 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/15"
+              class="w-full rounded-lg bg-control px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-control-hover"
               data-testid="stream-reconnect"
               @click="restart"
             >

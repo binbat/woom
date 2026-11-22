@@ -59,7 +59,7 @@ onMounted(() => {
       <button class="btn-primary" data-testid="new-meeting" :disabled="!!tmpId" @click="newMeeting()">New Meeting</button>
       <input
         v-model="tmpId"
-        class="input-dark flex-1 min-w-40 text-center text-xl font-mono tracking-widest"
+        class="input-control flex-1 min-w-40 text-center text-xl font-mono tracking-widest"
         placeholder="Enter Meeting id"
         data-testid="meeting-id-input"
         maxlength="11"
@@ -67,9 +67,9 @@ onMounted(() => {
       <button class="btn-primary" data-testid="join-meeting" :disabled="!tmpId" @click="joinMeeting()">Join</button>
       <button class="icon-btn" aria-label="Settings" data-testid="settings-toggle" @click="isSetting = true"><SvgSetting /></button>
     </div>
-    <p class="text-center text-sm text-slate-400">
+    <p class="text-center text-sm text-muted">
       If have some problems, Please click this:
-      <a class="ml-1 text-rose-300 underline underline-offset-2 cursor-pointer hover:text-rose-200" @click="delStorage">Reset</a>
+      <a class="ml-1 text-danger underline underline-offset-2 cursor-pointer" @click="delStorage">Reset</a>
     </p>
     <Settings v-if="isSetting" @close="isSetting = false" />
   </div>

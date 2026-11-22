@@ -391,9 +391,9 @@ onUnmounted(() => {
           <WhipPlayer :stream-id="localStreamId" :width="enabledPresentation ? '160px' : 'min(320px, 92vw)'" />
           <WhepPlayer v-for="i in visibleRemoteIds" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" :width="enabledPresentation ? '160px' : 'min(320px, 92vw)'" />
 
-          <div v-if="hiddenRemoteIds.length" class="flex flex-col justify-center items-center rounded-2xl bg-white/5 ring-1 ring-white/10" :class="enabledPresentation ? 'min-h-30' : 'min-h-60'" :style="{ width: enabledPresentation ? '160px' : 'min(320px, 92vw)' }" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')">
-            <p class="text-3xl font-bold text-slate-300">+{{ hiddenRemoteIds.length }}</p>
-            <p class="mt-1 text-sm text-slate-400">{{ hiddenRemoteIds.length === 1 ? 'other' : 'others' }}</p>
+          <div v-if="hiddenRemoteIds.length" class="flex flex-col justify-center items-center rounded-2xl bg-control ring-1 ring-line" :class="enabledPresentation ? 'min-h-30' : 'min-h-60'" :style="{ width: enabledPresentation ? '160px' : 'min(320px, 92vw)' }" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')">
+            <p class="text-3xl font-bold text-foreground">+{{ hiddenRemoteIds.length }}</p>
+            <p class="mt-1 text-sm text-muted">{{ hiddenRemoteIds.length === 1 ? 'other' : 'others' }}</p>
           </div>
         </div>
       </div>
@@ -407,15 +407,15 @@ onUnmounted(() => {
     </div>
 
     <div class="flex justify-center px-4 pb-4">
-      <div class="panel flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 max-w-[calc(100vw-1rem)] overflow-x-auto" data-testid="meeting-controls">
-        <button class="hidden md:flex items-center gap-2 rounded-xl px-3 py-2 text-indigo-300 transition-colors hover:bg-white/10" @click="copyMeetingLink">
+      <div class="panel flex flex-wrap md:flex-nowrap items-center justify-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 max-w-[calc(100vw-1rem)] md:overflow-x-auto" data-testid="meeting-controls">
+        <button class="hidden md:flex items-center gap-2 rounded-xl bg-transparent px-3 py-2 text-accent transition-colors hover:bg-control-hover" data-testid="meeting-id-copy" @click="copyMeetingLink">
           <code class="font-mono text-sm tracking-wider" data-testid="meeting-id">{{ meetingId }}</code>
-          <span class="inline-grid place-items-center text-emerald-400" :style="{ visibility: copyStatus ? 'visible' : 'hidden' }">
+          <span class="inline-grid place-items-center text-success" :style="{ visibility: copyStatus ? 'visible' : 'hidden' }">
             <SvgDone />
           </span>
         </button>
 
-        <DeviceBar :stream-id="localStreamId" />
+        <DeviceBar class="max-md:contents" :stream-id="localStreamId" />
 
         <button class="icon-btn" aria-label="Members" data-testid="members-toggle" @click="toggleMembers">
           <SvgMembers />

@@ -320,7 +320,7 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
 
 <template>
   <div class="flex flex-wrap items-center justify-center gap-2">
-    <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+    <div class="control-group">
       <button class="icon-btn" data-testid="toggle-speaker" :disabled="loadingSpeaker" @click="onToggleSpeaker">
         <Loading v-if="loadingSpeaker" />
         <SvgSpeaker v-else />
@@ -338,11 +338,11 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
         >
           <option v-for="device in deviceSpeakerList" :key="device.deviceId" :value="device.deviceId">{{ device.label }}</option>
         </select>
-        <span class="pointer-events-none text-slate-400 text-xs">&#9662;</span>
+        <span class="pointer-events-none text-muted text-xs">&#9662;</span>
       </div>
     </div>
 
-    <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+    <div class="control-group">
       <button class="icon-btn" data-testid="toggle-audio" :disabled="loadingAudio" @click="onToggleAudio">
         <Loading v-if="loadingAudio" />
         <SvgAudio v-else />
@@ -361,11 +361,11 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
         >
           <option v-for="device in deviceAudio" :key="device.deviceId" :value="device.deviceId">{{ device.label }}</option>
         </select>
-        <span class="pointer-events-none text-slate-400 text-xs">&#9662;</span>
+        <span class="pointer-events-none text-muted text-xs">&#9662;</span>
       </div>
     </div>
 
-    <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+    <div class="control-group">
       <button class="icon-btn" data-testid="toggle-video" :disabled="loadingVideo" @click="onToggleVideo">
         <Loading v-if="loadingVideo" />
         <SvgVideo v-else />
@@ -384,14 +384,14 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
         >
           <option v-for="device in deviceVideo" :key="device.deviceId" :value="device.deviceId">{{ device.label }}</option>
         </select>
-        <span class="pointer-events-none text-slate-400 text-xs">&#9662;</span>
+        <span class="pointer-events-none text-muted text-xs">&#9662;</span>
       </div>
       <button v-if="showCameraSwitch" class="icon-btn" aria-label="Switch camera" data-testid="switch-camera" :disabled="loadingVideo" @click="onSwitchCamera">
         <SvgSwitchCamera />
       </button>
     </div>
 
-    <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+    <div class="control-group">
       <button class="icon-btn" data-testid="toggle-background" :disabled="loadingBackground || !whip.userStatus.video || whip.userStatus.screen" @click="onToggleBackground">
         <Loading v-if="loadingBackground" />
         <SvgBackgroundCancel v-else-if="virtualBackgroundEnabled" />
@@ -399,7 +399,7 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
       </button>
     </div>
 
-    <div v-if="!setting.screenShareButtonShowed" class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+    <div v-if="!setting.screenShareButtonShowed" class="control-group">
       <button
         class="icon-btn"
         data-testid="toggle-screen"
@@ -421,16 +421,16 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
         >
           <option v-for="r in screenResolutions" :key="r.label" :value="r.value">{{ r.label }}</option>
         </select>
-        <span class="pointer-events-none text-slate-400 text-xs">&#9662;</span>
+        <span class="pointer-events-none text-muted text-xs">&#9662;</span>
       </div>
     </div>
 
-    <div class="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-1.5 py-1">
+    <div class="control-group">
       <button class="icon-btn" aria-label="Settings" data-testid="settings-toggle" @click="isSetting = true">
         <SvgSetting />
       </button>
     </div>
-    <p v-if="deviceError" class="w-full text-center text-xs text-rose-400" data-testid="device-error">{{ deviceError }}</p>
+    <p v-if="deviceError" class="w-full text-center text-xs text-danger" data-testid="device-error">{{ deviceError }}</p>
     <Settings v-if="isSetting" @close="isSetting = false" />
   </div>
 </template>

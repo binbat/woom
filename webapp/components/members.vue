@@ -53,11 +53,11 @@ const onKick = async (userId: string) => {
 </script>
 
 <template>
-  <div class="flex flex-col w-full h-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
-      <h3 class="text-sm font-semibold text-slate-200">Members ({{ activeParticipants.length }})</h3>
+  <div class="flex flex-col w-full h-full bg-surface border border-line rounded-2xl overflow-hidden" data-testid="members-dialog">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-line">
+      <h3 class="text-sm font-semibold text-foreground">Members ({{ activeParticipants.length }})</h3>
       <button
-        class="inline-grid place-items-center w-8 h-8 rounded-lg bg-transparent text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+        class="inline-grid place-items-center w-8 h-8 rounded-lg bg-transparent text-muted transition-colors hover:bg-control-hover hover:text-heading"
         aria-label="Close members"
         data-testid="members-close"
         @click="emit('close')"
@@ -66,38 +66,38 @@ const onKick = async (userId: string) => {
       </button>
     </div>
 
-    <div v-if="isOwner" class="px-3 py-2 border-b border-white/10">
-      <button class="w-full px-3 py-1.5 rounded-lg bg-white/10 text-sm text-slate-200 transition-colors hover:bg-white/20" data-testid="mute-all" @click="onMuteAll">
+    <div v-if="isOwner" class="px-3 py-2 border-b border-line">
+      <button class="w-full px-3 py-1.5 rounded-lg bg-control text-sm text-foreground transition-colors hover:bg-control-hover" data-testid="mute-all" @click="onMuteAll">
         Mute All
       </button>
     </div>
-    <p v-if="actionError" class="text-xs text-rose-400 px-3 py-1">{{ actionError }}</p>
+    <p v-if="actionError" class="text-xs text-danger px-3 py-1">{{ actionError }}</p>
 
     <div class="flex-1 min-h-0 overflow-y-auto px-2 py-2 space-y-1" data-testid="members-list">
       <div
         v-for="p in activeParticipants"
         :key="p.userId"
-        class="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-white/5"
+        class="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-control-hover"
         data-testid="member-row"
       >
         <span class="shrink-0 inline-grid place-items-center w-8 h-8 rounded-full bg-indigo-600/70 text-white text-sm font-semibold">
           {{ (p.name || '?').charAt(0).toUpperCase() }}
         </span>
         <div class="flex-1 min-w-0">
-          <p class="text-sm text-slate-200 truncate">
-            {{ p.name }}<span v-if="p.userId === localUserId" class="text-slate-500"> (Me)</span>
+          <p class="text-sm text-foreground truncate">
+            {{ p.name }}<span v-if="p.userId === localUserId" class="text-subtle"> (Me)</span>
           </p>
-          <p v-if="p.role === 'owner'" class="text-[10px] text-amber-400" data-testid="member-owner-badge">Owner</p>
+          <p v-if="p.role === 'owner'" class="text-[10px] text-warning" data-testid="member-owner-badge">Owner</p>
         </div>
-        <span class="shrink-0" :class="presenceOf(p)?.audio ? 'text-emerald-400' : 'text-slate-600'" :data-testid="presenceOf(p)?.audio ? 'member-mic-on' : 'member-mic-off'">
+        <span class="shrink-0" :class="presenceOf(p)?.audio ? 'text-success' : 'text-disabled'" :data-testid="presenceOf(p)?.audio ? 'member-mic-on' : 'member-mic-off'">
           <SvgAudio />
         </span>
-        <span class="shrink-0" :class="presenceOf(p)?.video ? 'text-emerald-400' : 'text-slate-600'">
+        <span class="shrink-0" :class="presenceOf(p)?.video ? 'text-success' : 'text-disabled'">
           <SvgVideo />
         </span>
         <button
           v-if="isOwner && p.userId !== localUserId"
-          class="shrink-0 px-2 py-1 rounded-lg text-xs text-rose-300 transition-colors hover:bg-rose-500/20"
+          class="shrink-0 px-2 py-1 rounded-lg text-xs text-danger transition-colors hover:bg-rose-500/20"
           data-testid="member-kick"
           @click="onKick(p.userId)"
         >

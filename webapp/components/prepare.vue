@@ -78,26 +78,26 @@ onUnmounted(() => {
   <div class="flex flex-col items-center gap-6 py-8 px-4">
     <Player :stream="whip.stream" :muted="false" width="min(360px, 92vw)" :audio="whip.userStatus.audio" :video="whip.userStatus.video" :self="true" :name="displayName" />
 
-    <label class="flex items-center gap-3 text-slate-300">
+    <label class="flex items-center gap-3 text-foreground">
       <span class="text-sm font-medium whitespace-nowrap">Your Name</span>
       <input
         v-model="displayName"
-        class="input-dark w-56 text-center"
+        class="input-control w-56 text-center"
         data-testid="name-input"
       />
     </label>
 
-    <label v-if="joinError" class="flex items-center gap-3 text-slate-300">
+    <label v-if="joinError" class="flex items-center gap-3 text-foreground">
       <span class="text-sm font-medium whitespace-nowrap">Password</span>
       <input
         v-model="password"
         type="password"
-        class="input-dark w-56 text-center"
+        class="input-control w-56 text-center"
         data-testid="password-input"
       />
     </label>
 
-    <p v-if="joinError" class="text-sm text-rose-400" data-testid="join-error">{{ joinError }}</p>
+    <p v-if="joinError" class="text-sm text-danger" data-testid="join-error">{{ joinError }}</p>
 
     <div class="panel px-3 py-2">
       <DeviceBar :stream-id="localStreamId" />
