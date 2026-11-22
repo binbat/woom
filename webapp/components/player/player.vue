@@ -3,7 +3,6 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   isFullscreenSupported,
   isPictureInPictureSupported,
-  isWechat,
 } from '../../lib/util'
 import { deviceSpeaker, speakerStatus } from '../../store/atoms'
 import SvgExitFullscreen from '../svg/exit-fullscreen.vue'
@@ -24,6 +23,8 @@ const props = defineProps<{
   width: string
   self: boolean
   name?: string
+  showAvatarName?: boolean
+  disabledTip?: string
 }>()
 
 const refVideo = ref<HTMLVideoElement>()
@@ -36,7 +37,11 @@ const isFullscreened = ref(false)
 const isPictureInPictured = ref(false)
 const hasTracks = computed(() => props.stream.getTracks().length > 0)
 const mediaEnabled = computed(() => props.audio || props.video)
-const mediaDisabledTip = `All ${props.self ? 'your' : 'their'} media are disabled`
+const mediaDisabledTip = computed(
+  () =>
+    props.disabledTip ||
+    `All ${props.self ? 'your' : 'their'} media are disabled`
+)
 const initial = computed(() => (props.name || '?').charAt(0).toUpperCase())
 
 let timeoutId: number | undefined
@@ -159,13 +164,7 @@ const applyStream = () => {
     return
   }
   video.srcObject = new MediaStream([videoTrack.value])
-
-  // NOTE: About Autoplay
-  // Reference: https://developer.mozilla.org/en-US/docs/Web/Media/Autoplay_guide
-  // NOTE:
-  // iOS Wechat WebView
-  // https://developers.weixin.qq.com/community/develop/doc/0006a61de48ab0165f99e1dcd51c00
-  if (isWechat()) void video.play().catch(() => {})
+  void video.play().catch(() => {})
 }
 
 // NOTE: template refs are only attached after mount, so both bindings must
@@ -195,7 +194,7 @@ onUnmounted(() => {
 <!-- NOTE: iOS can't display video
 https://webkit.org/blog/6784/new-video-policies-for-ios/ -->
 <template>
-  <div class="relative flex flex-col justify-center items-center min-h-60 rounded-2xl bg-black/70 ring-1 ring-white/10 overflow-hidden shadow-xl" :style="{ width: width }">
+  <div class="relative flex flex-col justify-center items-center aspect-ratio-[4/3] rounded-2xl bg-black/70 ring-1 ring-white/10 overflow-hidden shadow-xl" :style="{ width: width }">
     <div
       v-if="!video"
       class="absolute inset-0 flex flex-col items-center justify-center gap-2"
@@ -205,7 +204,7 @@ https://webkit.org/blog/6784/new-video-policies-for-ios/ -->
         <CircleWave v-if="audioTrack" :stream="stream" />
         <span class="inline-grid place-items-center w-16 h-16 rounded-full bg-indigo-600/80 text-white text-2xl font-bold">{{ initial }}</span>
       </div>
-      <p v-if="name" class="text-sm text-slate-300 max-w-full px-4 truncate">{{ name }}</p>
+      <p v-if="name && showAvatarName !== false" class="text-sm text-slate-300 max-w-full px-4 truncate">{{ name }}</p>
     </div>
     <p
       v-if="!mediaEnabled"

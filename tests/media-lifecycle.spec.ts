@@ -142,6 +142,8 @@ test.describe('device and media lifecycle', () => {
       track.dispatchEvent(new Event('ended'))
     })
     await expect(toggle).toHaveAttribute('data-active', 'false')
+    await expect(page.getByTestId('presentation-player')).toHaveCount(0)
+    await expectVideoPlaying(page.getByTestId('video-self'))
   })
 
   test('presenter revocation stops an active share', async ({ browser }) => {

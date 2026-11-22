@@ -13,11 +13,6 @@ function delSplitSymbol(str: string, symbol = '-'): string {
   return str.replaceAll(symbol, '')
 }
 
-// Reference: https://developers.weixin.qq.com/community/develop/article/doc/00062eedbfcf50f19a6bc1abc56013
-function isWechat() {
-  return /MicroMessenger/i.test(window.navigator.userAgent)
-}
-
 const isFullscreenSupported =
   typeof document.exitFullscreen === 'function' &&
   typeof document.body.requestFullscreen === 'function'
@@ -39,5 +34,4 @@ export {
   isMobile,
   isPictureInPictureSupported,
   isScreenShareSupported,
-  isWechat,
 }

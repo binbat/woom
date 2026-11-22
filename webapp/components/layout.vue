@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import copy from 'copy-to-clipboard'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   ApiError,
   getRoom,
@@ -39,6 +39,7 @@ import SvgMembers from './svg/members.vue'
 import useWhipClient from './use/whip'
 
 const MAX_VISIBLE_TILES = 9
+const MAX_DEFAULT_VIDEO_TILES = 6
 
 const props = defineProps<{ meetingId: string }>()
 
@@ -51,14 +52,23 @@ const whip = useWhipClient(localStreamId)
 
 const orderedRemoteIds = computed(() =>
   Object.keys(remoteUserStatus.value)
-    .map((id, index) => ({ id, index }))
+    .map(id => ({
+      id,
+      joinAt:
+        roomParticipants.value.find(p => p.userId === id)?.joinAt ??
+        Number.MAX_SAFE_INTEGER,
+    }))
     .sort((a, b) => {
       const rank = (id: string) => {
         if (roomInfo.value.presenter === id) return 0
         if (remoteUserStatus.value[id].screen) return 1
         return 2
       }
-      return rank(a.id) - rank(b.id) || a.index - b.index
+      return (
+        rank(a.id) - rank(b.id) ||
+        a.joinAt - b.joinAt ||
+        a.id.localeCompare(b.id)
+      )
     })
     .map(({ id }) => id)
 )
@@ -67,6 +77,59 @@ const visibleRemoteIds = computed(() =>
 )
 const hiddenRemoteIds = computed(() =>
   orderedRemoteIds.value.slice(MAX_VISIBLE_TILES - 1)
+)
+
+const videoGrid = ref<HTMLDivElement>()
+const videoGridSize = ref({ width: 0, height: 0 })
+const galleryLayout = computed(() => {
+  const { width, height } = videoGridSize.value
+  if (!width || !height) return { width: 'min(320px, 100%)', maxWidth: '100%' }
+
+  const count =
+    visibleRemoteIds.value.length + 1 + (hiddenRemoteIds.value.length ? 1 : 0)
+  const minColumns = width < 640 && count > 3 ? 2 : 1
+  const maxColumns = Math.min(count, width < 640 ? 2 : 5)
+  const gap = 16
+  let bestWidth = 0
+  let bestColumns = 1
+  for (let columns = minColumns; columns <= maxColumns; columns++) {
+    const rows = Math.ceil(count / columns)
+    const cellWidth = (width - gap * (columns - 1)) / columns
+    const cellHeight = (height - gap * (rows - 1)) / rows
+    if (cellWidth <= 0 || cellHeight <= 0) continue
+    const fittedWidth = Math.min(cellWidth, (cellHeight * 4) / 3)
+    const candidateWidth =
+      fittedWidth < 160 ? Math.min(cellWidth, 160) : fittedWidth
+    if (candidateWidth > bestWidth + 0.01) {
+      bestWidth = candidateWidth
+      bestColumns = columns
+    }
+  }
+  const tileWidth = Math.floor(bestWidth || Math.min(width, 320))
+  return {
+    width: `min(${tileWidth}px, 100%)`,
+    maxWidth: `${tileWidth * bestColumns + gap * (bestColumns - 1)}px`,
+  }
+})
+const tileWidth = computed(() =>
+  enabledPresentation.value ? '160px' : galleryLayout.value.width
+)
+
+watch(
+  videoGrid,
+  (grid, _previousGrid, onCleanup) => {
+    const container = grid?.parentElement
+    if (!container) return
+    const observer = new ResizeObserver(([entry]) => {
+      videoGridSize.value = {
+        width: entry.contentRect.width,
+        height: entry.contentRect.height,
+      }
+    })
+    observer.observe(container)
+    onCleanup(() => observer.disconnect())
+  },
+  { immediate: true, flush: 'post' }
 )
 
 const chatOpen = ref(false)
@@ -78,6 +141,25 @@ const streamsAll = ref<Record<string, Stream>>({})
 const activeCount = computed(
   () => roomParticipants.value.filter(p => !p.leaveAt).length
 )
+
+const videoOverrides = ref<Record<string, boolean>>({})
+const isRemoteVideoEnabled = (id: string) => {
+  if (remoteUserStatus.value[id]?.screen) return true
+  const override = videoOverrides.value[id]
+  if (override !== undefined) return override
+  return (
+    activeCount.value <= MAX_DEFAULT_VIDEO_TILES ||
+    orderedRemoteIds.value.slice(0, MAX_DEFAULT_VIDEO_TILES - 1).includes(id)
+  )
+}
+const isRemoteVideoOverridden = (id: string) =>
+  videoOverrides.value[id] !== undefined
+const toggleRemoteVideo = (id: string) => {
+  videoOverrides.value = {
+    ...videoOverrides.value,
+    [id]: !isRemoteVideoEnabled(id),
+  }
+}
 
 const toggleChat = () => {
   chatOpen.value = !chatOpen.value
@@ -367,9 +449,9 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col h-screen">
     <div class="flex-1 min-h-0 flex overflow-hidden">
-      <div class="flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row' : 'flex-col'" data-testid="video-stage">
+      <div class="flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row justify-center-safe' : 'flex-col'" data-testid="video-stage">
         <!-- presenter mode: shared screen takes the main stage -->
-        <div v-if="enabledPresentation" class="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+        <div v-if="enabledPresentation" class="flex-none lg:flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
           <Player
             data-testid="presentation-player"
             :stream="presentationStream.stream"
@@ -378,20 +460,20 @@ onUnmounted(() => {
             :audio="false"
             width="100%"
             :self="false"
-            class="h-full max-w-full"
+            class="h-auto lg:h-full max-w-full"
           />
         </div>
 
         <!-- the tiles never change parent across layout switches: remounting
              a WhepPlayer would clear the presentation stream and restart the
              WHEP connection, which flips the layout back and loops -->
-        <div :class="enabledPresentation
-          ? 'flex lg:flex-col flex-row gap-3 shrink-0 overflow-auto lg:w-48'
-          : 'flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-center content-center-safe overflow-y-auto'" data-testid="video-grid">
-          <WhipPlayer :stream-id="localStreamId" :width="enabledPresentation ? '160px' : 'min(320px, 92vw)'" />
-          <WhepPlayer v-for="i in visibleRemoteIds" :key="i" :stream-id="i" :user-status="remoteUserStatus[i]" :width="enabledPresentation ? '160px' : 'min(320px, 92vw)'" />
+        <div ref="videoGrid" :class="enabledPresentation
+          ? 'flex lg:flex-col flex-row gap-3 shrink-0 overflow-auto lg:w-40'
+          : 'flex-1 min-h-0 w-full self-center flex flex-wrap items-center justify-center content-center-safe gap-4 overflow-y-auto'" :style="{ maxWidth: enabledPresentation ? undefined : galleryLayout.maxWidth }" data-testid="video-grid">
+          <WhipPlayer class="shrink-0" :style="{ width: tileWidth }" :stream-id="localStreamId" width="100%" />
+          <WhepPlayer v-for="i in visibleRemoteIds" :key="i" class="shrink-0" :style="{ width: tileWidth }" :stream-id="i" :user-status="remoteUserStatus[i]" width="100%" :video-enabled="isRemoteVideoEnabled(i)" :video-overridden="isRemoteVideoOverridden(i)" @toggle-video="toggleRemoteVideo(i)" />
 
-          <div v-if="hiddenRemoteIds.length" class="flex flex-col justify-center items-center rounded-2xl bg-control ring-1 ring-line" :class="enabledPresentation ? 'min-h-30' : 'min-h-60'" :style="{ width: enabledPresentation ? '160px' : 'min(320px, 92vw)' }" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')">
+          <div v-if="hiddenRemoteIds.length" class="aspect-ratio-[4/3] shrink-0 flex flex-col justify-center items-center rounded-2xl bg-control ring-1 ring-line" :style="{ width: tileWidth }" :title="hiddenRemoteIds.map(i => remoteUserStatus[i].name).join(', ')" data-testid="overflow-tile">
             <p class="text-3xl font-bold text-foreground">+{{ hiddenRemoteIds.length }}</p>
             <p class="mt-1 text-sm text-muted">{{ hiddenRemoteIds.length === 1 ? 'other' : 'others' }}</p>
           </div>

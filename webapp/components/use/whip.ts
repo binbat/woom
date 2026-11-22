@@ -75,6 +75,13 @@ class WHIPContext extends Context {
   private audioGeneration = 0
   private videoGeneration = 0
   private pendingScreenGeneration: number | undefined
+  private pendingVideoRequest:
+    | {
+        current: string
+        constraints?: MediaTrackConstraints
+        promise: Promise<void>
+      }
+    | undefined
   private normalVideoRequest: {
     current: string
     constraints?: MediaTrackConstraints
@@ -396,7 +403,23 @@ class WHIPContext extends Context {
     current: string,
     constraints?: MediaTrackConstraints
   ) {
-    await this.updateVideo(current, constraints)
+    const pending = this.pendingVideoRequest
+    if (pending?.current === current && pending.constraints === constraints) {
+      return pending.promise
+    }
+    const request = {
+      current,
+      constraints,
+      promise: this.updateVideo(current, constraints),
+    }
+    this.pendingVideoRequest = request
+    try {
+      await request.promise
+    } finally {
+      if (this.pendingVideoRequest === request) {
+        this.pendingVideoRequest = undefined
+      }
+    }
   }
 
   private waitForTracks(generation: number): Promise<boolean> {

@@ -7,6 +7,7 @@ import { Context, type Data, event } from './whxp'
 interface WHEPData extends Data {
   connStatus: string
   setRemoteStatus: (userStatus: Stream) => void
+  setVideoEnabled: (enabled: boolean) => Promise<void>
 }
 
 interface ViewSession {
@@ -30,6 +31,7 @@ class WHEPContext extends Context {
     | { generation: number; promise: Promise<void> }
     | undefined
   private mutedTicks = 0
+  private videoEnabled = true
 
   constructor(id: string) {
     super(id)
@@ -39,6 +41,12 @@ class WHEPContext extends Context {
 
   setRemoteStatus = (userStatus: Stream) => {
     this.remoteStatus = userStatus
+  }
+
+  setVideoEnabled = async (enabled: boolean) => {
+    if (this.videoEnabled === enabled) return
+    this.videoEnabled = enabled
+    if (this.wantsRunning) await this.restart()
   }
 
   clone(): WHEPData {
@@ -51,6 +59,7 @@ class WHEPContext extends Context {
       start: () => this.start(),
       restart: () => this.restart(),
       setRemoteStatus: (userStatus: Stream) => this.setRemoteStatus(userStatus),
+      setVideoEnabled: (enabled: boolean) => this.setVideoEnabled(enabled),
     }
   }
 
@@ -99,7 +108,9 @@ class WHEPContext extends Context {
       this.sync()
     }
     pc.addEventListener('connectionstatechange', session.onStateChange)
-    pc.addTransceiver('video', { direction: 'recvonly' })
+    if (this.videoEnabled) {
+      pc.addTransceiver('video', { direction: 'recvonly' })
+    }
     pc.addTransceiver('audio', { direction: 'recvonly' })
     pc.ontrack = ev => {
       if (
@@ -251,6 +262,7 @@ class WHEPContext extends Context {
       return
     }
     const expectsVideo =
+      this.videoEnabled &&
       this.remoteStatus.state === StreamState.Connected &&
       this.remoteStatus.video
     const videoMuted = this.stream.getVideoTracks().some(track => track.muted)
