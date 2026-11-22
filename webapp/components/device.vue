@@ -4,11 +4,14 @@ import { Device, deviceNone, deviceScreen } from '../lib/device'
 import { isMobile, isScreenShareSupported } from '../lib/util'
 import { deviceSpeaker, roomInfo, speakerStatus } from '../store/atoms'
 import { setting } from '../store/setting'
+import MobileSheet from './mobile-sheet.vue'
 import Settings from './settings.vue'
 import SvgAudio from './svg/audio.vue'
 import SvgBackground from './svg/background.vue'
 import SvgBackgroundCancel from './svg/background-cancel.vue'
+import SvgClose from './svg/close.vue'
 import Loading from './svg/loading.vue'
+import SvgMore from './svg/more.vue'
 import SvgPresentToAll from './svg/present.vue'
 import SvgPresentCancel from './svg/present-cancel.vue'
 import SvgSetting from './svg/setting.vue'
@@ -49,6 +52,7 @@ const deviceAudio = ref<Device[]>([deviceNone])
 const deviceVideo = ref<Device[]>([deviceNone])
 
 const isSetting = ref(false)
+const mobileActionsOpen = ref(false)
 
 const permissionsQuery = async () =>
   (
@@ -319,16 +323,16 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center justify-center gap-2">
-    <div class="control-group">
-      <button class="icon-btn" data-testid="toggle-speaker" :disabled="loadingSpeaker" @click="onToggleSpeaker">
+  <div class="flex flex-wrap items-center justify-center gap-2 max-md:contents">
+    <div class="control-group max-md:hidden">
+      <button class="icon-btn" aria-label="Toggle speaker" data-testid="toggle-speaker" :disabled="loadingSpeaker" @click="onToggleSpeaker">
         <Loading v-if="loadingSpeaker" />
         <SvgSpeaker v-else />
       </button>
       <div class="relative w-0 h-10 pointer-events-none">
         <div v-if="!speakerStatus" class="absolute -left-9 top-1/2 w-8 h-0.5 bg-rose-500 rounded-full rotate-45"></div>
       </div>
-      <div class="relative grid place-items-center w-4 h-10">
+      <div class="relative grid place-items-center w-4 h-10 max-md:hidden">
         <select
           class="absolute inset-0 opacity-0 cursor-pointer"
           :value="deviceSpeaker"
@@ -342,8 +346,8 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
       </div>
     </div>
 
-    <div class="control-group">
-      <button class="icon-btn" data-testid="toggle-audio" :disabled="loadingAudio" @click="onToggleAudio">
+    <div class="control-group max-md:border-0 max-md:bg-transparent max-md:p-0">
+      <button class="icon-btn" aria-label="Toggle microphone" data-testid="toggle-audio" :disabled="loadingAudio" @click="onToggleAudio">
         <Loading v-if="loadingAudio" />
         <SvgAudio v-else />
       </button>
@@ -351,7 +355,7 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
         <div v-if="permissionAudio !== 'granted'" class="absolute -left-4 top-0.5 w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
         <div v-if="!whip.userStatus.audio" class="absolute -left-9 top-1/2 w-8 h-0.5 bg-rose-500 rounded-full rotate-45"></div>
       </div>
-      <div class="relative grid place-items-center w-4 h-10">
+      <div class="relative grid place-items-center w-4 h-10 max-md:hidden">
         <select
           class="absolute inset-0 opacity-0 cursor-pointer"
           :value="whip.currentDeviceAudio"
@@ -365,8 +369,8 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
       </div>
     </div>
 
-    <div class="control-group">
-      <button class="icon-btn" data-testid="toggle-video" :disabled="loadingVideo" @click="onToggleVideo">
+    <div class="control-group max-md:border-0 max-md:bg-transparent max-md:p-0">
+      <button class="icon-btn" aria-label="Toggle camera" data-testid="toggle-video" :disabled="loadingVideo" @click="onToggleVideo">
         <Loading v-if="loadingVideo" />
         <SvgVideo v-else />
       </button>
@@ -374,7 +378,7 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
         <div v-if="permissionVideo !== 'granted'" class="absolute -left-4 top-0.5 w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
         <div v-if="!whip.userStatus.video" class="absolute -left-9 top-1/2 w-8 h-0.5 bg-rose-500 rounded-full rotate-45"></div>
       </div>
-      <div class="relative grid place-items-center w-4 h-10">
+      <div class="relative grid place-items-center w-4 h-10 max-md:hidden">
         <select
           class="absolute inset-0 opacity-0 cursor-pointer"
           :value="whip.currentDeviceVideo"
@@ -386,12 +390,12 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
         </select>
         <span class="pointer-events-none text-muted text-xs">&#9662;</span>
       </div>
-      <button v-if="showCameraSwitch" class="icon-btn" aria-label="Switch camera" data-testid="switch-camera" :disabled="loadingVideo" @click="onSwitchCamera">
+      <button v-if="showCameraSwitch" class="icon-btn max-md:hidden" aria-label="Switch camera" data-testid="switch-camera" :disabled="loadingVideo" @click="onSwitchCamera">
         <SvgSwitchCamera />
       </button>
     </div>
 
-    <div class="control-group">
+    <div class="control-group max-md:hidden">
       <button class="icon-btn" aria-label="Toggle virtual background" :aria-pressed="virtualBackgroundEnabled" data-testid="toggle-background" :data-active="virtualBackgroundEnabled" :disabled="loadingBackground || !whip.userStatus.video || whip.userStatus.screen" @click="onToggleBackground">
         <Loading v-if="loadingBackground" />
         <SvgBackgroundCancel v-else-if="virtualBackgroundEnabled" />
@@ -399,7 +403,7 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
       </button>
     </div>
 
-    <div v-if="!setting.screenShareButtonShowed" class="control-group">
+    <div v-if="!setting.screenShareButtonShowed" class="control-group max-md:hidden">
       <button
         class="icon-btn"
         data-testid="toggle-screen"
@@ -411,7 +415,7 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
         <SvgPresentCancel v-else-if="whip.userStatus.screen" />
         <SvgPresentToAll v-else />
       </button>
-      <div class="relative grid place-items-center w-4 h-10">
+      <div class="relative grid place-items-center w-4 h-10 max-md:hidden">
         <select
           class="absolute inset-0 opacity-0 cursor-pointer"
           :value="setting.screenShareResolution"
@@ -425,12 +429,56 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
       </div>
     </div>
 
-    <div class="control-group">
+    <div class="control-group max-md:hidden">
       <button class="icon-btn" aria-label="Settings" data-testid="settings-toggle" @click="isSetting = true">
         <SvgSetting />
       </button>
     </div>
-    <p v-if="deviceError" class="w-full text-center text-xs text-danger" data-testid="device-error">{{ deviceError }}</p>
+
+    <button class="icon-btn max-md:order-5 md:hidden" aria-label="More options" data-testid="more-toggle" @click="mobileActionsOpen = true">
+      <SvgMore />
+    </button>
+
+    <MobileSheet v-if="mobileActionsOpen" test-id="more-menu" label="More options" @close="mobileActionsOpen = false">
+      <div class="flex items-center justify-between border-b border-line px-4 py-2">
+        <h2 class="text-sm font-semibold">More</h2>
+        <button class="icon-btn border-0 bg-transparent" aria-label="Close more options" data-testid="more-close" @click="mobileActionsOpen = false">
+          <SvgClose />
+        </button>
+      </div>
+      <div class="grid gap-1 overflow-y-auto p-3">
+        <button class="meeting-menu-item" data-testid="mobile-toggle-speaker" :disabled="loadingSpeaker" @click="onToggleSpeaker">
+          <Loading v-if="loadingSpeaker" />
+          <SvgSpeaker v-else />
+          <span class="flex-1">Speaker</span>
+          <span class="text-xs text-muted">{{ speakerStatus ? 'On' : 'Off' }}</span>
+        </button>
+        <button v-if="showCameraSwitch" class="meeting-menu-item" data-testid="mobile-switch-camera" :disabled="loadingVideo" @click="onSwitchCamera">
+          <SvgSwitchCamera />
+          <span class="flex-1">Switch camera</span>
+        </button>
+        <button class="meeting-menu-item" :aria-pressed="virtualBackgroundEnabled" data-testid="mobile-toggle-background" :data-active="virtualBackgroundEnabled" :disabled="loadingBackground || !whip.userStatus.video || whip.userStatus.screen" @click="onToggleBackground">
+          <Loading v-if="loadingBackground" />
+          <SvgBackgroundCancel v-else-if="virtualBackgroundEnabled" />
+          <SvgBackground v-else />
+          <span class="flex-1">Virtual background</span>
+          <span class="text-xs text-muted">{{ virtualBackgroundEnabled ? 'On' : 'Off' }}</span>
+        </button>
+        <button v-if="!setting.screenShareButtonShowed && isScreenShareSupported" class="meeting-menu-item" data-testid="mobile-toggle-screen" :data-active="whip.userStatus.screen ? 'true' : 'false'" :disabled="loadingScreen || !canShareScreen" @click="toggleEnableScreen(); mobileActionsOpen = false">
+          <Loading v-if="loadingScreen" />
+          <SvgPresentCancel v-else-if="whip.userStatus.screen" />
+          <SvgPresentToAll v-else />
+          <span class="flex-1">{{ whip.userStatus.screen ? 'Stop sharing' : 'Share screen' }}</span>
+        </button>
+        <button class="meeting-menu-item" data-testid="mobile-settings-toggle" @click="mobileActionsOpen = false; isSetting = true">
+          <SvgSetting />
+          <span class="flex-1">Settings</span>
+        </button>
+      </div>
+      <p v-if="deviceError" class="px-4 pb-4 text-center text-xs text-danger" role="alert" data-testid="device-error">{{ deviceError }}</p>
+    </MobileSheet>
+
+    <p v-if="deviceError && !mobileActionsOpen" class="w-full text-center text-xs text-danger max-md:fixed max-md:bottom-24 max-md:left-4 max-md:right-4 max-md:w-auto max-md:rounded-xl max-md:bg-surface max-md:p-3 max-md:shadow-xl" role="alert" data-testid="device-error">{{ deviceError }}</p>
     <Settings v-if="isSetting" :stream-id="streamId" @close="isSetting = false" />
   </div>
 </template>

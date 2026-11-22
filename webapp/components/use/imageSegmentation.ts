@@ -19,15 +19,19 @@ const wasmFileset = {
   wasmBinaryPath,
 }
 
+const START_TIMEOUT = 20_000
+
+type Delegate = 'GPU' | 'CPU'
+
 export class VirtualBackgroundStream {
-  private deviceId: string
-  private webcamRunning: boolean
-  private segmenter: ImageSegmenter | null
+  private webcamRunning = false
+  private segmenter: ImageSegmenter | null = null
   private backgroundId: VirtualBackgroundId
   private backgroundImage: HTMLImageElement | null = null
   private backgroundRequest = 0
-  private videoWidth: number
-  private videoHeight: number
+  private lifecycle = 0
+  private videoWidth = 640
+  private videoHeight = 480
 
   private video: HTMLVideoElement
   private canvas: HTMLCanvasElement
@@ -37,21 +41,19 @@ export class VirtualBackgroundStream {
   private maskCanvas: HTMLCanvasElement
   private maskCtx: CanvasRenderingContext2D
   private frameTimer: number | undefined
+  private outputStream: MediaStream | null = null
+  private cameraTrack: MediaStreamTrack | null = null
+  private onError: (error: Error) => void
 
-  constructor(deviceId: string, backgroundId: VirtualBackgroundId) {
-    this.deviceId = deviceId
+  constructor(
+    backgroundId: VirtualBackgroundId,
+    onError: (error: Error) => void
+  ) {
     this.backgroundId = backgroundId
-    this.webcamRunning = false
-    this.segmenter = null
-    if (window.matchMedia('(orientation: portrait)').matches) {
-      this.videoWidth = 480
-      this.videoHeight = 640
-    } else {
-      this.videoWidth = 640
-      this.videoHeight = 480
-    }
-
+    this.onError = onError
     this.video = document.createElement('video')
+    this.video.muted = true
+    this.video.playsInline = true
 
     this.canvas = document.createElement('canvas')
     this.canvas.width = this.videoWidth
@@ -91,22 +93,91 @@ export class VirtualBackgroundStream {
     this.backgroundImage = image
   }
 
-  private async createImageSegmenter() {
+  private isActive(request: number) {
+    return request === this.lifecycle
+  }
+
+  private async createImageSegmenter(request: number, delegate: Delegate) {
+    const startedAt = performance.now()
     try {
-      this.segmenter = await ImageSegmenter.createFromOptions(wasmFileset, {
+      const segmenter = await ImageSegmenter.createFromOptions(wasmFileset, {
         baseOptions: {
           modelAssetPath,
-          delegate: 'GPU',
+          delegate,
         },
         outputCategoryMask: true,
         runningMode: 'VIDEO',
       })
-    } catch (error) {
-      log('error', 'image_segmenter_init_failed', String(error))
-      throw new Error('Virtual background is not available on this device', {
-        cause: error,
+      if (!this.isActive(request)) {
+        segmenter.close()
+        return
+      }
+      this.segmenter = segmenter
+      log('info', 'virtual_background_initialized', '', {
+        delegate,
+        durationMs: Math.round(performance.now() - startedAt),
       })
+    } catch (error) {
+      log('warn', 'image_segmenter_init_failed', String(error), { delegate })
+      throw error
     }
+  }
+
+  private async initializeSegmenter(request: number) {
+    try {
+      await this.createImageSegmenter(request, 'GPU')
+    } catch {
+      if (!this.isActive(request)) return
+      try {
+        await this.createImageSegmenter(request, 'CPU')
+      } catch (cpuError) {
+        throw new Error('Virtual background is not available on this device', {
+          cause: cpuError,
+        })
+      }
+    }
+  }
+
+  private setSourceDimensions(track: MediaStreamTrack) {
+    const { width, height } = track.getSettings()
+    if (width && height && width < height) {
+      this.videoWidth = 480
+      this.videoHeight = 640
+    }
+    this.canvas.width = this.videoWidth
+    this.canvas.height = this.videoHeight
+    this.tempCanvas.width = this.videoWidth
+    this.tempCanvas.height = this.videoHeight
+  }
+
+  private async openStream(sourceTrack: MediaStreamTrack, request: number) {
+    await Promise.all([
+      this.setBackground(this.backgroundId),
+      this.initializeSegmenter(request),
+    ])
+    if (!this.isActive(request) || sourceTrack.readyState !== 'live') {
+      throw new Error('Virtual background startup was cancelled')
+    }
+
+    this.setSourceDimensions(sourceTrack)
+    this.cameraTrack = sourceTrack.clone()
+    this.video.srcObject = new MediaStream([this.cameraTrack])
+    await this.video.play()
+    if (!this.isActive(request)) {
+      throw new Error('Virtual background startup was cancelled')
+    }
+
+    this.webcamRunning = true
+    this.outputStream = this.canvas.captureStream(15)
+    this.predictWebcam()
+    return this.outputStream
+  }
+
+  public createCameraStream() {
+    if (this.cameraTrack?.readyState !== 'live') {
+      throw new Error('The camera is no longer available')
+    }
+    return new MediaStream([this.cameraTrack.clone()])
   }
 
   private callbackForVideo = (segmentationResult: ImageSegmenterResult) => {
@@ -115,81 +186,91 @@ export class VirtualBackgroundStream {
       mask?.close()
       return
     }
-    const maskData = mask.hasUint8Array()
-      ? mask.getAsUint8Array()
-      : mask.getAsFloat32Array()
-    const imageData = new ImageData(mask.width, mask.height)
-    for (let i = 0; i < maskData.length; i++) {
-      imageData.data[i * 4 + 3] = maskData[i] === 0 ? 0 : 255
-    }
-    if (
-      this.maskCanvas.width !== mask.width ||
-      this.maskCanvas.height !== mask.height
-    ) {
-      this.maskCanvas.width = mask.width
-      this.maskCanvas.height = mask.height
-    }
-    this.maskCtx.putImageData(imageData, 0, 0)
-    mask.close()
+    try {
+      const maskData = mask.hasUint8Array()
+        ? mask.getAsUint8Array()
+        : mask.getAsFloat32Array()
+      const imageData = new ImageData(mask.width, mask.height)
+      for (let i = 0; i < maskData.length; i++) {
+        imageData.data[i * 4 + 3] = maskData[i] === 0 ? 0 : 255
+      }
+      if (
+        this.maskCanvas.width !== mask.width ||
+        this.maskCanvas.height !== mask.height
+      ) {
+        this.maskCanvas.width = mask.width
+        this.maskCanvas.height = mask.height
+      }
+      this.maskCtx.putImageData(imageData, 0, 0)
 
-    this.tempCtx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-    this.tempCtx.drawImage(
-      this.video,
-      0,
-      0,
-      this.video.videoWidth,
-      this.video.videoHeight
-    )
-    this.tempCtx.save()
-    this.tempCtx.globalCompositeOperation = 'destination-in'
-    this.tempCtx.filter = 'blur(1px)'
-    this.tempCtx.drawImage(
-      this.maskCanvas,
-      0,
-      0,
-      this.canvas.width,
-      this.canvas.height
-    )
-    this.tempCtx.restore()
-
-    this.canvasCtx.clearRect(0, 0, this.videoWidth, this.videoHeight)
-    if (this.backgroundImage) {
-      const image = this.backgroundImage
-      const scale = Math.max(
-        this.canvas.width / image.naturalWidth,
-        this.canvas.height / image.naturalHeight
+      this.tempCtx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      this.tempCtx.drawImage(
+        this.video,
+        0,
+        0,
+        this.video.videoWidth,
+        this.video.videoHeight
       )
-      const sourceWidth = this.canvas.width / scale
-      const sourceHeight = this.canvas.height / scale
-      this.canvasCtx.drawImage(
-        image,
-        (image.naturalWidth - sourceWidth) / 2,
-        (image.naturalHeight - sourceHeight) / 2,
-        sourceWidth,
-        sourceHeight,
+      this.tempCtx.save()
+      this.tempCtx.globalCompositeOperation = 'destination-in'
+      this.tempCtx.filter = 'blur(1px)'
+      this.tempCtx.drawImage(
+        this.maskCanvas,
         0,
         0,
         this.canvas.width,
         this.canvas.height
       )
-    }
+      this.tempCtx.restore()
 
-    // put two layers together
-    this.canvasCtx.drawImage(this.tempCanvas, 0, 0)
+      this.canvasCtx.clearRect(0, 0, this.videoWidth, this.videoHeight)
+      if (this.backgroundImage) {
+        const image = this.backgroundImage
+        const scale = Math.max(
+          this.canvas.width / image.naturalWidth,
+          this.canvas.height / image.naturalHeight
+        )
+        const sourceWidth = this.canvas.width / scale
+        const sourceHeight = this.canvas.height / scale
+        this.canvasCtx.drawImage(
+          image,
+          (image.naturalWidth - sourceWidth) / 2,
+          (image.naturalHeight - sourceHeight) / 2,
+          sourceWidth,
+          sourceHeight,
+          0,
+          0,
+          this.canvas.width,
+          this.canvas.height
+        )
+      }
+      this.canvasCtx.drawImage(this.tempCanvas, 0, 0)
+    } finally {
+      mask.close()
+    }
   }
 
   private predictWebcam = () => {
     this.frameTimer = undefined
     if (!this.segmenter || !this.webcamRunning) return
     try {
-      this.segmenter.segmentForVideo(
+      const result = this.segmenter.segmentForVideo(
         this.video,
-        performance.now(),
-        this.callbackForVideo
+        performance.now()
       )
+      try {
+        this.callbackForVideo(result)
+      } finally {
+        result.confidenceMasks?.forEach(mask => {
+          mask.close()
+        })
+      }
     } catch (error) {
-      this.webcamRunning = false
       log('error', 'virtual_background_frame_failed', String(error))
+      this.destroyStream()
+      this.onError(
+        new Error('Virtual background processing failed', { cause: error })
+      )
     } finally {
       if (this.webcamRunning) {
         this.frameTimer = window.setTimeout(this.predictWebcam, 1000 / 15)
@@ -197,41 +278,45 @@ export class VirtualBackgroundStream {
     }
   }
 
-  public async startStream(): Promise<MediaStream> {
-    await this.setBackground(this.backgroundId)
+  public async startStream(
+    sourceTrack: MediaStreamTrack
+  ): Promise<MediaStream> {
+    if (sourceTrack.readyState !== 'live') {
+      throw new Error('No camera available for virtual background')
+    }
+    const request = this.lifecycle
+    const startedAt = performance.now()
+    let timer: number | undefined
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = window.setTimeout(() => {
+        this.destroyStream()
+        reject(
+          new Error('Virtual background startup timed out. Please try again.')
+        )
+      }, START_TIMEOUT)
+    })
+    log('info', 'virtual_background_start', '')
     try {
-      if (!this.segmenter) {
-        await this.createImageSegmenter()
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          deviceId: this.deviceId,
-        },
+      const stream = await Promise.race([
+        this.openStream(sourceTrack, request),
+        timeout,
+      ])
+      log('info', 'virtual_background_started', '', {
+        durationMs: Math.round(performance.now() - startedAt),
       })
-      return await new Promise<MediaStream>((resolve, reject) => {
-        this.video.srcObject = stream
-        this.video.onloadeddata = async () => {
-          try {
-            await this.video.play()
-            this.webcamRunning = true
-            this.predictWebcam()
-            resolve(this.canvas.captureStream())
-          } catch (error) {
-            stream.getTracks().forEach(track => {
-              track.stop()
-            })
-            reject(error)
-          }
-        }
-      })
+      return stream
     } catch (error) {
-      log('error', 'virtual_background_start_failed', String(error))
-      return new MediaStream()
+      log('error', 'virtual_background_start_failed', String(error), {
+        durationMs: Math.round(performance.now() - startedAt),
+      })
+      throw error
+    } finally {
+      window.clearTimeout(timer)
     }
   }
 
   public destroyStream = () => {
+    this.lifecycle++
     this.webcamRunning = false
     this.backgroundRequest++
     window.clearTimeout(this.frameTimer)
@@ -239,13 +324,14 @@ export class VirtualBackgroundStream {
     this.segmenter?.close()
     this.segmenter = null
     this.backgroundImage = null
-    const stream = this.video.srcObject as MediaStream | null
-    stream?.getTracks().forEach(track => {
+    this.outputStream?.getTracks().forEach(track => {
       track.stop()
     })
+    this.outputStream = null
+    this.cameraTrack?.stop()
+    this.cameraTrack = null
     this.video.pause()
     this.video.srcObject = null
-    this.video.onloadeddata = null
     this.canvasCtx.clearRect(0, 0, this.videoWidth, this.videoHeight)
     this.tempCtx.clearRect(0, 0, this.videoWidth, this.videoHeight)
   }

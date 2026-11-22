@@ -303,7 +303,7 @@ class WHIPContext extends Context {
     force = false
   ) {
     const generation = ++this.videoGeneration
-    if (current !== deviceScreen.deviceId) {
+    if (![deviceScreen.deviceId, deviceSegmenter.deviceId].includes(current)) {
       this.normalVideoRequest = { current, constraints }
     }
     this.pendingScreenGeneration =
@@ -325,11 +325,33 @@ class WHIPContext extends Context {
         if (this.currentDeviceVideo === deviceNone.deviceId) {
           throw new Error('No camera available for virtual background')
         }
+        const sourceTrack = this.stream.getVideoTracks()[0]
+        if (!sourceTrack) {
+          throw new Error('No camera available for virtual background')
+        }
         segmentation = new VirtualBackgroundStream(
-          this.currentDeviceVideo,
-          setting.virtualBackground
+          setting.virtualBackground,
+          () => {
+            if (
+              generation !== this.videoGeneration ||
+              this.segmentation !== segmentation
+            )
+              return
+            void this.updateVideo(
+              this.currentDeviceVideo,
+              this.currentVideoConstraints
+            ).catch(error => {
+              log('error', 'virtual_background_recovery_failed', String(error))
+            })
+          }
         )
-        mediaStream = await segmentation.startStream()
+        mediaStream = await segmentation.startStream(sourceTrack)
+      } else if (
+        previousSegmentation &&
+        current === this.currentDeviceVideo &&
+        constraints === undefined
+      ) {
+        mediaStream = previousSegmentation.createCameraStream()
       } else {
         mediaStream = await asyncGetVideoStream(current, constraints)
       }
@@ -349,7 +371,10 @@ class WHIPContext extends Context {
       return
     }
     const videoTracks = mediaStream.getVideoTracks()
-    if (current !== deviceNone.deviceId && videoTracks.length === 0) {
+    if (
+      current !== deviceNone.deviceId &&
+      !videoTracks.some(track => track.readyState === 'live')
+    ) {
       stopTracks(mediaStream)
       segmentation?.destroyStream()
       throw new Error('No video track available')

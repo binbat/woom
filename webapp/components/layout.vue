@@ -28,6 +28,7 @@ import {
 } from '../store/atoms'
 import Chat from './chat.vue'
 import DeviceBar from './device.vue'
+import MeetingPanel from './meeting-panel.vue'
 import Members from './members.vue'
 import Player from './player/player.vue'
 import WhepPlayer from './player/whep-player.vue'
@@ -447,9 +448,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen">
+  <div class="flex h-dvh flex-col overflow-hidden">
     <div class="flex-1 min-h-0 flex overflow-hidden">
-      <div class="flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row justify-center-safe' : 'flex-col'" data-testid="video-stage">
+      <div class="flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row justify-center-safe' : 'flex-col'" :style="{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))' }" data-testid="video-stage">
         <!-- presenter mode: shared screen takes the main stage -->
         <div v-if="enabledPresentation" class="flex-none lg:flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
           <Player
@@ -480,16 +481,16 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div v-if="chatOpen" class="shrink-0 py-4 pr-4 w-[85vw] max-w-xs sm:w-auto" data-testid="chat-panel">
+      <MeetingPanel v-if="chatOpen" kind="chat" @close="chatOpen = false">
         <Chat :meeting-id="meetingId" :messages="messages" @close="chatOpen = false" />
-      </div>
-      <div v-if="membersOpen" class="shrink-0 py-4 pr-4 w-[85vw] max-w-xs sm:w-auto" data-testid="members-panel">
+      </MeetingPanel>
+      <MeetingPanel v-if="membersOpen" kind="members" @close="membersOpen = false">
         <Members :meeting-id="meetingId" :streams="streamsAll" @close="membersOpen = false" />
-      </div>
+      </MeetingPanel>
     </div>
 
-    <div class="flex justify-center px-4 pb-4">
-      <div class="panel flex flex-wrap md:flex-nowrap items-center justify-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 max-w-[calc(100vw-1rem)] md:overflow-x-auto" data-testid="meeting-controls">
+    <div class="flex justify-center px-2 pb-4 sm:px-4" :style="{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }">
+      <div class="panel flex w-full flex-nowrap items-center justify-center gap-1 px-2 py-2 sm:gap-3 sm:px-4 md:w-auto md:overflow-x-auto" data-testid="meeting-controls">
         <button class="hidden md:flex items-center gap-2 rounded-xl bg-transparent px-3 py-2 text-accent transition-colors hover:bg-control-hover" data-testid="meeting-id-copy" @click="copyMeetingLink">
           <code class="font-mono text-sm tracking-wider" data-testid="meeting-id">{{ meetingId }}</code>
           <span class="inline-grid place-items-center text-success" :style="{ visibility: copyStatus ? 'visible' : 'hidden' }">
@@ -499,17 +500,17 @@ onUnmounted(() => {
 
         <DeviceBar class="max-md:contents" :stream-id="localStreamId" />
 
-        <button class="icon-btn" aria-label="Members" data-testid="members-toggle" @click="toggleMembers">
+        <button class="icon-btn max-md:order-3" aria-label="Members" data-testid="members-toggle" @click="toggleMembers">
           <SvgMembers />
           <span class="absolute -top-1 -right-1 inline-grid place-items-center min-w-4 h-4 px-0.5 rounded-full bg-indigo-500 text-white text-[10px] font-bold" data-testid="members-count">{{ activeCount }}</span>
         </button>
 
-        <button class="icon-btn" aria-label="Chat" data-testid="chat-toggle" @click="toggleChat">
+        <button class="icon-btn max-md:order-4" aria-label="Chat" data-testid="chat-toggle" @click="toggleChat">
           <SvgChat />
           <span v-if="unread" class="absolute -top-1 -right-1 inline-grid place-items-center min-w-4 h-4 px-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold" data-testid="chat-unread">{{ unread }}</span>
         </button>
 
-        <button class="inline-grid place-items-center w-14 h-10 rounded-full text-white bg-rose-600 shadow-lg shadow-rose-950/40 transition-colors hover:bg-rose-500" data-testid="hang-up" aria-label="Hang up" @click="callEnd()">
+        <button class="inline-grid place-items-center w-11 h-11 rounded-full text-white bg-rose-600 shadow-lg shadow-rose-950/40 transition-colors hover:bg-rose-500 max-md:order-6 md:w-14 md:h-10" data-testid="hang-up" aria-label="Hang up" @click="callEnd()">
           <SvgEnd />
         </button>
       </div>

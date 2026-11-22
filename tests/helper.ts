@@ -33,6 +33,22 @@ export async function joinRoom(page: Page, name: string, password?: string) {
   await expect(page.getByTestId('hang-up')).toBeVisible()
 }
 
+export async function openMobileActions(page: Page) {
+  await page.getByTestId('more-toggle').click()
+  await expect(page.getByTestId('more-menu')).toBeVisible()
+}
+
+export async function openSettings(page: Page) {
+  const toggle = page.getByTestId('settings-toggle')
+  if (await toggle.isVisible()) {
+    await toggle.click()
+  } else {
+    await openMobileActions(page)
+    await page.getByTestId('mobile-settings-toggle').click()
+  }
+  await expect(page.getByTestId('settings-dialog')).toBeVisible()
+}
+
 export async function mockDisplayMedia(page: Page, delay = 0) {
   await page.addInitScript(delayMs => {
     const getUserMedia = navigator.mediaDevices.getUserMedia.bind(

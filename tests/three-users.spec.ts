@@ -11,6 +11,8 @@ import {
   joinMeetingFromWelcome,
   joinRoom,
   mockDisplayMedia,
+  openMobileActions,
+  openSettings,
 } from './helper'
 
 type Participant = { name: string; page: Page }
@@ -149,6 +151,7 @@ async function expectTilesDoNotOverlap(page: Page) {
 }
 
 async function expectSettingsOnTop(page: Page) {
+  await openSettings(page)
   await expectWithinViewport(page.getByTestId('settings-dialog'))
   await expectHitTarget(page.getByTestId('settings-close'))
   expect(
@@ -204,7 +207,6 @@ test.describe('three users', () => {
       await expectHitTarget(alice.getByTestId('chat-close'))
       await alice.getByTestId('chat-close').click()
 
-      await alice.getByTestId('settings-toggle').click()
       await expectSettingsOnTop(alice)
     })
 
@@ -232,7 +234,6 @@ test.describe('three users', () => {
         alice.getByTestId('video-stage'),
         alice.getByTestId('members-panel')
       )
-      await alice.getByTestId('settings-toggle').click()
       await expectSettingsOnTop(alice)
       await alice.getByTestId('members-close').click()
       await share.click()
@@ -245,14 +246,21 @@ test.describe('three users', () => {
 
     test('keeps three tiles and controls within a narrow viewport', async ({
       participants,
-    }) => {
+    }, testInfo) => {
       await expectAllVideosPlaying(participants)
       const alice = participants[0].page
       await expectTilesDoNotOverlap(alice)
       for (const tile of await alice.getByTestId('video-tile').all()) {
         await expectWithinViewport(tile)
       }
-      for (const control of ['toggle-audio', 'toggle-video', 'hang-up']) {
+      for (const control of [
+        'toggle-audio',
+        'toggle-video',
+        'members-toggle',
+        'chat-toggle',
+        'more-toggle',
+        'hang-up',
+      ]) {
         await expectWithinViewport(alice.getByTestId(control))
         await expectHitTarget(alice.getByTestId(control))
       }
@@ -261,10 +269,19 @@ test.describe('three users', () => {
           () => document.documentElement.scrollWidth <= innerWidth
         )
       ).toBe(true)
+      const stageBeforePanel = await alice
+        .getByTestId('video-stage')
+        .boundingBox()
+      await alice.screenshot({
+        path: testInfo.outputPath('mobile-meeting-controls.png'),
+      })
 
       await alice.getByTestId('members-toggle').click()
       await expect(alice.getByTestId('member-row')).toHaveCount(3)
       await expectWithinViewport(alice.getByTestId('members-panel'))
+      expect(await alice.getByTestId('video-stage').boundingBox()).toEqual(
+        stageBeforePanel
+      )
       for (const name of participants.map(participant => participant.name)) {
         await expect(alice.getByTestId('members-list')).toContainText(name)
       }
@@ -276,9 +293,42 @@ test.describe('three users', () => {
         await expectWithinViewport(kick)
       }
       await expectHitTarget(alice.getByTestId('members-close'))
+      const closeBounds = await alice.getByTestId('members-close').boundingBox()
+      expect(closeBounds?.width).toBeGreaterThanOrEqual(44)
+      expect(closeBounds?.height).toBeGreaterThanOrEqual(44)
+      await alice.screenshot({
+        path: testInfo.outputPath('mobile-members-sheet.png'),
+      })
       await alice.getByTestId('members-close').click()
 
-      await alice.getByTestId('settings-toggle').click()
+      await alice.getByTestId('chat-toggle').click()
+      await expectWithinViewport(alice.getByTestId('chat-panel'))
+      await expectHitTarget(alice.getByTestId('chat-close'))
+      expect(await alice.getByTestId('video-stage').boundingBox()).toEqual(
+        stageBeforePanel
+      )
+      await alice.getByTestId('chat-input').fill('Hello from mobile')
+      await alice.getByTestId('chat-send').click()
+      await expect(alice.getByTestId('chat-message')).toHaveText(
+        'Hello from mobile'
+      )
+      await expectWithinViewport(alice.getByTestId('chat-input'))
+      await alice.screenshot({
+        path: testInfo.outputPath('mobile-chat-sheet.png'),
+      })
+      await alice.keyboard.press('Escape')
+      await expect(alice.getByTestId('chat-panel')).toHaveCount(0)
+      await alice.getByTestId('chat-toggle').click()
+      await alice.mouse.click(5, 5)
+      await expect(alice.getByTestId('chat-panel')).toHaveCount(0)
+
+      await openMobileActions(alice)
+      await expectHitTarget(alice.getByTestId('more-close'))
+      await expectWithinViewport(alice.getByTestId('mobile-settings-toggle'))
+      await alice.screenshot({
+        path: testInfo.outputPath('mobile-more-sheet.png'),
+      })
+      await alice.getByTestId('more-close').click()
       await expectSettingsOnTop(alice)
     })
   })

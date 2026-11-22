@@ -31,9 +31,11 @@ export default defineConfig({
       'input-control':
         'bg-control border border-line rounded-xl px-4 py-2.5 text-foreground placeholder-subtle transition-colors focus:outline-none focus:border-indigo-400 focus:bg-control-hover',
       'icon-btn':
-        'relative inline-grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-xl text-foreground bg-control border border-line transition-colors duration-200 hover:bg-control-hover disabled:opacity-40 disabled:pointer-events-none',
+        'relative inline-grid place-items-center w-11 h-11 md:w-10 md:h-10 rounded-xl text-foreground bg-control border border-line transition-colors duration-200 hover:bg-control-hover disabled:opacity-40 disabled:pointer-events-none',
       'control-group':
         'flex items-center gap-0.5 md:gap-1 rounded-xl bg-control border border-line px-1 md:px-1.5 py-1',
+      'meeting-menu-item':
+        'flex min-h-11 w-full items-center gap-3 rounded-xl bg-transparent px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-control-hover disabled:pointer-events-none disabled:opacity-40',
       chip: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur text-xs font-medium text-white',
     },
   ],

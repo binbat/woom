@@ -4,6 +4,7 @@ import {
   expectVideoPlaying,
   joinMeetingFromWelcome,
   joinRoom,
+  openMobileActions,
 } from './helper'
 
 // Recovery restores the persisted participant's presence without joining
@@ -64,7 +65,7 @@ test.describe('presence recovery after network drop', () => {
   })
 })
 
-// Mobile adaptation: the front/back camera switch shows up on mobile UAs
+// Mobile adaptation: the front/back camera switch is in the More menu on mobile UAs
 test.describe('mobile adaptation', () => {
   test('switch camera button is visible on mobile', async ({ browser }) => {
     const context = await browser.newContext({
@@ -74,7 +75,8 @@ test.describe('mobile adaptation', () => {
 
     try {
       await createMeeting(page)
-      await expect(page.getByTestId('switch-camera')).toBeVisible({
+      await openMobileActions(page)
+      await expect(page.getByTestId('mobile-switch-camera')).toBeVisible({
         timeout: 15_000,
       })
     } finally {

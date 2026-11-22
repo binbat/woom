@@ -49,11 +49,11 @@ const formatTime = (secs: number) =>
 </script>
 
 <template>
-  <div class="flex flex-col w-full h-full bg-surface border border-line rounded-2xl overflow-hidden" data-testid="chat-dialog">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-line">
+  <div class="flex flex-col w-full h-full bg-surface border border-line rounded-2xl overflow-hidden max-md:border-0 max-md:rounded-none" data-testid="chat-dialog">
+    <div class="flex items-center justify-between px-4 py-2 border-b border-line md:py-3">
       <h3 class="text-sm font-semibold text-foreground">Chat</h3>
       <button
-        class="inline-grid place-items-center w-8 h-8 rounded-lg bg-transparent text-muted transition-colors hover:bg-control-hover hover:text-heading"
+        class="inline-grid place-items-center w-11 h-11 rounded-lg bg-transparent text-muted transition-colors hover:bg-control-hover hover:text-heading md:w-8 md:h-8"
         aria-label="Close chat"
         data-testid="chat-close"
         @click="emit('close')"

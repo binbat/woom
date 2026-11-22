@@ -6,6 +6,7 @@ import {
   joinMeetingFromWelcome,
   joinRoom,
   mockDisplayMedia,
+  openMobileActions,
 } from './helper'
 
 const desktop = { width: 1280, height: 800 }
@@ -262,10 +263,17 @@ async function captureLayout(
 }
 
 async function setPresentation(page: Page, active: boolean) {
-  const toggle = page.getByTestId('toggle-screen')
-  const current = (await toggle.getAttribute('data-active')) === 'true'
-  if (current !== active) await toggle.click()
-  await expect(toggle).toHaveAttribute('data-active', String(active))
+  const desktopToggle = page.getByTestId('toggle-screen')
+  const current = (await desktopToggle.getAttribute('data-active')) === 'true'
+  if (current !== active) {
+    let toggle = desktopToggle
+    if (!(await toggle.isVisible())) {
+      await openMobileActions(page)
+      toggle = page.getByTestId('mobile-toggle-screen')
+    }
+    await toggle.click()
+  }
+  await expect(desktopToggle).toHaveAttribute('data-active', String(active))
   if (active) {
     await expectVideoPlaying(
       page.getByTestId('presentation-player').getByTestId('video-remote')

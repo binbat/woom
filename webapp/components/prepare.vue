@@ -99,7 +99,7 @@ onUnmounted(() => {
 
     <p v-if="joinError" class="text-sm text-danger" data-testid="join-error">{{ joinError }}</p>
 
-    <div class="panel px-3 py-2">
+    <div class="panel flex items-center justify-center px-3 py-2">
       <DeviceBar :stream-id="localStreamId" />
     </div>
 

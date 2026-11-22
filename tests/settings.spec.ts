@@ -4,6 +4,7 @@ import {
   expectVideoPlaying,
   joinRoom,
   mockDisplayMedia,
+  openSettings,
 } from './helper'
 
 const expectViewportOverlay = async (page: Page) => {
@@ -34,7 +35,7 @@ test.describe('settings', () => {
     }) => {
       await page.setViewportSize(viewport)
       await page.goto('/')
-      await page.getByTestId('settings-toggle').click()
+      await openSettings(page)
       await expectViewportOverlay(page)
 
       const dialog = await page.getByTestId('settings-dialog').boundingBox()
@@ -63,7 +64,7 @@ test.describe('settings', () => {
   test('stays above the meeting controls', async ({ page }) => {
     await createMeeting(page)
     await joinRoom(page, 'Alice')
-    await page.getByTestId('settings-toggle').click()
+    await openSettings(page)
     await expectViewportOverlay(page)
 
     expect(
@@ -120,7 +121,7 @@ test.describe('settings', () => {
 
   test('switches and persists light and dark themes', async ({ page }) => {
     await page.goto('/')
-    await page.getByTestId('settings-toggle').click()
+    await openSettings(page)
     await expect(page.getByTestId('theme-select')).toHaveValue('dark')
 
     for (const theme of ['light', 'dark'] as const) {
@@ -139,7 +140,7 @@ test.describe('settings', () => {
         .toBe(theme === 'light' ? 'rgb(241, 245, 249)' : 'rgb(10, 15, 30)')
 
       await page.reload()
-      await page.getByTestId('settings-toggle').click()
+      await openSettings(page)
       await expect(page.getByTestId('theme-select')).toHaveValue(theme)
       await expect
         .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
@@ -174,14 +175,11 @@ test.describe('settings', () => {
         )
       } else {
         const controlIds = [
-          'toggle-speaker',
           'toggle-audio',
           'toggle-video',
-          'toggle-background',
-          'toggle-screen',
-          'settings-toggle',
           'members-toggle',
           'chat-toggle',
+          'more-toggle',
           'hang-up',
         ]
         const panelBounds = await page
@@ -201,7 +199,7 @@ test.describe('settings', () => {
         const rows = rowCenters.filter(
           (center, index) => index === 0 || center - rowCenters[index - 1] > 10
         )
-        expect(rows).toHaveLength(2)
+        expect(rows).toHaveLength(1)
         for (const bounds of controlBounds) {
           expect(bounds.x).toBeGreaterThanOrEqual(panelBounds.x)
           expect(bounds.x + bounds.width).toBeLessThanOrEqual(
@@ -210,7 +208,7 @@ test.describe('settings', () => {
         }
       }
 
-      await page.getByTestId('settings-toggle').click()
+      await openSettings(page)
       await page.getByTestId('theme-select').selectOption('light')
       await page.getByTestId('settings-close').click()
       await expect(page.getByTestId('meeting-controls')).toHaveCSS(

@@ -37,10 +37,10 @@ onMounted(() => {
       @close="emit('close')"
     >
       <div class="flex h-full w-full lg:items-center lg:justify-center">
-        <div class="flex flex-col w-full h-full lg:w-[42rem] lg:h-[30rem] bg-surface lg:border lg:border-line lg:rounded-2xl lg:shadow-2xl text-foreground overflow-hidden" data-testid="settings-dialog">
-          <div class="relative flex items-center justify-center border-b border-line py-3">
+        <div class="flex flex-col w-full h-full pb-[env(safe-area-inset-bottom)] lg:w-[42rem] lg:h-[30rem] bg-surface lg:border lg:border-line lg:rounded-2xl lg:shadow-2xl text-foreground overflow-hidden" data-testid="settings-dialog">
+          <div class="relative flex items-center justify-center border-b border-line py-3" :style="{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 0px))' }">
             <h1 id="settings-title" class="text-lg font-semibold tracking-wide">Settings</h1>
-            <button class="absolute right-3 inline-grid place-items-center w-8 h-8 rounded-lg bg-transparent text-muted hover:bg-control-hover hover:text-heading transition-colors" aria-label="Close settings" data-testid="settings-close" @click="emit('close')">
+            <button class="absolute bottom-2 right-3 inline-grid place-items-center w-11 h-11 rounded-lg bg-transparent text-muted hover:bg-control-hover hover:text-heading transition-colors md:bottom-auto md:w-8 md:h-8" aria-label="Close settings" data-testid="settings-close" @click="emit('close')">
               <SvgClose />
             </button>
           </div>
