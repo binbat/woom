@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <title>Mountain lake at sunrise</title>
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop stop-color="#8ea9c0"/>
+      <stop offset="0.55" stop-color="#d1cbd0"/>
+      <stop offset="1" stop-color="#efd1ae"/>
+    </linearGradient>
+    <linearGradient id="lake" x2="0" y2="1">
+      <stop stop-color="#9bafb7"/>
+      <stop offset="0.45" stop-color="#698c9b"/>
+      <stop offset="1" stop-color="#3c6677"/>
+    </linearGradient>
+    <linearGradient id="mountain-back" x2="0" y2="1">
+      <stop stop-color="#a4a5b4"/>
+      <stop offset="1" stop-color="#788f9e"/>
+    </linearGradient>
+    <linearGradient id="mountain-front" x2="0" y2="1">
+      <stop stop-color="#657f8c"/>
+      <stop offset="1" stop-color="#456a76"/>
+    </linearGradient>
+    <radialGradient id="sun-glow">
+      <stop stop-color="#ffebc9" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ffebc9" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="far"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="near"><feGaussianBlur stdDeviation="1.2"/></filter>
+    <clipPath id="water"><path d="M0 421h1280v299H0z"/></clipPath>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h1280v446H0z"/>
+  <circle cx="885" cy="217" r="170" fill="url(#sun-glow)"/>
+  <circle cx="885" cy="217" r="43" fill="#f8dfbb" opacity="0.72"/>
+  <g filter="url(#far)" fill="#eee7e0" opacity="0.3">
+    <path d="M60 167q69-48 134-4 71-43 143 8 54-5 83 26H35q-1-21 25-30Z"/>
+    <path d="M911 92q48-38 102-4 68-30 133 17h-280q8-10 45-13Z"/>
+  </g>
+  <g filter="url(#far)">
+    <path fill="url(#mountain-back)" d="M0 373 114 297l85 33 159-151 89 72 90-42 126 139 114-82 72 40 143-141 103 79 85-20 100 94v144H0Z"/>
+    <path fill="#d3d3d1" opacity="0.66" d="m273 257 85-78 89 72-49-22-36 22-21-35-31 46Z"/>
+    <path fill="#ddd7d1" opacity="0.55" d="m912 251 80-86 103 79-58-25-37 15-22-32-31 49Z"/>
+  </g>
+  <path fill="url(#lake)" d="M0 419h1280v301H0z"/>
+  <g clip-path="url(#water)" opacity="0.19" filter="url(#far)">
+    <path fill="#d4d1c7" d="m358 431 89 162 90-162ZM992 431l103 178 85-178ZM114 431l85 103 159-103Z"/>
+    <path fill="#294f60" d="M0 431h1280v19H0zM0 479h1280v5H0zM0 534h1280v8H0z"/>
+  </g>
+  <g filter="url(#near)">
+    <path fill="url(#mountain-front)" d="M0 350 112 316l98 42 119-44 107 55 99-9 122 73 95-58 95 13 90-67 107 39 86-14 150 66v63H0Z"/>
+    <path fill="#385e66" d="M0 407q94-60 174-21t150-3q85-32 166 36l59 55H0ZM1280 401q-115-58-198-5t-157 5l-75 73h430Z"/>
+  </g>
+  <g fill="#2e545b" opacity="0.8">
+    <path d="m40 398 18-66 18 66h-11l18 45H32l18-45ZM108 383l15-53 15 53h-9l17 42h-48l17-42ZM172 405l17-64 17 64h-10l17 41h-49l17-41ZM1163 392l18-67 18 67h-11l18 46h-51l18-46ZM1225 411l15-57 15 57h-8l16 39h-46l16-39ZM1088 403l15-59 15 59h-9l17 43h-47l17-43Z"/>
+  </g>
+  <g fill="none" stroke="#d2e0df" stroke-linecap="round" opacity="0.26">
+    <path d="M493 480h252M570 505h332M298 557h288M657 583h285M421 627h383M742 460h95" stroke-width="3"/>
+    <path d="M407 468h65M920 530h160M71 532h175M978 622h203M160 662h221" stroke-width="2"/>
+  </g>
+  <path fill="#294c51" d="M0 668q116-51 248 2t226 50H0ZM1280 644q-111-22-191 30t-176 46h367Z" opacity="0.72"/>
+  <path fill="#5d7870" d="M0 693q115-45 234 7t166 20H0ZM1280 684q-101-29-197 24l-50 12h247Z"/>
+</svg>

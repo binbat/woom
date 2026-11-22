@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <title>Modern office with city windows and desks</title>
+  <defs>
+    <linearGradient id="wall" x2="1" y2="1">
+      <stop stop-color="#d5dfe1"/>
+      <stop offset="0.65" stop-color="#eef0ec"/>
+      <stop offset="1" stop-color="#c5ced0"/>
+    </linearGradient>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop stop-color="#9cbac8"/>
+      <stop offset="1" stop-color="#e3e4da"/>
+    </linearGradient>
+    <linearGradient id="floor" x2="0" y2="1">
+      <stop stop-color="#b2b8b7"/>
+      <stop offset="1" stop-color="#7d888a"/>
+    </linearGradient>
+    <linearGradient id="glass" x2="1" y2="1">
+      <stop stop-color="#f6ffff" stop-opacity="0.38"/>
+      <stop offset="0.5" stop-color="#f6ffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#f6ffff" stop-opacity="0.25"/>
+    </linearGradient>
+    <filter id="city-blur"><feGaussianBlur stdDeviation="4"/></filter>
+    <filter id="furniture-blur"><feGaussianBlur stdDeviation="1.5"/></filter>
+    <clipPath id="windows"><path d="M48 52h854v402H48z"/></clipPath>
+  </defs>
+  <path fill="url(#wall)" d="M0 0h1280v536H0z"/>
+  <path fill="url(#floor)" d="M0 528h1280v192H0z"/>
+  <g clip-path="url(#windows)">
+    <path fill="url(#sky)" d="M40 44h870v418H40z"/>
+    <g filter="url(#city-blur)" opacity="0.55">
+      <path fill="#92a4aa" d="M24 352h94v-97h62v197H24zM160 452V214h83v238zM260 452V295h111v157zM388 452V176h68v276zM474 452V259h105v193zM602 452V205h78v247zM704 452V315h88v137zM815 452V240h93v212z"/>
+      <path fill="#c0cbca" d="M45 398h110v54H45zM282 363h102v89H282zM493 335h62v117h-62zM719 370h130v82H719z"/>
+      <g fill="#e5e7d5" opacity="0.7">
+        <path d="M183 249h15v22h-15zM215 249h15v22h-15zM408 208h13v22h-13zM432 208h13v22h-13zM625 239h14v22h-14zM652 239h14v22h-14zM625 282h14v22h-14zM652 282h14v22h-14z"/>
+      </g>
+    </g>
+    <path fill="url(#glass)" d="M48 52h854v402H48z"/>
+    <path fill="#fff" opacity="0.15" d="M105 52h115L65 454H48V345ZM468 52h72L342 454h-78Z"/>
+  </g>
+  <path fill="none" stroke="#e8edeb" stroke-width="14" d="M48 454V52h854v402Z"/>
+  <g stroke="#dde5e4" stroke-width="10"><path d="M260 57v392M475 57v392M690 57v392M53 275h844"/></g>
+  <path fill="#aab5b5" d="M36 454h880v15H36z"/>
+  <path fill="#e2e6e1" d="M951 55h280v399H951z"/>
+  <path fill="#c5cecb" d="M986 94h199v220H986z"/>
+  <path fill="#eef1eb" d="M996 104h179v200H996z"/>
+  <g fill="none" stroke="#a7b7b4" stroke-width="5" stroke-linecap="round" opacity="0.55">
+    <path d="M1026 146h109M1026 177h76M1026 230h115M1026 260h62"/>
+  </g>
+  <g filter="url(#furniture-blur)">
+    <path fill="#758489" d="M52 517h386v25H52zM910 517h318v25H910z"/>
+    <path fill="#b5bfbd" d="M52 500h386v22H52zM910 500h318v22H910z"/>
+    <path fill="#65767a" d="M83 540h18v145H83zM387 540h18v145h-18zM1162 540h18v145h-18z"/>
+    <g fill="#455b63">
+      <path d="M119 387h140v98H119zM1030 395h131v92h-131z"/>
+      <path d="M181 485h15v17h-15zM1088 487h15v15h-15z"/>
+    </g>
+    <g fill="#9fb1b5"><path d="M127 395h124v81H127zM1038 403h115v75h-115z"/></g>
+    <path fill="#677a80" d="M196 574q52-34 104 0l18 99H178Z"/>
+    <path fill="#4d626b" d="M188 549q0-24 24-24h74q24 0 24 24v76H188Z"/>
+    <path fill="#6b7e82" d="M978 561q53-36 104 0l22 108H956Z"/>
+    <path fill="#52666d" d="M972 536q0-23 23-23h73q23 0 23 23v75H972Z"/>
+  </g>
+  <g>
+    <path stroke="#607967" stroke-width="6" d="M1204 524q-10-114-27-168m22 122q29-67 50-89"/>
+    <g fill="#78917e">
+      <path d="M1179 385q-58-26-45-71 49 13 45 71Z"/>
+      <path d="M1186 426q-65-10-60-54 54-2 60 54Z"/>
+      <path d="M1193 395q8-63 53-76 5 50-53 76Z"/>
+      <path d="M1194 459q15-63 62-66-8 48-62 66Z"/>
+    </g>
+    <path fill="#87948c" d="M1167 498h75l-11 87h-53Z"/>
+  </g>
+  <path fill="#dce3df" opacity="0.14" d="M426 0h458l285 720H684Z"/>
+</svg>

@@ -392,7 +392,7 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
     </div>
 
     <div class="control-group">
-      <button class="icon-btn" data-testid="toggle-background" :disabled="loadingBackground || !whip.userStatus.video || whip.userStatus.screen" @click="onToggleBackground">
+      <button class="icon-btn" aria-label="Toggle virtual background" :aria-pressed="virtualBackgroundEnabled" data-testid="toggle-background" :data-active="virtualBackgroundEnabled" :disabled="loadingBackground || !whip.userStatus.video || whip.userStatus.screen" @click="onToggleBackground">
         <Loading v-if="loadingBackground" />
         <SvgBackgroundCancel v-else-if="virtualBackgroundEnabled" />
         <SvgBackground v-else />
@@ -431,6 +431,6 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
       </button>
     </div>
     <p v-if="deviceError" class="w-full text-center text-xs text-danger" data-testid="device-error">{{ deviceError }}</p>
-    <Settings v-if="isSetting" @close="isSetting = false" />
+    <Settings v-if="isSetting" :stream-id="streamId" @close="isSetting = false" />
   </div>
 </template>

@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <title>Bright studio with a window, sofa and plants</title>
+  <defs>
+    <linearGradient id="wall" x2="0.8" y2="1">
+      <stop stop-color="#d5d0c5"/>
+      <stop offset="0.55" stop-color="#eee9df"/>
+      <stop offset="1" stop-color="#d9d1c2"/>
+    </linearGradient>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop stop-color="#a8c5cf"/>
+      <stop offset="1" stop-color="#e5e5ce"/>
+    </linearGradient>
+    <linearGradient id="floor" x2="0" y2="1">
+      <stop stop-color="#b7a58d"/>
+      <stop offset="1" stop-color="#8d7962"/>
+    </linearGradient>
+    <linearGradient id="sofa" x2="0" y2="1">
+      <stop stop-color="#d8cdbb"/>
+      <stop offset="1" stop-color="#b6a994"/>
+    </linearGradient>
+    <radialGradient id="light" cx="0.28" cy="0.22" r="0.85">
+      <stop stop-color="#fffbed" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#fffbed" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="2"/></filter>
+    <clipPath id="window"><path d="M72 100a36 36 0 0 1 36-36h284a36 36 0 0 1 36 36v376H72Z"/></clipPath>
+  </defs>
+  <path fill="url(#wall)" d="M0 0h1280v550H0z"/>
+  <path fill="url(#floor)" d="M0 544h1280v176H0z"/>
+  <g stroke="#665744" stroke-opacity="0.15" stroke-width="2">
+    <path d="M0 592h1280M0 650h1280M165 544 90 720M412 544l-25 176M868 544l25 176M1115 544l75 176"/>
+  </g>
+  <g clip-path="url(#window)">
+    <path fill="url(#sky)" d="M60 50h380v440H60z"/>
+    <g filter="url(#soft)" fill="#91a18a" opacity="0.55">
+      <path d="M35 400q80-180 165-20t170-70 110 130v70H35Z"/>
+      <circle cx="95" cy="327" r="80"/><circle cx="372" cy="322" r="110"/>
+    </g>
+    <path fill="#f8f3dc" opacity="0.3" d="m95 70 155 0 178 406h-85Z"/>
+  </g>
+  <path fill="none" stroke="#f3eee4" stroke-width="16" d="M72 476V100a36 36 0 0 1 36-36h284a36 36 0 0 1 36 36v376Z"/>
+  <path stroke="#e9e3d7" stroke-width="10" d="M250 70v400M78 276h344"/>
+  <path fill="#a99d89" d="M55 476h390v16H55z"/>
+  <g opacity="0.85">
+    <path fill="#807360" d="M1060 146h158v391h-158z"/>
+    <path fill="#c1b6a2" d="M1070 156h138v371h-138z"/>
+    <g fill="#776f60">
+      <path d="M1070 250h138v8h-138zM1070 347h138v8h-138zM1070 443h138v8h-138z"/>
+    </g>
+    <g fill="#697a70">
+      <path d="M1084 185h15v63h-15zM1103 176h19v72h-19zM1126 193h13v55h-13z"/>
+    </g>
+    <g fill="#aa7f61"><path d="M1144 184h16v64h-16zM1165 192h13v56h-13z"/></g>
+    <path fill="#e4ded0" d="M1090 312q-10-44 27-44t27 44v27h-54Z"/>
+    <path fill="#8d9b86" d="M1153 282h37v57h-37z"/>
+    <g fill="#a58d74"><path d="M1084 396h18v45h-18zM1106 380h13v61h-13zM1123 390h20v51h-20z"/></g>
+    <path fill="#ddd2bf" d="M1162 403q26 0 26 25t-26 25q-15-50 0-50Z"/>
+  </g>
+  <g filter="url(#soft)">
+    <path fill="#9f927e" d="M665 537h474v25H665z"/>
+    <path fill="url(#sofa)" d="M686 478q0-33 33-33h366q33 0 33 33v88H686Z"/>
+    <path fill="#e1d7c6" d="M671 502q0-18 18-18h20v82h-38ZM1095 484h20q18 0 18 18v64h-38Z"/>
+    <path stroke="#b2a48f" stroke-width="3" d="M900 450v110"/>
+    <path fill="#8c9681" d="M737 473q0-20 20-20h77v79h-97Z"/>
+    <path fill="#b9a38a" d="M1000 472h70q20 0 20 20v40h-90Z"/>
+  </g>
+  <g>
+    <path stroke="#53654b" stroke-width="7" d="M1042 463q-4-111-30-168m33 165q24-113 52-150m-54 95q-34-68-55-85"/>
+    <g fill="#75836a">
+      <path d="M1016 331q-74-29-55-85 65 20 55 85Z"/>
+      <path d="M1022 360q-82-9-75-65 69 0 75 65Z"/>
+      <path d="M1035 328q10-80 66-87-1 65-66 87Z"/>
+      <path d="M1043 389q23-84 78-76-13 62-78 76Z"/>
+      <path d="M1020 300q-18-60 9-93 35 47-9 93Z"/>
+    </g>
+    <path fill="#8e765d" d="M1002 438h82l-12 101h-58Z"/>
+    <path fill="#a08a6e" d="M997 433h92v18h-92z"/>
+  </g>
+  <path fill="url(#light)" d="M0 0h1280v720H0z"/>
+</svg>

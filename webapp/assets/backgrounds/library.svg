@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <title>Quiet library with bookshelves and reading lamps</title>
+  <defs>
+    <linearGradient id="wall" x2="1" y2="0">
+      <stop stop-color="#554c42"/>
+      <stop offset="0.5" stop-color="#9a8d77"/>
+      <stop offset="1" stop-color="#51493f"/>
+    </linearGradient>
+    <linearGradient id="floor" x2="0" y2="1">
+      <stop stop-color="#7a6854"/>
+      <stop offset="1" stop-color="#493c31"/>
+    </linearGradient>
+    <linearGradient id="bench" x2="0" y2="1">
+      <stop stop-color="#9a9c87"/>
+      <stop offset="1" stop-color="#686f60"/>
+    </linearGradient>
+    <radialGradient id="lamp-light">
+      <stop stop-color="#ffe8b0" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffe8b0" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="1.8"/></filter>
+    <pattern id="shelves" width="310" height="108" patternUnits="userSpaceOnUse">
+      <path fill="#443a30" d="M0 0h310v108H0z"/>
+      <path fill="#76634d" d="M0 99h310v9H0z"/>
+      <g>
+        <path fill="#778076" d="M16 28h17v70H16zM36 17h20v81H36zM60 36h15v62H60z"/>
+        <path fill="#9e7860" d="M80 25h18v73H80zM102 32h15v66h-15z"/>
+        <path fill="#b3a282" d="M124 19h21v79h-21zM149 42h14v56h-14z"/>
+        <path fill="#6b7779" d="M170 27h18v71h-18zM193 35h16v63h-16z"/>
+        <path fill="#998c6f" d="M218 20h20v78h-20zM242 32h14v66h-14zM261 23h24v75h-24z"/>
+      </g>
+      <g stroke="#d2bc91" stroke-opacity="0.35" stroke-width="2"><path d="M40 28h12M40 34h12M84 37h10M84 43h10M128 29h13M174 40h10M222 30h12M265 36h16"/></g>
+    </pattern>
+  </defs>
+  <path fill="url(#wall)" d="M0 0h1280v553H0z"/>
+  <path fill="url(#floor)" d="M0 545h1280v175H0z"/>
+  <path stroke="#c1a581" stroke-opacity="0.13" stroke-width="2" d="M0 602h1280M0 665h1280M235 545l-75 175M465 545l-20 175M815 545l20 175M1045 545l75 175"/>
+  <g filter="url(#soft)">
+    <path fill="#3f362d" d="M22 43h333v487H22zM925 43h333v487H925z"/>
+    <path fill="url(#shelves)" d="M38 59h301v454H38zM941 59h301v454H941z"/>
+    <path fill="#826e55" d="M22 43h16v487H22zM339 43h16v487h-16zM925 43h16v487h-16zM1242 43h16v487h-16z"/>
+    <path fill="#8f7a5e" d="M15 36h347v19H15zM918 36h347v19H918zM15 516h347v22H15zM918 516h347v22H918z"/>
+    <path stroke="#806c54" stroke-width="9" d="M190 59v454M1094 59v454"/>
+  </g>
+  <path fill="#7b705f" d="M423 72h434v375H423z"/>
+  <path fill="#aa9e86" d="M434 83h412v353H434z"/>
+  <path fill="#938b75" d="M518 119h244v253H518z"/>
+  <path fill="#c5b89a" d="M531 132h218v227H531z"/>
+  <path fill="#a3aa92" d="M546 333q56-128 99-94t89 24v81H546Z"/>
+  <path fill="#d5c6a3" d="M547 133h201v109q-79 46-201 91Z"/>
+  <circle cx="635" cy="198" r="35" fill="#e1d4b4" opacity="0.75"/>
+  <ellipse cx="454" cy="303" rx="155" ry="180" fill="url(#lamp-light)"/>
+  <ellipse cx="826" cy="303" rx="155" ry="180" fill="url(#lamp-light)"/>
+  <g>
+    <path stroke="#665944" stroke-width="6" d="M442 273v218M838 273v218"/>
+    <path fill="#d7c69f" d="m404 278 15-75h46l15 75Z"/>
+    <path fill="#d7c69f" d="m800 278 15-75h46l15 75Z"/>
+    <path fill="#796a52" d="M417 491h50v10h-50zM813 491h50v10h-50z"/>
+  </g>
+  <g filter="url(#soft)">
+    <path fill="#444c42" d="M478 527h327v26H478z"/>
+    <path fill="url(#bench)" d="M469 481q0-23 23-23h299q23 0 23 23v78H469Z"/>
+    <path fill="#8d927e" d="M454 492q0-16 16-16h24v83h-40ZM789 476h24q16 0 16 16v67h-40Z"/>
+    <path stroke="#646c5c" stroke-width="3" d="M641 463v89"/>
+    <path fill="#69725f" d="M508 466h73v62h-73zM702 466h73v62h-73z"/>
+  </g>
+  <g fill="#b8a27d" opacity="0.8"><path d="M371 576h18v99h-18zM891 576h18v99h-18z"/></g>
+  <path fill="#342d26" opacity="0.12" d="M0 0h1280v720H0z"/>
+</svg>

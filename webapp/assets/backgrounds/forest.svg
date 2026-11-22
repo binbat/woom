@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <title>Soft sunlight through a green forest</title>
+  <defs>
+    <linearGradient id="forest" x2="0.7" y2="1">
+      <stop stop-color="#779688"/>
+      <stop offset="0.5" stop-color="#4e7566"/>
+      <stop offset="1" stop-color="#2c5044"/>
+    </linearGradient>
+    <linearGradient id="ground" x2="0" y2="1">
+      <stop stop-color="#66816a" stop-opacity="0"/>
+      <stop offset="1" stop-color="#253e33"/>
+    </linearGradient>
+    <linearGradient id="trunk" x2="1" y2="0">
+      <stop stop-color="#3d5144"/>
+      <stop offset="0.5" stop-color="#73816a"/>
+      <stop offset="1" stop-color="#334c40"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.22" cy="0.08" r="0.82">
+      <stop stop-color="#f2ebc7" stop-opacity="0.83"/>
+      <stop offset="0.43" stop-color="#dce3bd" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#dce3bd" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bokeh">
+      <stop stop-color="#e5e8bd" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#d3dfb5" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="far"><feGaussianBlur stdDeviation="9"/></filter>
+    <filter id="mid"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="near"><feGaussianBlur stdDeviation="1.5"/></filter>
+  </defs>
+  <path fill="url(#forest)" d="M0 0h1280v720H0z"/>
+  <g filter="url(#far)" opacity="0.57">
+    <path fill="#9aad83" d="M0 0h1280v111H0z"/>
+    <g fill="#385b49">
+      <path d="m90-30 29 0 47 680H91ZM290-20h39l-8 661h-72ZM490-20h29l62 677h-71ZM742-20h36l-36 678h-64ZM996-20h41l75 685h-81ZM1194-20h33l-10 691h-61Z"/>
+    </g>
+    <g fill="#809b74">
+      <circle cx="92" cy="135" r="120"/><circle cx="359" cy="77" r="156"/><circle cx="676" cy="127" r="164"/><circle cx="1033" cy="104" r="178"/><circle cx="1200" cy="270" r="147"/>
+    </g>
+  </g>
+  <g filter="url(#mid)" opacity="0.65">
+    <path fill="url(#trunk)" d="m179-20 40 0 37 655h-89ZM414-20h31l-6 635h-58ZM849-20h38l52 664h-81ZM1081-20h34l-20 656h-65Z"/>
+    <path fill="#3e5d4b" d="M203 191q-79-77-149-62l155 98ZM866 236q102-92 177-69l-170 106Z"/>
+  </g>
+  <path fill="#dbe5bb" opacity="0.12" d="M112 0h122l481 720H487ZM314 0h47l281 720h-91Z"/>
+  <g filter="url(#near)">
+    <path fill="url(#trunk)" d="M20-20h72l41 681H13ZM1160-20h69l51 700h-99Z"/>
+    <path fill="#415647" d="M53 147q117-93 221-54L77 189ZM1195 200q-105-89-187-65l177 105Z"/>
+    <path fill="#64765b" d="M29 0h18l40 647H51ZM1170 0h17l46 663h-21Z" opacity="0.42"/>
+  </g>
+  <path fill="url(#ground)" d="M0 381h1280v339H0z"/>
+  <g filter="url(#mid)" fill="#6c8a62" opacity="0.72">
+    <path d="M0 644q50-165 130-87t134 21q78-53 144 99L0 720ZM1280 615q-73-122-143-54t-134 4q-79 16-115 155h392Z"/>
+  </g>
+  <g fill="none" stroke="#8da079" stroke-width="7" stroke-linecap="round" opacity="0.48" filter="url(#near)">
+    <path d="M91 720q-1-140 43-202m-26 91-58-51m68 20 47-65M1194 720q-8-131-56-198m35 105 58-56m-69 15-39-68M218 720q8-89 42-133m-27 70-46-35"/>
+  </g>
+  <g>
+    <circle cx="189" cy="135" r="91" fill="url(#bokeh)"/>
+    <circle cx="357" cy="260" r="58" fill="url(#bokeh)"/>
+    <circle cx="664" cy="104" r="49" fill="url(#bokeh)"/>
+    <circle cx="942" cy="292" r="75" fill="url(#bokeh)"/>
+    <circle cx="1070" cy="107" r="43" fill="url(#bokeh)"/>
+    <circle cx="484" cy="480" r="35" fill="url(#bokeh)"/>
+    <circle cx="797" cy="501" r="44" fill="url(#bokeh)"/>
+  </g>
+  <path fill="url(#sun)" d="M0 0h1280v720H0z"/>
+</svg>

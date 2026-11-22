@@ -1,6 +1,7 @@
 import { onScopeDispose, type ShallowRef, shallowRef } from 'vue'
 import { WHIPClient } from 'whip-whep/whip'
 import { type Stream, StreamState, token } from '../../lib/api'
+import type { VirtualBackgroundId } from '../../lib/background'
 import {
   asyncGetAudioStream,
   asyncGetVideoStream,
@@ -9,6 +10,7 @@ import {
   deviceSegmenter,
 } from '../../lib/device'
 import { log } from '../../lib/log'
+import { setting } from '../../store/setting'
 import { VirtualBackgroundStream } from './imageSegmentation'
 import { Context, type Data, event } from './whxp'
 
@@ -29,6 +31,7 @@ interface WHIPData extends Data {
   stopScreenSharing: () => Promise<void>
   revokeScreenSharing: () => Promise<void>
 
+  setVirtualBackground: (id: VirtualBackgroundId) => Promise<void>
   toggleEnableVirtualBackground: () => Promise<void>
 }
 
@@ -91,6 +94,20 @@ class WHIPContext extends Context {
         ? this.currentDeviceVideo
         : deviceSegmenter.deviceId
     )
+  setVirtualBackground = async (id: VirtualBackgroundId) => {
+    const previous = setting.virtualBackground
+    setting.virtualBackground = id
+    try {
+      if (this.virtualBackgroundEnabled && this.segmentation) {
+        await this.segmentation.setBackground(id)
+      } else if (this.userStatus.video && !this.userStatus.screen) {
+        await this.setCurrentDeviceVideo(deviceSegmenter.deviceId)
+      }
+    } catch (error) {
+      setting.virtualBackground = previous
+      throw error
+    }
+  }
   stopScreenSharing = async () =>
     this.updateVideo(
       this.normalVideoRequest.current,
@@ -150,6 +167,8 @@ class WHIPContext extends Context {
       stopScreenSharing: () => this.stopScreenSharing(),
       revokeScreenSharing: () => this.revokeScreenSharing(),
 
+      setVirtualBackground: (id: VirtualBackgroundId) =>
+        this.setVirtualBackground(id),
       toggleEnableVirtualBackground: () => this.toggleEnableVirtualBackground(),
     }
   }
@@ -299,7 +318,10 @@ class WHIPContext extends Context {
         if (this.currentDeviceVideo === deviceNone.deviceId) {
           throw new Error('No camera available for virtual background')
         }
-        segmentation = new VirtualBackgroundStream(this.currentDeviceVideo)
+        segmentation = new VirtualBackgroundStream(
+          this.currentDeviceVideo,
+          setting.virtualBackground
+        )
         mediaStream = await segmentation.startStream()
       } else {
         mediaStream = await asyncGetVideoStream(current, constraints)

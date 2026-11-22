@@ -8,6 +8,8 @@ import SvgClose from './svg/close.vue'
 import SvgGeneral from './svg/general.vue'
 import SvgMedia from './svg/media.vue'
 
+defineProps<{ streamId?: string }>()
+
 const emit = defineEmits<{
   close: []
 }>()
@@ -61,7 +63,7 @@ onMounted(() => {
             <main class="flex-1 min-w-0 p-4 overflow-auto" data-testid="settings-content">
               <h2 class="text-base font-semibold text-heading mb-4">{{ activeTab }}</h2>
               <SettingGeneral v-if="activeTab === 'General'" />
-              <SettingMedia v-if="activeTab === 'Media'" />
+              <SettingMedia v-if="activeTab === 'Media'" :stream-id="streamId" />
               <SettingAdvanced v-if="activeTab === 'Advanced'" />
             </main>
           </div>

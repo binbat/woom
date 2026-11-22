@@ -1,4 +1,8 @@
 import { reactive, watch } from 'vue'
+import {
+  isVirtualBackgroundId,
+  type VirtualBackgroundId,
+} from '../lib/background'
 
 const STORAGE_KEY = 'setting-storage'
 
@@ -7,6 +11,7 @@ type Theme = 'light' | 'dark'
 interface SettingState {
   language: string
   theme: Theme
+  virtualBackground: VirtualBackgroundId
   videoResolution: string
   screenShareResolution: string
   screenShareButtonShowed: boolean
@@ -15,6 +20,7 @@ interface SettingState {
 const defaultState = (): SettingState => ({
   language: 'English',
   theme: 'dark',
+  virtualBackground: 'studio',
   videoResolution: '480',
   screenShareResolution: '720',
   screenShareButtonShowed: /Mobi|Android|iPhone|iPad|HarmonyOS|HMSCore/i.test(
@@ -31,7 +37,10 @@ function load(): SettingState {
       stored.theme === 'light' || stored.theme === 'dark'
         ? stored.theme
         : 'dark'
-    return { ...defaultState(), ...stored, theme }
+    const virtualBackground = isVirtualBackgroundId(stored.virtualBackground)
+      ? stored.virtualBackground
+      : 'studio'
+    return { ...defaultState(), ...stored, theme, virtualBackground }
   } catch {
     return defaultState()
   }
@@ -57,6 +66,7 @@ watch(setting, s => {
     JSON.stringify({
       language: s.language,
       theme: s.theme,
+      virtualBackground: s.virtualBackground,
       videoResolution: s.videoResolution,
       screenShareResolution: s.screenShareResolution,
       screenShareButtonShowed: s.screenShareButtonShowed,

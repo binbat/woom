@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <title>Abstract blue waves</title>
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#162d52"/>
+      <stop offset="0.48" stop-color="#315d83"/>
+      <stop offset="1" stop-color="#6b9eaf"/>
+    </linearGradient>
+    <linearGradient id="wave-one" x1="0" y1="0" x2="1" y2="0.5">
+      <stop stop-color="#6aa9bd" stop-opacity="0.06"/>
+      <stop offset="0.55" stop-color="#a1d4d9" stop-opacity="0.43"/>
+      <stop offset="1" stop-color="#d6e9e2" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="wave-two" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#172f57" stop-opacity="0.7"/>
+      <stop offset="0.52" stop-color="#487a9c" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#b3d5d5" stop-opacity="0.3"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop stop-color="#b7dcd9" stop-opacity="0.43"/>
+      <stop offset="1" stop-color="#99c9ce" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" r="0.75">
+      <stop offset="0.4" stop-color="#102540" stop-opacity="0"/>
+      <stop offset="1" stop-color="#102540" stop-opacity="0.4"/>
+    </radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="14"/></filter>
+    <filter id="soft"><feGaussianBlur stdDeviation="4"/></filter>
+  </defs>
+  <path fill="url(#base)" d="M0 0h1280v720H0z"/>
+  <ellipse cx="1025" cy="146" rx="391" ry="288" fill="url(#glow)"/>
+  <ellipse cx="215" cy="655" rx="426" ry="281" fill="url(#glow)" opacity="0.4"/>
+  <g filter="url(#blur)">
+    <path fill="url(#wave-one)" d="M-90 513C186 248 336 654 630 372S1048 89 1384 223v168c-313-99-484 250-728 258S208 480-90 699Z"/>
+    <path fill="url(#wave-two)" d="M-83 269C191 27 408 400 662 193S1079-63 1366 67v104c-269-80-412 185-657 224S197 186-83 424Z"/>
+  </g>
+  <g fill="none" stroke-linecap="round" filter="url(#soft)">
+    <path stroke="#b8dcd9" stroke-opacity="0.35" stroke-width="5" d="M-70 525C196 269 346 635 630 388s424-245 712-153"/>
+    <path stroke="#a1cbd0" stroke-opacity="0.27" stroke-width="3" d="M-70 563C202 309 369 663 650 424s422-223 706-142"/>
+    <path stroke="#c3e0dc" stroke-opacity="0.21" stroke-width="2" d="M-66 604C226 350 388 693 675 461s418-199 690-132"/>
+    <path stroke="#89b9ca" stroke-opacity="0.25" stroke-width="4" d="M-67 277C197 51 403 411 665 211S1074-44 1352 76"/>
+    <path stroke="#abd0d5" stroke-opacity="0.17" stroke-width="2" d="M-68 318C211 92 415 445 689 245s406-220 666-114"/>
+  </g>
+  <g fill="#d4e8e2" opacity="0.3">
+    <circle cx="154" cy="170" r="5"/><circle cx="227" cy="116" r="3"/><circle cx="337" cy="209" r="6"/>
+    <circle cx="924" cy="473" r="4"/><circle cx="1042" cy="536" r="6"/><circle cx="1129" cy="416" r="3"/>
+    <circle cx="821" cy="116" r="4"/><circle cx="733" cy="572" r="3"/><circle cx="511" cy="104" r="3"/>
+  </g>
+  <g fill="none" stroke="#d4e6df" stroke-opacity="0.12">
+    <circle cx="1090" cy="139" r="89" stroke-width="2"/>
+    <circle cx="1090" cy="139" r="118"/>
+    <circle cx="179" cy="572" r="112" stroke-width="2"/>
+    <circle cx="179" cy="572" r="148"/>
+  </g>
+  <path fill="url(#vignette)" d="M0 0h1280v720H0z"/>
+</svg>
