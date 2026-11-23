@@ -12,6 +12,7 @@ pub struct Config {
     pub minutes_url: Option<String>,
     pub minutes_model: Option<String>,
     pub minutes_api_key: Option<String>,
+    pub events_cable: bool,
     pub data_file: PathBuf,
 }
 
@@ -64,6 +65,7 @@ impl fmt::Debug for Config {
                 "minutes_api_key",
                 &self.minutes_api_key.as_ref().map(|_| "[REDACTED]"),
             )
+            .field("events_cable", &self.events_cable)
             .field("data_file", &self.data_file)
             .finish()
     }
@@ -123,6 +125,11 @@ impl Config {
             Some(key) => Some(key),
             None => None,
         };
+        let events_cable = lookup("EVENTS_CABLE").is_some_and(|value| {
+            !value.is_empty()
+                && !value.eq_ignore_ascii_case("0")
+                && !value.eq_ignore_ascii_case("false")
+        });
         let env = |key: &str, default: &str| lookup(key).unwrap_or_else(|| default.to_string());
         Ok(Self {
             secret,
@@ -134,6 +141,7 @@ impl Config {
             minutes_url,
             minutes_model,
             minutes_api_key,
+            events_cable,
             data_file: PathBuf::from(env("DATA_FILE", "./data/woom.json")),
         })
     }
@@ -269,6 +277,26 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(cfg.minutes_api_key, None);
+    }
+
+    #[test]
+    fn events_cable_is_an_opt_in_boolean() {
+        let secret = ("SECRET", "0123456789abcdef0123456789abcdef");
+        assert!(!config(&[secret]).unwrap().events_cable);
+        for disabled in ["", "0", "false", "FALSE", "False"] {
+            assert!(
+                !config(&[secret, ("EVENTS_CABLE", disabled)])
+                    .unwrap()
+                    .events_cable
+            );
+        }
+        for enabled in ["1", "true", "yes", "on"] {
+            assert!(
+                config(&[secret, ("EVENTS_CABLE", enabled)])
+                    .unwrap()
+                    .events_cable
+            );
+        }
     }
 
     #[test]

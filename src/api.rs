@@ -23,6 +23,7 @@ use tokio_stream::{wrappers::BroadcastStream, Stream, StreamExt};
 use tower_http::trace::TraceLayer;
 
 use crate::{
+    cable::{self, CableEvents},
     config::Config,
     events::{EventBus, RoomEvent},
     log::{ClientLogBatch, ClientLogFilter, ClientLogStore},
@@ -50,6 +51,7 @@ pub struct AppState {
     pub bus: EventBus,
     pub cfg: Config,
     pub http: reqwest::Client,
+    pub(crate) cable: Option<CableEvents>,
     pub(crate) logs: ClientLogStore,
     pub(crate) media_sessions: Arc<Mutex<HashMap<String, proxy::MediaSession>>>,
     pub(crate) write_gate: Arc<Mutex<()>>,
@@ -58,11 +60,16 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(store: Arc<Store>, bus: EventBus, cfg: Config) -> Self {
+        let http = reqwest::Client::new();
+        let cable = cfg
+            .events_cable
+            .then(|| CableEvents::spawn(http.clone(), &cfg.live777_url, &cfg.live777_token));
         Self {
             store,
             bus,
             cfg,
-            http: reqwest::Client::new(),
+            http,
+            cable,
             logs: ClientLogStore::new(),
             media_sessions: Arc::new(Mutex::new(HashMap::new())),
             write_gate: Arc::new(Mutex::new(())),
@@ -149,7 +156,7 @@ async fn sweep_at(state: &AppState, now: i64, presence_ttl: u64, participant_ttl
         match state.store.sweep(now, presence_ttl, participant_ttl).await {
             Ok(events) => {
                 for event in events {
-                    state.bus.publish(event);
+                    publish_event(state, event);
                 }
             }
             Err(error) => tracing::error!("participant/presence sweep failed: {error}"),
@@ -215,9 +222,20 @@ fn store_error(error: StoreError) -> Response {
     self::error(status, &error.to_string())
 }
 
+/// Fan out a committed room event: SSE subscribers via the in-process bus
+/// and, when `EVENTS_CABLE` is enabled, the room's Live777 events stream.
+/// Both sites run under the write gate, so cable injection order matches
+/// commit order.
+fn publish_event(state: &AppState, event: RoomEvent) {
+    if let Some(cable) = &state.cable {
+        cable.enqueue(&event);
+    }
+    state.bus.publish(event);
+}
+
 async fn publish<T>(state: &AppState, command: &Command<T>) {
     if let Some(event) = command.event.clone() {
-        state.bus.publish(event);
+        publish_event(state, event);
     }
 }
 
@@ -285,14 +303,17 @@ struct RoomDetail {
     room: RoomView,
     meeting: Option<crate::model::Meeting>,
     participants: Vec<Participant>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    events_stream: Option<String>,
 }
 
 impl RoomDetail {
-    fn new(state: RoomState) -> Self {
+    fn new(state: RoomState, events_stream: Option<String>) -> Self {
         Self {
             room: state.room.into(),
             meeting: state.meeting,
             participants: state.participants,
+            events_stream,
         }
     }
 }
@@ -307,11 +328,16 @@ async fn room_detail(
         .room_state(room_id)
         .await
         .ok_or_else(|| Box::new(error(StatusCode::NOT_FOUND, "room not found")))?;
-    if !state.store.is_active(room_id, &user_id).await {
+    let active = state.store.is_active(room_id, &user_id).await;
+    if !active {
         room.meeting = None;
         room.participants.clear();
     }
-    Ok(RoomDetail::new(room))
+    // The cable events stream is advertised only to active participants;
+    // lobby viewers get the redacted view without it.
+    let events_stream =
+        (active && state.cfg.events_cable).then(|| cable::events_stream_id(room_id));
+    Ok(RoomDetail::new(room, events_stream))
 }
 
 // ---------- room ----------
@@ -322,12 +348,15 @@ async fn create_room(
 ) -> Response {
     let _guard = state.write_gate.lock().await;
     match state.store.create_room(&user.0).await {
-        Ok(room) => Json(RoomDetail::new(RoomState {
-            room,
-            meeting: None,
-            participants: Vec::new(),
-            streams: HashMap::new(),
-        }))
+        Ok(room) => Json(RoomDetail::new(
+            RoomState {
+                room,
+                meeting: None,
+                participants: Vec::new(),
+                streams: HashMap::new(),
+            },
+            None,
+        ))
         .into_response(),
         Err(error) => store_error(error),
     }
@@ -1053,6 +1082,10 @@ impl Stream for RoomEventStream {
                             .is_some_and(|snapshot| !snapshot.is_active(&this.user_id))
                         {
                             this.done = true;
+                            // Synthesized per-connection end frame; never
+                            // published, so it is not injected into the cable.
+                            // Cable clients detect meeting end from broadcast
+                            // snapshots (meetingNo mismatch / own leaveAt).
                             return Poll::Ready(Some(RoomEvent::snapshot(
                                 &this.room_id,
                                 crate::events::Snapshot::ended(event.revision),

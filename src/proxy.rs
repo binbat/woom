@@ -96,13 +96,47 @@ async fn authorize(
 ) -> Option<MediaGrant> {
     match kind {
         "whip" => state.store.whip_authorization(user_id, stream_id).await,
-        "whep" => state.store.whep_authorization(user_id, stream_id).await,
+        "whep" => match crate::cable::events_room_id(stream_id) {
+            Some(_) => {
+                state
+                    .store
+                    .whep_events_authorization(user_id, stream_id)
+                    .await
+            }
+            None => state.store.whep_authorization(user_id, stream_id).await,
+        },
         _ => None,
     }
 }
 
 fn same_grant(session: &MediaSession, grant: &MediaGrant) -> bool {
     session.room_id == grant.room_id && session.meeting_no == grant.meeting_no
+}
+
+/// Live777 reaps publisher-less streams, so a `{room}-events` cable stream
+/// can be gone when a subscriber arrives in the gap before the next inject
+/// recreates it. Ensure it exists before forwarding the subscribe POST
+/// upstream; a failed ensure is logged and does not block the forward
+/// (live777's WHEP 404 is then the real signal).
+async fn ensure_events_stream(state: &AppState, stream_id: &str) {
+    let mut request = state.http.post(format!(
+        "{}/api/streams/{stream_id}",
+        state.cfg.live777_url.trim_end_matches('/')
+    ));
+    if !state.cfg.live777_token.is_empty() {
+        request = request.bearer_auth(&state.cfg.live777_token);
+    }
+    match request.send().await {
+        Ok(response)
+            if response.status().is_success() || response.status() == StatusCode::CONFLICT => {}
+        Ok(response) => tracing::warn!(
+            "Live777 events stream ensure for {stream_id} returned {}",
+            response.status()
+        ),
+        Err(error) => {
+            tracing::warn!("Live777 events stream ensure for {stream_id} failed: {error}")
+        }
+    }
 }
 
 async fn register_media_session(
@@ -258,6 +292,13 @@ pub async fn forward(
         .is_some_and(|session| !same_grant(session, &grant))
     {
         return (StatusCode::FORBIDDEN, "media stream is not authorized").into_response();
+    }
+    // Only events streams need this; user media streams auto-create on WHIP.
+    if kind == "whep"
+        && method == Method::POST
+        && crate::cable::events_room_id(&stream_id).is_some()
+    {
+        ensure_events_stream(&state, &stream_id).await;
     }
 
     let url = format!(
