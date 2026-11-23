@@ -3,6 +3,10 @@
 /dist
 /static/dist
 /data
+/caption-bot/target
+/caption-bot/scripts/.venv
+/caption-bot/sherpa-onnx-*
+/caption-bot/scripts/sherpa-onnx-*
 /.git
 /test-results
 /playwright-report

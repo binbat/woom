@@ -10,6 +10,7 @@ export default defineConfigWithVueTs(
     ignores: [
       'static/',
       'target/',
+      'caption-bot/',
       'test-results/',
       'playwright-report/',
       'blob-report/',
