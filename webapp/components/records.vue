@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import {
   ApiError,
+  createCleanup,
   createMinutes,
   getRoom,
   getRoomRecords,
@@ -15,9 +16,9 @@ const RECENT_LIMIT = 5
 
 const props = defineProps<{ roomId: string }>()
 
-interface MinutesState {
+/** transient per-artifact state; generated content lives on the record itself */
+interface ArtifactState {
   loading: boolean
-  text: string
   hint: '' | 'disabled' | 'no-transcript'
   error: string
 }
@@ -25,31 +26,47 @@ interface MinutesState {
 const records = ref<MeetingRecord[]>([])
 const showAll = ref(false)
 const expanded = ref<Record<string, boolean>>({})
-const minutes = ref<Record<string, MinutesState>>({})
+const minutesStates = ref<Record<string, ArtifactState>>({})
+const cleanupStates = ref<Record<string, ArtifactState>>({})
 
 const visibleRecords = computed(() =>
   showAll.value ? records.value : records.value.slice(0, RECENT_LIMIT)
 )
 
-const minutesState = (meetingNo: string): MinutesState =>
-  minutes.value[meetingNo] ?? { loading: false, text: '', hint: '', error: '' }
+const emptyArtifact = (): ArtifactState => ({
+  loading: false,
+  hint: '',
+  error: '',
+})
+
+const minutesState = (meetingNo: string): ArtifactState =>
+  minutesStates.value[meetingNo] ?? emptyArtifact()
+const cleanupState = (meetingNo: string): ArtifactState =>
+  cleanupStates.value[meetingNo] ?? emptyArtifact()
 
 const toggleExpand = (meetingNo: string) => {
   expanded.value[meetingNo] = !expanded.value[meetingNo]
 }
 
-const generateMinutes = async (meetingNo: string) => {
-  if (!minutes.value[meetingNo]) {
-    minutes.value[meetingNo] = { loading: false, text: '', hint: '', error: '' }
-  }
-  const state = minutes.value[meetingNo]
+const generate = async (kind: 'minutes' | 'cleanup', record: MeetingRecord) => {
+  const map = kind === 'minutes' ? minutesStates.value : cleanupStates.value
+  if (!map[record.meetingNo]) map[record.meetingNo] = emptyArtifact()
+  const state = map[record.meetingNo]
   if (state.loading) return
   state.loading = true
-  state.text = ''
   state.hint = ''
   state.error = ''
+  // a non-empty artifact is the cached value: regenerating forces it
+  const force =
+    kind === 'minutes' ? !!record.minutes : !!record.polishedTranscript
   try {
-    state.text = await createMinutes(props.roomId, meetingNo)
+    if (kind === 'minutes') {
+      const res = await createMinutes(props.roomId, record.meetingNo, force)
+      record.minutes = res.minutes
+    } else {
+      const res = await createCleanup(props.roomId, record.meetingNo, force)
+      record.polishedTranscript = res.polishedTranscript
+    }
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) {
       state.hint = 'disabled'
@@ -62,6 +79,9 @@ const generateMinutes = async (meetingNo: string) => {
     state.loading = false
   }
 }
+
+const generateMinutes = (record: MeetingRecord) => generate('minutes', record)
+const polishTranscript = (record: MeetingRecord) => generate('cleanup', record)
 
 const formatStart = (secs: number) => new Date(secs * 1000).toLocaleString()
 
@@ -127,15 +147,24 @@ onMounted(async () => {
             <p v-else class="text-muted">No transcript</p>
           </div>
 
-          <div>
+          <div class="flex flex-wrap gap-2">
             <button
               class="btn-primary px-3 py-1.5 text-sm"
               :disabled="minutesState(record.meetingNo).loading"
               data-testid="record-minutes"
-              @click="generateMinutes(record.meetingNo)"
+              @click="generateMinutes(record)"
             >
               <Loading v-if="minutesState(record.meetingNo).loading" />
-              Generate minutes
+              {{ record.minutes ? 'Regenerate' : 'Generate minutes' }}
+            </button>
+            <button
+              class="btn-primary px-3 py-1.5 text-sm"
+              :disabled="cleanupState(record.meetingNo).loading"
+              data-testid="record-cleanup"
+              @click="polishTranscript(record)"
+            >
+              <Loading v-if="cleanupState(record.meetingNo).loading" />
+              {{ record.polishedTranscript ? 'Regenerate' : 'Polish transcript' }}
             </button>
           </div>
 
@@ -148,9 +177,25 @@ onMounted(async () => {
           <p v-if="minutesState(record.meetingNo).error" class="text-xs text-danger" data-testid="minutes-error">
             {{ minutesState(record.meetingNo).error }}
           </p>
-          <p v-if="minutesState(record.meetingNo).text" class="rounded-xl bg-surface px-3 py-2 text-sm text-foreground break-words whitespace-pre-wrap" data-testid="minutes-content">
-            {{ minutesState(record.meetingNo).text }}
+          <p v-if="record.minutes" class="rounded-xl bg-surface px-3 py-2 text-sm text-foreground break-words whitespace-pre-wrap" data-testid="minutes-content">
+            {{ record.minutes }}
           </p>
+
+          <p v-if="cleanupState(record.meetingNo).hint === 'disabled'" class="text-xs text-muted" data-testid="cleanup-hint">
+            Transcript polishing is not enabled on this server
+          </p>
+          <p v-else-if="cleanupState(record.meetingNo).hint === 'no-transcript'" class="text-xs text-muted" data-testid="cleanup-hint">
+            No transcript available for polishing
+          </p>
+          <p v-if="cleanupState(record.meetingNo).error" class="text-xs text-danger" data-testid="cleanup-error">
+            {{ cleanupState(record.meetingNo).error }}
+          </p>
+          <div v-if="record.polishedTranscript">
+            <p class="mb-1 text-xs font-medium text-muted">Polished transcript</p>
+            <p class="rounded-xl bg-surface px-3 py-2 text-sm text-foreground break-words whitespace-pre-wrap" data-testid="cleanup-content">
+              {{ record.polishedTranscript }}
+            </p>
+          </div>
         </div>
       </li>
     </ul>

@@ -44,6 +44,9 @@ interface MeetingRecord {
   participants: Participant[]
   messages: Message[]
   captions: Caption[]
+  /** cached LLM artifacts; empty string = not generated yet */
+  minutes: string
+  polishedTranscript: string
 }
 
 interface Message {
@@ -265,14 +268,36 @@ async function getRoomRecords(id: string): Promise<MeetingRecord[]> {
   return res.json()
 }
 
-async function createMinutes(id: string, meetingNo: string): Promise<string> {
-  const res = await fetch(`/room/${id}/records/${meetingNo}/minutes`, {
-    headers: authHeaders(),
-    method: 'POST',
-  })
+async function createMinutes(
+  id: string,
+  meetingNo: string,
+  force = false
+): Promise<{ minutes: string; cached: boolean }> {
+  const res = await fetch(
+    `/room/${id}/records/${meetingNo}/minutes${force ? '?force=true' : ''}`,
+    {
+      headers: authHeaders(),
+      method: 'POST',
+    }
+  )
   if (!res.ok) throw new ApiError(res.status, await res.text())
-  const { minutes } = (await res.json()) as { minutes: string }
-  return minutes
+  return res.json()
+}
+
+async function createCleanup(
+  id: string,
+  meetingNo: string,
+  force = false
+): Promise<{ polishedTranscript: string; cached: boolean }> {
+  const res = await fetch(
+    `/room/${id}/records/${meetingNo}/cleanup${force ? '?force=true' : ''}`,
+    {
+      headers: authHeaders(),
+      method: 'POST',
+    }
+  )
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json()
 }
 
 async function sendMessage(id: string, content: string): Promise<Message> {
@@ -312,6 +337,7 @@ export type {
 }
 export {
   ApiError,
+  createCleanup,
   createMinutes,
   endMeeting,
   getMyRecords,
