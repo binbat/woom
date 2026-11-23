@@ -95,7 +95,7 @@ docker compose --profile captions up -d --build
 
 The caption endpoints are disabled when `CAPTION_TOKEN` is unset and never accept an ordinary user JWT.
 
-With `MINUTES_URL`/`MINUTES_MODEL` configured, any meeting participant can generate Markdown minutes from an archived transcript via `POST /room/{roomId}/records/{meetingNo}/minutes`. Any OpenAI-compatible endpoint works (for example a self-hosted Ollama), so transcripts never have to leave your infrastructure.
+With `MINUTES_URL`/`MINUTES_MODEL` configured, any meeting participant can generate two LLM artifacts from an archived transcript: Markdown minutes via `POST /room/{roomId}/records/{meetingNo}/minutes`, and a polished transcript (ASR errors fixed, punctuation restored, topic-segmented) via `POST /room/{roomId}/records/{meetingNo}/cleanup`. Each artifact is generated once and cached in the meeting record (`?force=true` regenerates). Any OpenAI-compatible endpoint works — for example DeepSeek (`MINUTES_URL=https://api.deepseek.com/v1`, `MINUTES_MODEL=deepseek-flash`) or a self-hosted Ollama — so transcripts never have to leave your infrastructure.
 
 ### Data and deployment model
 

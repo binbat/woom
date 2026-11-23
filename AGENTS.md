@@ -16,13 +16,15 @@ WOOM is a self-hosted meeting service built on the
   per-room monotonically increasing `revision`. Live-subtitle `caption`
   events share the same revision counter: partial segments are ephemeral,
   final segments persist per meeting (capped at 2000) and archive into
-  records for transcripts and meeting minutes.
+  records. Records also cache LLM artifacts generated from the transcript:
+  `minutes` and `polishedTranscript` (`POST .../records/{no}/minutes` and
+  `/cleanup`, `?force=true` regenerates).
 - `src/store.rs` — Atomic domain commands and a single-process durable JSON
   store. Rooms, meeting instances, participants, chat, final caption
   segments and archived records are persisted with clone-on-write and
-  atomic file replacement. The data file is versioned (currently 2);
-  version 1 files are migrated on open. Presence is ephemeral with a 45s
-  TTL; participant offline reclamation uses a separate 24h TTL.
+  atomic file replacement. The data file is versioned (currently 3);
+  version 1 and 2 files are migrated on open. Presence is ephemeral with a
+  45s TTL; participant offline reclamation uses a separate 24h TTL.
   `DATA_FILE=:memory:` is available for tests. Do not run multiple
   processes against one JSON file.
 - `src/config.rs` — Environment configuration. `SECRET` is required and must
