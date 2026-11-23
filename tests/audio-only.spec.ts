@@ -77,7 +77,32 @@ test('defaults excess remote video to audio and allows opt-in and presentation',
     await expect(audioToggle).toHaveCount(1)
     const audioOnlyId = await audioToggle.getAttribute('data-stream-id')
     if (!audioOnlyId) throw new Error('Audio-only stream ID is missing')
-    expect(audioOnlyId).toBe(participants[6].id)
+    // joinAt has one-second granularity, so rapid successive joins can tie;
+    // the app tiebreaks by stream id, so derive the audio-only remote with
+    // the same ranking rule (no presenter or screen share at this point)
+    // instead of assuming it is the last joiner
+    const room = await host.request.get(`/room/${roomId}`, {
+      headers: { Authorization: `Bearer ${await getApiToken(host)}` },
+    })
+    expect(room.ok()).toBe(true)
+    const detail = (await room.json()) as {
+      participants: Array<{ userId: string; joinAt: number }>
+    }
+    const joinAt = new Map<string, number>(
+      detail.participants.map(participant => [
+        participant.userId,
+        participant.joinAt,
+      ])
+    )
+    const expectedAudioOnlyId = participants
+      .slice(1)
+      .map(participant => participant.id)
+      .sort(
+        (a, b) =>
+          (joinAt.get(a) ?? 0) - (joinAt.get(b) ?? 0) || a.localeCompare(b)
+      )
+      .at(-1)
+    expect(audioOnlyId).toBe(expectedAudioOnlyId)
     const audioParticipant = participants.find(
       participant => participant.id === audioOnlyId
     )

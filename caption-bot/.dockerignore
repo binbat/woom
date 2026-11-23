@@ -1,0 +1,5 @@
+/target
+/scripts/.venv
+/sherpa-onnx-*
+/scripts/sherpa-onnx-*
+*.tar.bz2

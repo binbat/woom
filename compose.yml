@@ -6,6 +6,28 @@ services:
     ports:
       - "7777:7777/tcp"
 
+  stt:
+    build: caption-bot/scripts
+    profiles: ["captions"]
+    hostname: stt
+    expose:
+      - "6006"
+
+  caption-bot:
+    build: caption-bot
+    profiles: ["captions"]
+    depends_on:
+      - stt
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # The WOOM server usually runs on the host during development.
+      WOOM_URL: http://host.docker.internal:4000
+      LIVE777_URL: http://live777:7777
+      STT_WS_URL: ws://stt:6006
+      CAPTION_TOKEN: ${CAPTION_TOKEN:?set CAPTION_TOKEN}
+      LIVE777_TOKEN: ${LIVE777_TOKEN:-}
+
 networks:
   default:
     name: woom

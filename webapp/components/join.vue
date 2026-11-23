@@ -9,10 +9,14 @@ import {
   setStorageStream,
 } from '../lib/storage'
 import { meetingId } from '../store/atoms'
+import Records from './records.vue'
 import Settings from './settings.vue'
 import SvgSetting from './svg/setting.vue'
 
 const tmpId = ref<string>('')
+// room id from the URL path only: the records section must never appear on
+// the bare welcome page, not even for an id typed into the input
+const pathId = ref<string>('')
 const isSetting = ref(false)
 
 const getLoginStatus = async () => {
@@ -49,6 +53,7 @@ onMounted(() => {
   const id = window.location.pathname.replace('/', '')
   if (id) {
     tmpId.value = id
+    pathId.value = id
   }
 })
 </script>
@@ -73,4 +78,5 @@ onMounted(() => {
     </p>
     <Settings v-if="isSetting" @close="isSetting = false" />
   </div>
+  <Records v-if="pathId" :room-id="pathId" />
 </template>

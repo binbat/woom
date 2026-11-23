@@ -98,3 +98,9 @@ export async function getApiToken(page: Page): Promise<string> {
   if (!token) throw new Error('API token is missing')
   return token
 }
+
+export async function getStreamId(page: Page): Promise<string> {
+  const stream = await page.evaluate(() => localStorage.getItem('stream'))
+  if (!stream) throw new Error('Stream id is missing')
+  return stream
+}

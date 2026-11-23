@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use tokio::sync::broadcast;
 
-use crate::model::{Message, Participant, Presence};
+use crate::model::{Caption, Message, Participant, Presence};
 
 pub const SNAPSHOT_MESSAGE_LIMIT: usize = 50;
 const EVENT_BUFFER: usize = 64;
@@ -57,10 +57,20 @@ pub struct MessageEvent {
     pub message: Message,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptionEvent {
+    #[serde(rename = "type")]
+    pub kind: &'static str,
+    pub revision: u64,
+    pub caption: Caption,
+}
+
 #[derive(Clone, Debug)]
 pub enum EventPayload {
     Snapshot(Snapshot),
     Message(MessageEvent),
+    Caption(CaptionEvent),
 }
 
 #[derive(Clone, Debug)]
@@ -91,10 +101,23 @@ impl RoomEvent {
         }
     }
 
+    pub fn caption(room_id: &str, revision: u64, caption: Caption) -> Self {
+        Self {
+            room_id: room_id.to_string(),
+            revision,
+            payload: EventPayload::Caption(CaptionEvent {
+                kind: "caption",
+                revision,
+                caption,
+            }),
+        }
+    }
+
     pub fn payload_json(&self) -> String {
         match &self.payload {
             EventPayload::Snapshot(snapshot) => serde_json::to_string(snapshot),
             EventPayload::Message(message) => serde_json::to_string(message),
+            EventPayload::Caption(caption) => serde_json::to_string(caption),
         }
         .unwrap_or_else(|_| "{}".to_string())
     }
@@ -102,7 +125,7 @@ impl RoomEvent {
     pub fn snapshot_ref(&self) -> Option<&Snapshot> {
         match &self.payload {
             EventPayload::Snapshot(snapshot) => Some(snapshot),
-            EventPayload::Message(_) => None,
+            EventPayload::Message(_) | EventPayload::Caption(_) => None,
         }
     }
 }

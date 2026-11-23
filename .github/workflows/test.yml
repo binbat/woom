@@ -29,6 +29,10 @@ jobs:
           components: rustfmt, clippy
       - name: Check format, lints and tests
         run: npm run test:rust
+      - name: Install libopus for caption-bot
+        run: sudo apt-get update && sudo apt-get install -y libopus-dev pkg-config
+      - name: Check caption-bot format, lints and tests
+        run: cd caption-bot && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test --all-targets
 
   e2e:
     name: Playwright e2e
@@ -69,6 +73,11 @@ jobs:
         uses: actions/checkout@v7
       - name: Build image
         run: docker build -t woom:ci .
+      # Build-only smoke for the caption bot. The STT server image
+      # (caption-bot/scripts) is intentionally not built here: it downloads
+      # a large ASR model tarball at image build time.
+      - name: Build caption-bot image
+        run: docker build -t woom-caption:ci caption-bot/
       - name: Start container
         run: |
           docker run -d --name woom-ci \
