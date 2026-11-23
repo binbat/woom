@@ -17,19 +17,28 @@ speaker:
 Endpoint detection (trailing silence) turns a partial into a final and resets
 the recognizer, so one connection yields a stream of utterances.
 
-CPU only. The default model is the bilingual (zh/en) streaming Zipformer
-`sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20` (int8, ~20 MB):
+CPU only. The model engine is auto-detected from the model directory:
 
-  wget https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2
-  tar xf sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2
+  - encoder + decoder + joiner ONNX files -> transducer, e.g. the bilingual
+    (zh/en) streaming Zipformer (default):
+    sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20
+  - encoder + decoder ONNX files, no joiner -> streaming Paraformer, e.g.
+    sherpa-onnx-streaming-paraformer-bilingual-zh-en
+
+Both take a tokens.txt alongside the ONNX files; int8 files are preferred.
+(Offline paraformer packages with a single model.onnx are not streaming
+models and are rejected with a clear error.)
 
 Configuration via environment:
 
   STT_WS_HOST        listen address          (default 127.0.0.1)
   STT_WS_PORT        listen port             (default 6006)
   SHERPA_MODEL_DIR   model directory         (default ./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20)
-  SHERPA_ENCODER / SHERPA_DECODER / SHERPA_JOINER / SHERPA_TOKENS
-                     explicit file paths, overriding the directory scan
+  SHERPA_ENCODER / SHERPA_DECODER / SHERPA_JOINER
+                     explicit transducer component paths; set all three to use
+                     a transducer model outside the directory scan, or set one
+                     to override that component within a transducer directory
+  SHERPA_TOKENS      explicit tokens.txt path, overriding the directory scan
   SHERPA_NUM_THREADS decode threads          (default 2)
   SHERPA_INT8        "0" to prefer the fp32 model files (default: prefer int8)
 """
@@ -56,37 +65,42 @@ RULE2_MIN_TRAILING_SILENCE = 0.6  # mid-utterance pause
 RULE3_MIN_UTTERANCE_LENGTH = 20.0  # force-commit very long utterances
 
 
-def _find_model_file(model_dir, prefix):
-    """Locate e.g. the encoder ONNX file inside a sherpa-onnx model directory,
-    preferring int8 unless SHERPA_INT8=0."""
-    candidates = sorted(glob.glob(os.path.join(model_dir, f"{prefix}-*.onnx")))
+def _fatal(message):
+    print(f"error: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def _find_model_file(model_dir, pattern):
+    """Pick one ONNX file in `model_dir` matching `pattern` (a glob), preferring
+    int8 unless SHERPA_INT8=0. Returns None when nothing matches."""
+    candidates = sorted(glob.glob(os.path.join(model_dir, pattern)))
     if not candidates:
-        raise FileNotFoundError(f"no {prefix}-*.onnx found in {model_dir}")
+        return None
     prefer_int8 = os.environ.get("SHERPA_INT8", "1") != "0"
-    if prefer_int8:
-        int8 = [c for c in candidates if ".int8." in c]
-        if int8:
-            return int8[0]
-    else:
-        fp32 = [c for c in candidates if ".int8." not in c]
-        if fp32:
-            return fp32[0]
+    int8 = [c for c in candidates if ".int8." in c]
+    fp32 = [c for c in candidates if ".int8." not in c]
+    if prefer_int8 and int8:
+        return int8[0]
+    if not prefer_int8 and fp32:
+        return fp32[0]
     return candidates[0]
+
+
+def _load(engine, factory, kwargs):
+    files = [f"  {name}: {kwargs[name]}" for name in ("encoder", "decoder", "joiner") if name in kwargs]
+    files.append(f"  tokens:  {kwargs['tokens']}")
+    print(f"Loading {engine} model:\n" + "\n".join(files), file=sys.stderr)
+    return factory(**kwargs)
 
 
 def create_recognizer():
     model_dir = os.environ.get("SHERPA_MODEL_DIR", DEFAULT_MODEL_DIR)
-    encoder = os.environ.get("SHERPA_ENCODER") or _find_model_file(model_dir, "encoder")
-    decoder = os.environ.get("SHERPA_DECODER") or _find_model_file(model_dir, "decoder")
-    joiner = os.environ.get("SHERPA_JOINER") or _find_model_file(model_dir, "joiner")
     tokens = os.environ.get("SHERPA_TOKENS") or os.path.join(model_dir, "tokens.txt")
+    if not os.path.isfile(tokens):
+        _fatal(f"tokens file not found: {tokens} (set SHERPA_TOKENS to override)")
     num_threads = int(os.environ.get("SHERPA_NUM_THREADS", "2"))
 
-    print(f"Loading model:\n  encoder: {encoder}\n  decoder: {decoder}\n  joiner:  {joiner}\n  tokens:  {tokens}", file=sys.stderr)
-    recognizer = sherpa_onnx.OnlineRecognizer.from_transducer(
-        encoder=encoder,
-        decoder=decoder,
-        joiner=joiner,
+    common = dict(
         tokens=tokens,
         num_threads=num_threads,
         sample_rate=16000,
@@ -97,7 +111,58 @@ def create_recognizer():
         rule3_min_utterance_length=RULE3_MIN_UTTERANCE_LENGTH,
         decoding_method="greedy_search",
     )
-    return recognizer
+
+    encoder = os.environ.get("SHERPA_ENCODER")
+    decoder = os.environ.get("SHERPA_DECODER")
+    joiner = os.environ.get("SHERPA_JOINER")
+
+    if encoder or decoder or joiner:
+        # Explicit transducer component paths. Overrides apply individually on
+        # top of the directory scan when it is transducer-shaped.
+        scanned_encoder = _find_model_file(model_dir, "encoder*.onnx")
+        scanned_decoder = _find_model_file(model_dir, "decoder*.onnx")
+        scanned_joiner = _find_model_file(model_dir, "joiner*.onnx")
+        encoder = encoder or scanned_encoder
+        decoder = decoder or scanned_decoder
+        joiner = joiner or scanned_joiner
+        if not (encoder and decoder and joiner):
+            _fatal(
+                "SHERPA_ENCODER, SHERPA_DECODER and SHERPA_JOINER must be set "
+                f"together for a transducer model (checked {model_dir})"
+            )
+        return _load(
+            "transducer",
+            sherpa_onnx.OnlineRecognizer.from_transducer,
+            dict(encoder=encoder, decoder=decoder, joiner=joiner, **common),
+        )
+
+    joiner = _find_model_file(model_dir, "joiner*.onnx")
+    if joiner:
+        encoder = _find_model_file(model_dir, "encoder*.onnx")
+        decoder = _find_model_file(model_dir, "decoder*.onnx")
+        if not (encoder and decoder):
+            _fatal(f"incomplete transducer model in {model_dir!r}: joiner present but encoder/decoder missing")
+        return _load(
+            "transducer",
+            sherpa_onnx.OnlineRecognizer.from_transducer,
+            dict(encoder=encoder, decoder=decoder, joiner=joiner, **common),
+        )
+
+    encoder = _find_model_file(model_dir, "encoder*.onnx")
+    decoder = _find_model_file(model_dir, "decoder*.onnx")
+    if encoder and decoder:
+        return _load(
+            "paraformer",
+            sherpa_onnx.OnlineRecognizer.from_paraformer,
+            dict(encoder=encoder, decoder=decoder, **common),
+        )
+
+    _fatal(
+        f"cannot detect model engine in {model_dir!r}: expected either "
+        "encoder+decoder+joiner ONNX files (transducer, e.g. streaming Zipformer) "
+        "or encoder+decoder ONNX files (streaming Paraformer), plus tokens.txt. "
+        "Offline packages with a single model.onnx are not streaming models."
+    )
 
 
 def _result_text(result):

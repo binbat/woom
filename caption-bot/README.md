@@ -52,7 +52,7 @@ Live777, and a C toolchain with `cmake` (the Opus dependency is vendored
 and built from source — no system libopus needed).
 
 ```bash
-# 1. Reference STT server (sherpa-onnx, streaming Zipformer, bilingual zh/en, int8 ~20 MB)
+# 1. Reference STT server (sherpa-onnx, streaming Zipformer, bilingual zh/en, int8 ~190 MB)
 pip install -r scripts/requirements.txt
 wget https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2
 tar xf sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2
@@ -115,6 +115,47 @@ and commits the segment, and the next utterance gets a fresh segment id.
 `scripts/sherpa_ws_server.py` is the reference implementation of the server
 side; its model, listen address, and thread count are configurable via
 environment variables (see the header comment in the script).
+
+## Swapping models / engines
+
+The reference server auto-detects the sherpa-onnx engine from the model
+directory contents — the bot and the WS protocol stay untouched either way:
+
+- `encoder` + `decoder` + `joiner` ONNX files → transducer, e.g. the default
+  bilingual (zh/en) streaming Zipformer
+- `encoder` + `decoder` ONNX files, no joiner → streaming Paraformer, e.g.
+  `sherpa-onnx-streaming-paraformer-bilingual-zh-en`
+- anything else (including offline Paraformer packages with a single
+  `model.onnx`, which are not streaming models) → startup fails with a clear
+  message
+
+Point `SHERPA_MODEL_DIR` at the model you want; int8 files are preferred when
+both precisions are present (`SHERPA_INT8=0` to prefer fp32):
+
+```bash
+wget https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2
+tar xf sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2
+SHERPA_MODEL_DIR=./sherpa-onnx-streaming-paraformer-bilingual-zh-en \
+  python3 scripts/sherpa_ws_server.py
+```
+
+The STT Docker image bakes the model in at build time; swap it with the
+`MODEL_URL` / `MODEL_DIR` build ARGs:
+
+```bash
+docker build -t woom-stt:paraformer \
+  --build-arg MODEL_URL=https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2 \
+  --build-arg MODEL_DIR=sherpa-onnx-streaming-paraformer-bilingual-zh-en \
+  scripts/
+```
+
+Which engine when? Keep the default **bilingual Zipformer** for mixed
+Chinese/English rooms — on code-switched speech ("加了 ES 是一般现在时") it is
+measurably better. Pick a **Paraformer** build for Mandarin-heavy rooms: the
+paraformer-zh family is trained Mandarin-first (and handles dialects such as
+Sichuanese/Henanese), trading some English accuracy for it. The strictly
+Chinese-only `sherpa-onnx-paraformer-zh-*` packages are *offline* models and
+cannot be used here — only `sherpa-onnx-streaming-*` packages work.
 
 ## Development
 
