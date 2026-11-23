@@ -61,10 +61,35 @@ test.describe('meeting records', () => {
     await expect(transcript).toContainText('second sentence')
     await expect(transcript).not.toContainText('不应该出现')
 
-    // the e2e server has no minutes upstream configured
+    // a record without artifacts shows both actions with default labels and
+    // no content blocks; happy-path generation is not covered here because it
+    // needs a live LLM upstream (Rust tests cover it with a mock upstream)
+    await expect(page.getByTestId('record-minutes')).toContainText(
+      'Generate minutes'
+    )
+    await expect(page.getByTestId('record-minutes')).not.toContainText(
+      'Regenerate'
+    )
+    await expect(page.getByTestId('record-cleanup')).toContainText(
+      'Polish transcript'
+    )
+    await expect(page.getByTestId('record-cleanup')).not.toContainText(
+      'Regenerate'
+    )
+    await expect(page.getByTestId('minutes-content')).toHaveCount(0)
+    await expect(page.getByTestId('cleanup-content')).toHaveCount(0)
+
+    // the e2e server has no minutes upstream configured, so both generation
+    // endpoints 404 and each artifact shows its own independent hint
     await page.getByTestId('record-minutes').click()
     await expect(page.getByTestId('minutes-hint')).toBeVisible()
     await expect(page.getByTestId('minutes-hint')).toContainText('not enabled')
+    await expect(page.getByTestId('cleanup-hint')).toHaveCount(0)
+
+    await page.getByTestId('record-cleanup').click()
+    await expect(page.getByTestId('cleanup-hint')).toBeVisible()
+    await expect(page.getByTestId('cleanup-hint')).toContainText('not enabled')
+    await expect(page.getByTestId('minutes-hint')).toBeVisible()
   })
 
   test('non-owner sees no history', async ({ browser, request }) => {
