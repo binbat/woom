@@ -26,6 +26,12 @@ interface Participant {
 interface RoomDetail extends Room {
   meeting: Meeting | null
   participants: Participant[]
+  /**
+   * Live777 stream id carrying this room's events over a cable datachannel;
+   * present only when the server has EVENTS_CABLE enabled and the caller is
+   * an active participant. When absent, fall back to SSE room events.
+   */
+  eventsStream?: string
 }
 
 interface JoinResponse {
