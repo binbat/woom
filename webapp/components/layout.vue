@@ -3,6 +3,7 @@ import copy from 'copy-to-clipboard'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   ApiError,
+  type Caption,
   getRoom,
   leaveMeeting,
   leaveMeetingKeepalive,
@@ -26,6 +27,7 @@ import {
   roomParticipants,
   type UserStatus,
 } from '../store/atoms'
+import Captions from './captions.vue'
 import Chat from './chat.vue'
 import DeviceBar from './device.vue'
 import MeetingPanel from './meeting-panel.vue'
@@ -41,6 +43,7 @@ import useWhipClient from './use/whip'
 
 const MAX_VISIBLE_TILES = 9
 const MAX_DEFAULT_VIDEO_TILES = 6
+const MAX_CAPTIONS = 50
 
 const props = defineProps<{ meetingId: string }>()
 
@@ -137,7 +140,21 @@ const chatOpen = ref(false)
 const membersOpen = ref(false)
 const unread = ref(0)
 const messages = ref<Message[]>([])
+const captions = ref<Caption[]>([])
 const streamsAll = ref<Record<string, Stream>>({})
+
+// partial caption results share an id and revise in place; bounded so a long
+// meeting cannot grow the list without limit (display expiry is in Captions)
+const upsertCaption = (caption: Caption) => {
+  const index = captions.value.findIndex(c => c.id === caption.id)
+  if (index >= 0) {
+    captions.value[index] = caption
+  } else {
+    captions.value.push(caption)
+    if (captions.value.length > MAX_CAPTIONS)
+      captions.value.splice(0, captions.value.length - MAX_CAPTIONS)
+  }
+}
 
 const activeCount = computed(
   () => roomParticipants.value.filter(p => !p.leaveAt).length
@@ -199,6 +216,7 @@ const invalidate = () => {
   window.removeEventListener('unload', cleanup)
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('online', handleOnline)
+  captions.value = []
   joinedMeetingNo.value = ''
   joinPassword.value = ''
 }
@@ -375,6 +393,8 @@ const connectEvents = async () => {
         if (data.type === 'message') {
           messages.value.push(data.message)
           if (!chatOpen.value) unread.value++
+        } else if (data.type === 'caption') {
+          upsertCaption(data.caption)
         } else {
           applySnapshot(data)
         }
@@ -450,7 +470,7 @@ onUnmounted(() => {
 <template>
   <div class="flex h-dvh flex-col overflow-hidden">
     <div class="flex-1 min-h-0 flex overflow-hidden">
-      <div class="flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row justify-center-safe' : 'flex-col'" :style="{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))' }" data-testid="video-stage">
+      <div class="relative flex-1 min-h-0 flex gap-4 p-4 overflow-hidden" :class="enabledPresentation ? 'flex-col lg:flex-row justify-center-safe' : 'flex-col'" :style="{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))' }" data-testid="video-stage">
         <!-- presenter mode: shared screen takes the main stage -->
         <div v-if="enabledPresentation" class="flex-none lg:flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
           <Player
@@ -479,6 +499,7 @@ onUnmounted(() => {
             <p class="mt-1 text-sm text-muted">{{ hiddenRemoteIds.length === 1 ? 'other' : 'others' }}</p>
           </div>
         </div>
+        <Captions :captions="captions" />
       </div>
 
       <MeetingPanel v-if="chatOpen" kind="chat" @close="chatOpen = false">

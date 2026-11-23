@@ -43,6 +43,7 @@ interface MeetingRecord {
   maxConcurrent: number
   participants: Participant[]
   messages: Message[]
+  captions: Caption[]
 }
 
 interface Message {
@@ -50,6 +51,16 @@ interface Message {
   userId: string
   name: string
   content: string
+  ts: number
+}
+
+/** Caption segment injected by the caption bot; same id revises in place */
+interface Caption {
+  id: string
+  userId: string
+  name: string
+  text: string
+  isFinal: boolean
   ts: number
 }
 
@@ -98,7 +109,13 @@ interface RoomMessageEvent {
   message: Message
 }
 
-type RoomEvent = RoomSnapshot | RoomMessageEvent
+interface RoomCaptionEvent {
+  type: 'caption'
+  revision: number
+  caption: Caption
+}
+
+type RoomEvent = RoomSnapshot | RoomMessageEvent | RoomCaptionEvent
 
 class ApiError extends Error {
   status: number
@@ -240,6 +257,24 @@ async function getMyRecords(): Promise<MeetingRecord[]> {
   ).json()
 }
 
+async function getRoomRecords(id: string): Promise<MeetingRecord[]> {
+  const res = await fetch(`/room/${id}/records`, {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json()
+}
+
+async function createMinutes(id: string, meetingNo: string): Promise<string> {
+  const res = await fetch(`/room/${id}/records/${meetingNo}/minutes`, {
+    headers: authHeaders(),
+    method: 'POST',
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  const { minutes } = (await res.json()) as { minutes: string }
+  return minutes
+}
+
 async function sendMessage(id: string, content: string): Promise<Message> {
   const res = await fetch(`/room/${id}/message`, {
     headers: authHeaders(),
@@ -263,6 +298,7 @@ async function openRoomEvents(id: string): Promise<EventSource> {
 }
 
 export type {
+  Caption,
   JoinResponse,
   Meeting,
   MeetingRecord,
@@ -276,9 +312,11 @@ export type {
 }
 export {
   ApiError,
+  createMinutes,
   endMeeting,
   getMyRecords,
   getRoom,
+  getRoomRecords,
   joinMeeting,
   kickParticipant,
   leaveMeeting,
