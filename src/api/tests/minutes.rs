@@ -19,6 +19,7 @@ const MINUTES_MARKDOWN: &str = "## 纪要";
 struct MockMinutes {
     requests: Arc<Mutex<Vec<(String, Value)>>>,
     status: StatusCode,
+    echo: bool,
 }
 
 async fn mock_chat_completions(
@@ -31,28 +32,46 @@ async fn mock_chat_completions(
         .and_then(|value| value.to_str().ok())
         .unwrap_or("")
         .to_string();
-    mock.requests.lock().unwrap().push((authorization, body));
+    mock.requests
+        .lock()
+        .unwrap()
+        .push((authorization, body.clone()));
     if mock.status != StatusCode::OK {
         return mock.status.into_response();
     }
+    let content = if mock.echo {
+        body["messages"]
+            .as_array()
+            .and_then(|messages| messages.get(1))
+            .and_then(|message| message["content"].as_str())
+            .map(|user| format!("cleaned: {user}"))
+            .unwrap_or_default()
+    } else {
+        MINUTES_MARKDOWN.to_string()
+    };
     Json(json!({
         "choices": [{
             "index": 0,
-            "message": { "role": "assistant", "content": MINUTES_MARKDOWN },
+            "message": { "role": "assistant", "content": content },
         }]
     }))
     .into_response()
 }
 
-async fn spawn_minutes_upstream(status: StatusCode) -> (TestServer, MockMinutes) {
+async fn spawn_minutes_upstream_with(status: StatusCode, echo: bool) -> (TestServer, MockMinutes) {
     let mock = MockMinutes {
         status,
+        echo,
         ..MockMinutes::default()
     };
     let app = Router::new()
         .route("/v1/chat/completions", post(mock_chat_completions))
         .with_state(mock.clone());
     (serve(app).await, mock)
+}
+
+async fn spawn_minutes_upstream(status: StatusCode) -> (TestServer, MockMinutes) {
+    spawn_minutes_upstream_with(status, false).await
 }
 
 async fn spawn_app_with_minutes(minutes_url: Option<&str>) -> (TestServer, AppState) {
@@ -146,6 +165,18 @@ fn post_minutes(
 ) -> RequestBuilder {
     client.post(format!(
         "{}/room/{room_id}/records/{meeting_no}/minutes",
+        server.origin
+    ))
+}
+
+fn post_cleanup(
+    client: &reqwest::Client,
+    server: &TestServer,
+    room_id: &str,
+    meeting_no: &str,
+) -> RequestBuilder {
+    client.post(format!(
+        "{}/room/{room_id}/records/{meeting_no}/cleanup",
         server.origin
     ))
 }
@@ -272,6 +303,7 @@ async fn minutes_returns_markdown_and_sends_the_final_transcript() {
     assert_eq!(response.status(), ReqwestStatus::OK);
     let body = response.json::<Value>().await.unwrap();
     assert_eq!(body["minutes"], MINUTES_MARKDOWN);
+    assert_eq!(body["cached"], false);
 
     let requests = mock.requests.lock().unwrap();
     assert_eq!(requests.len(), 1);
@@ -324,4 +356,294 @@ async fn minutes_upstream_errors_are_bad_gateway() {
     assert!(response_text(failed)
         .await
         .contains("minutes upstream error"));
+}
+
+#[tokio::test]
+async fn minutes_is_cached_until_forced() {
+    let (upstream, mock) = spawn_minutes_upstream(StatusCode::OK).await;
+    let (server, _state) = spawn_app_with_minutes(Some(&format!("{}/v1", upstream.origin))).await;
+    let client = reqwest::Client::new();
+    let meeting = archived_meeting(&client, &server, true).await;
+
+    let first = bearer(
+        post_minutes(&client, &server, &meeting.room_id, &meeting.meeting_no),
+        &meeting.owner,
+    )
+    .send()
+    .await
+    .unwrap();
+    assert_eq!(first.status(), ReqwestStatus::OK);
+    let first = first.json::<Value>().await.unwrap();
+    assert_eq!(first["minutes"], MINUTES_MARKDOWN);
+    assert_eq!(first["cached"], false);
+    assert_eq!(mock.requests.lock().unwrap().len(), 1);
+
+    let second = bearer(
+        post_minutes(&client, &server, &meeting.room_id, &meeting.meeting_no),
+        &meeting.guest,
+    )
+    .send()
+    .await
+    .unwrap();
+    let second = second.json::<Value>().await.unwrap();
+    assert_eq!(second["minutes"], MINUTES_MARKDOWN);
+    assert_eq!(second["cached"], true);
+    assert_eq!(mock.requests.lock().unwrap().len(), 1);
+
+    let forced = bearer(
+        client.post(format!(
+            "{}/room/{}/records/{}/minutes?force=true",
+            server.origin, meeting.room_id, meeting.meeting_no
+        )),
+        &meeting.owner,
+    )
+    .send()
+    .await
+    .unwrap();
+    let forced = forced.json::<Value>().await.unwrap();
+    assert_eq!(forced["minutes"], MINUTES_MARKDOWN);
+    assert_eq!(forced["cached"], false);
+    assert_eq!(mock.requests.lock().unwrap().len(), 2);
+
+    let after = bearer(
+        post_minutes(&client, &server, &meeting.room_id, &meeting.meeting_no),
+        &meeting.owner,
+    )
+    .send()
+    .await
+    .unwrap();
+    assert_eq!(after.json::<Value>().await.unwrap()["cached"], true);
+    assert_eq!(mock.requests.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn cleanup_is_cached_until_forced_and_checks_ownership() {
+    let (upstream, mock) = spawn_minutes_upstream(StatusCode::OK).await;
+    let (server, _state) = spawn_app_with_minutes(Some(&format!("{}/v1", upstream.origin))).await;
+    let client = reqwest::Client::new();
+    let meeting = archived_meeting(&client, &server, true).await;
+
+    let outsider = bearer(
+        post_cleanup(&client, &server, &meeting.room_id, &meeting.meeting_no),
+        &meeting.outsider,
+    )
+    .send()
+    .await
+    .unwrap();
+    assert_eq!(outsider.status(), ReqwestStatus::FORBIDDEN);
+
+    let first = bearer(
+        post_cleanup(&client, &server, &meeting.room_id, &meeting.meeting_no),
+        &meeting.guest,
+    )
+    .send()
+    .await
+    .unwrap();
+    assert_eq!(first.status(), ReqwestStatus::OK);
+    let first = first.json::<Value>().await.unwrap();
+    assert_eq!(first["polishedTranscript"], MINUTES_MARKDOWN);
+    assert_eq!(first["cached"], false);
+    {
+        let requests = mock.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        let messages = requests[0].1["messages"].as_array().unwrap();
+        assert!(messages[0]["content"].as_str().unwrap().contains("ASR"));
+        let transcript = messages[1]["content"].as_str().unwrap();
+        assert!(transcript.contains("owner-name: hello world"));
+        assert!(transcript.contains("test-user: second speaker"));
+        assert!(!transcript.contains("draft in progress"));
+    }
+
+    let second = bearer(
+        post_cleanup(&client, &server, &meeting.room_id, &meeting.meeting_no),
+        &meeting.owner,
+    )
+    .send()
+    .await
+    .unwrap();
+    let second = second.json::<Value>().await.unwrap();
+    assert_eq!(second["polishedTranscript"], MINUTES_MARKDOWN);
+    assert_eq!(second["cached"], true);
+    assert_eq!(mock.requests.lock().unwrap().len(), 1);
+
+    let forced = bearer(
+        client.post(format!(
+            "{}/room/{}/records/{}/cleanup?force=true",
+            server.origin, meeting.room_id, meeting.meeting_no
+        )),
+        &meeting.owner,
+    )
+    .send()
+    .await
+    .unwrap();
+    assert_eq!(forced.json::<Value>().await.unwrap()["cached"], false);
+    assert_eq!(mock.requests.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn cleanup_is_not_found_without_configuration_and_bad_request_without_transcript() {
+    let client = reqwest::Client::new();
+    let (disabled, _state) = spawn_app_with_minutes(None).await;
+    let meeting = archived_meeting(&client, &disabled, true).await;
+    let disabled_response = bearer(
+        post_cleanup(&client, &disabled, &meeting.room_id, &meeting.meeting_no),
+        &meeting.owner,
+    )
+    .send()
+    .await
+    .unwrap();
+    assert_eq!(disabled_response.status(), ReqwestStatus::NOT_FOUND);
+
+    let (upstream, _mock) = spawn_minutes_upstream(StatusCode::OK).await;
+    let (server, _state) = spawn_app_with_minutes(Some(&format!("{}/v1", upstream.origin))).await;
+    let meeting = archived_meeting(&client, &server, false).await;
+    let response = bearer(
+        post_cleanup(&client, &server, &meeting.room_id, &meeting.meeting_no),
+        &meeting.owner,
+    )
+    .send()
+    .await
+    .unwrap();
+    assert_eq!(response.status(), ReqwestStatus::BAD_REQUEST);
+    assert!(response_text(response).await.contains("no transcript"));
+}
+
+#[tokio::test]
+async fn generated_artifacts_are_exposed_by_records_endpoints() {
+    let (upstream, _mock) = spawn_minutes_upstream(StatusCode::OK).await;
+    let (server, _state) = spawn_app_with_minutes(Some(&format!("{}/v1", upstream.origin))).await;
+    let client = reqwest::Client::new();
+    let meeting = archived_meeting(&client, &server, true).await;
+
+    for request in [
+        post_minutes(&client, &server, &meeting.room_id, &meeting.meeting_no),
+        post_cleanup(&client, &server, &meeting.room_id, &meeting.meeting_no),
+    ] {
+        let response = bearer(request, &meeting.owner).send().await.unwrap();
+        assert_eq!(response.status(), ReqwestStatus::OK);
+    }
+
+    let room_records = bearer(
+        client.get(format!(
+            "{}/room/{}/records",
+            server.origin, meeting.room_id
+        )),
+        &meeting.owner,
+    )
+    .send()
+    .await
+    .unwrap()
+    .json::<Value>()
+    .await
+    .unwrap();
+    assert_eq!(room_records[0]["minutes"], MINUTES_MARKDOWN);
+    assert_eq!(room_records[0]["polishedTranscript"], MINUTES_MARKDOWN);
+    let user_records = bearer(
+        client.get(format!("{}/user/records", server.origin)),
+        &meeting.guest,
+    )
+    .send()
+    .await
+    .unwrap()
+    .json::<Value>()
+    .await
+    .unwrap();
+    assert_eq!(user_records[0]["minutes"], MINUTES_MARKDOWN);
+    assert_eq!(user_records[0]["polishedTranscript"], MINUTES_MARKDOWN);
+}
+
+#[tokio::test]
+async fn cleanup_chunks_long_transcripts_sequentially() {
+    let (upstream, mock) = spawn_minutes_upstream_with(StatusCode::OK, true).await;
+    let (server, state) = spawn_app_with_minutes(Some(&format!("{}/v1", upstream.origin))).await;
+    let client = reqwest::Client::new();
+    let meeting = archived_meeting(&client, &server, true).await;
+
+    let record = state
+        .store
+        .record_for_minutes(
+            &meeting.room_id,
+            &meeting.meeting_no,
+            &meeting.owner.stream_id,
+        )
+        .await
+        .unwrap();
+    let transcript = transcript_of(&record.captions);
+    let chunks = transcript_chunks(&transcript, 30);
+    assert!(chunks.len() > 1);
+
+    let response = artifact_response(
+        &state,
+        &meeting.room_id,
+        &meeting.meeting_no,
+        &meeting.owner.stream_id,
+        false,
+        ArtifactKind::Cleanup,
+        30,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    let expected = chunks
+        .iter()
+        .map(|chunk| format!("cleaned: {chunk}"))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    assert_eq!(body["polishedTranscript"], expected);
+    assert_eq!(body["cached"], false);
+
+    {
+        let requests = mock.requests.lock().unwrap();
+        assert_eq!(requests.len(), chunks.len());
+        for (index, (_, request)) in requests.iter().enumerate() {
+            let user = request["messages"][1]["content"].as_str().unwrap();
+            assert_eq!(user, chunks[index]);
+            assert!(chunks[index].len() <= 30);
+        }
+    }
+    let record = state
+        .store
+        .record_for_minutes(
+            &meeting.room_id,
+            &meeting.meeting_no,
+            &meeting.owner.stream_id,
+        )
+        .await
+        .unwrap();
+    assert_eq!(record.polished_transcript, expected);
+}
+
+#[test]
+fn transcript_chunks_split_on_line_boundaries_without_losing_content() {
+    assert_eq!(transcript_chunks("ab\ncd\nef", 5), vec!["ab\ncd", "ef"]);
+    assert_eq!(transcript_chunks("ab\ncd\nef", 3), vec!["ab", "cd", "ef"]);
+    let transcript = (0..50)
+        .map(|index| format!("speaker-{index}: utterance number {index}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for limit in [20, 41, 100, 100_000] {
+        let chunks = transcript_chunks(&transcript, limit);
+        assert_eq!(chunks.join("\n"), transcript, "limit {limit}");
+        for chunk in &chunks {
+            assert!(
+                chunk.len() <= limit || !chunk.contains('\n'),
+                "chunk of {} bytes exceeds limit {limit}",
+                chunk.len()
+            );
+        }
+    }
+    assert_eq!(transcript_chunks(&transcript, 100_000).len(), 1);
+}
+
+#[test]
+fn transcript_chunks_keep_oversized_lines_whole_and_handle_empty_input() {
+    let long = format!("speaker: {}", "x".repeat(500));
+    let transcript = format!("intro\n{long}\noutro");
+    let chunks = transcript_chunks(&transcript, 100);
+    assert_eq!(chunks, vec!["intro", long.as_str(), "outro"]);
+    assert_eq!(transcript_chunks("", 10), vec![""]);
+    assert_eq!(transcript_chunks("single", 3), vec!["single"]);
 }

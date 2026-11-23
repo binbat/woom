@@ -90,6 +90,10 @@ pub fn router(state: AppState) -> Router {
             "/room/{roomId}/records/{meetingNo}/minutes",
             post(meeting_minutes),
         )
+        .route(
+            "/room/{roomId}/records/{meetingNo}/cleanup",
+            post(cleanup_transcript),
+        )
         .route("/room/{roomId}/events/ticket", post(create_event_ticket))
         .route("/user/records", get(user_records))
         .merge(media_routes())
@@ -500,24 +504,71 @@ async fn room_records(
     }
 }
 
-// ---------- minutes ----------
+// ---------- minutes & transcript cleanup ----------
 
 const MINUTES_TIMEOUT: Duration = Duration::from_secs(60);
 const MINUTES_TRANSCRIPT_LIMIT: usize = 100_000;
+const CLEANUP_CHUNK_LIMIT: usize = 100_000;
 const MINUTES_SYSTEM_PROMPT: &str = "You are a concise meeting assistant. Turn the meeting \
      transcript into structured meeting minutes in Markdown: a short summary, key discussion \
      points, and action items. Answer in the dominant language of the transcript.";
+const CLEANUP_SYSTEM_PROMPT: &str = "You are cleaning up an automatically transcribed \
+     meeting (ASR). Fix recognition errors, restore punctuation, keep every utterance's \
+     content and the `name: text` speaker labels, segment by topic with `###` headings, do \
+     not summarize or omit content, and respond in the language(s) of the transcript.";
 
-fn minutes_transcript(captions: &[crate::model::Caption]) -> String {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ArtifactKind {
+    Minutes,
+    Cleanup,
+}
+
+impl ArtifactKind {
+    fn system_prompt(self) -> &'static str {
+        match self {
+            Self::Minutes => MINUTES_SYSTEM_PROMPT,
+            Self::Cleanup => CLEANUP_SYSTEM_PROMPT,
+        }
+    }
+
+    fn response_key(self) -> &'static str {
+        match self {
+            Self::Minutes => "minutes",
+            Self::Cleanup => "polishedTranscript",
+        }
+    }
+
+    fn cached_of(self, record: &Record) -> &str {
+        match self {
+            Self::Minutes => &record.minutes,
+            Self::Cleanup => &record.polished_transcript,
+        }
+    }
+
+    fn store_artifact(self) -> crate::store::RecordArtifact {
+        match self {
+            Self::Minutes => crate::store::RecordArtifact::Minutes,
+            Self::Cleanup => crate::store::RecordArtifact::PolishedTranscript,
+        }
+    }
+}
+
+fn transcript_of(captions: &[crate::model::Caption]) -> String {
     let mut transcript = String::new();
-    for caption in captions {
+    for (index, caption) in captions.iter().enumerate() {
+        if index > 0 {
+            transcript.push('\n');
+        }
         transcript.push_str(&caption.name);
         transcript.push_str(": ");
         transcript.push_str(&caption.text);
-        transcript.push('\n');
     }
-    if transcript.len() > MINUTES_TRANSCRIPT_LIMIT {
-        let mut start = transcript.len() - MINUTES_TRANSCRIPT_LIMIT;
+    transcript
+}
+
+fn cap_transcript(mut transcript: String, limit: usize) -> String {
+    if transcript.len() > limit {
+        let mut start = transcript.len() - limit;
         while !transcript.is_char_boundary(start) {
             start += 1;
         }
@@ -526,33 +577,48 @@ fn minutes_transcript(captions: &[crate::model::Caption]) -> String {
     transcript
 }
 
-async fn meeting_minutes(
-    State(state): State<AppState>,
-    Path((room_id, meeting_no)): Path<(String, String)>,
-    axum::Extension(user): axum::Extension<UserId>,
-) -> Response {
-    let (Some(base_url), Some(model)) = (
-        state.cfg.minutes_url.as_deref(),
-        state.cfg.minutes_model.as_deref(),
-    ) else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    let record = match state
-        .store
-        .record_for_minutes(&room_id, &meeting_no, &user.0)
-        .await
-    {
-        Ok(record) => record,
-        Err(error) => return store_error(error),
-    };
-    if record.captions.is_empty() {
-        return error(StatusCode::BAD_REQUEST, "no transcript");
+/// Split a transcript into chunks of at most `limit` bytes, cutting only on
+/// line boundaries so no line is ever split. A single line longer than
+/// `limit` forms its own oversized chunk. `chunks.join("\n") == transcript`.
+fn transcript_chunks(transcript: &str, limit: usize) -> Vec<&str> {
+    let mut chunks = Vec::new();
+    let mut chunk_start = 0;
+    let mut len = 0;
+    let mut offset = 0;
+    for line in transcript.split('\n') {
+        let added = if len == 0 {
+            line.len()
+        } else {
+            len + 1 + line.len()
+        };
+        if len > 0 && added > limit {
+            chunks.push(&transcript[chunk_start..offset - 1]);
+            chunk_start = offset;
+            len = line.len();
+        } else {
+            len = added;
+        }
+        offset += line.len() + 1;
     }
+    let tail = &transcript[chunk_start..];
+    if !tail.is_empty() || chunks.is_empty() {
+        chunks.push(tail);
+    }
+    chunks
+}
+
+async fn call_minutes_upstream(
+    state: &AppState,
+    base_url: &str,
+    model: &str,
+    system: &str,
+    user: &str,
+) -> Result<String, Box<Response>> {
     let request = json!({
         "model": model,
         "messages": [
-            { "role": "system", "content": MINUTES_SYSTEM_PROMPT },
-            { "role": "user", "content": minutes_transcript(&record.captions) },
+            { "role": "system", "content": system },
+            { "role": "user", "content": user },
         ],
         "stream": false,
     });
@@ -568,39 +634,152 @@ async fn meeting_minutes(
     if let Some(api_key) = state.cfg.minutes_api_key.as_deref() {
         upstream = upstream.bearer_auth(api_key);
     }
-    let response = match upstream.send().await {
-        Ok(response) => response,
-        Err(error) => {
-            tracing::error!("minutes upstream request failed: {error}");
-            return self::error(StatusCode::BAD_GATEWAY, "minutes upstream error");
-        }
-    };
+    let response = upstream.send().await.map_err(|error| {
+        tracing::error!("minutes upstream request failed: {error}");
+        Box::new(self::error(
+            StatusCode::BAD_GATEWAY,
+            "minutes upstream error",
+        ))
+    })?;
     let status = response.status();
-    let body = match response.bytes().await {
-        Ok(body) => body,
-        Err(error) => {
-            tracing::error!("minutes upstream body read failed: {error}");
-            return self::error(StatusCode::BAD_GATEWAY, "minutes upstream error");
-        }
-    };
+    let body = response.bytes().await.map_err(|error| {
+        tracing::error!("minutes upstream body read failed: {error}");
+        Box::new(self::error(
+            StatusCode::BAD_GATEWAY,
+            "minutes upstream error",
+        ))
+    })?;
     if !status.is_success() {
         tracing::error!("minutes upstream returned {status}");
-        return self::error(StatusCode::BAD_GATEWAY, "minutes upstream error");
+        return Err(Box::new(self::error(
+            StatusCode::BAD_GATEWAY,
+            "minutes upstream error",
+        )));
     }
-    let minutes = serde_json::from_slice::<Value>(&body)
+    serde_json::from_slice::<Value>(&body)
         .ok()
         .and_then(|body| {
             body["choices"].as_array()?.first()?["message"]["content"]
                 .as_str()
                 .map(str::to_string)
-        });
-    match minutes {
-        Some(minutes) => Json(json!({ "minutes": minutes })).into_response(),
-        None => {
+        })
+        .ok_or_else(|| {
             tracing::error!("minutes upstream returned a malformed response");
-            error(StatusCode::BAD_GATEWAY, "minutes upstream error")
-        }
+            Box::new(self::error(
+                StatusCode::BAD_GATEWAY,
+                "minutes upstream error",
+            ))
+        })
+}
+
+async fn artifact_response(
+    state: &AppState,
+    room_id: &str,
+    meeting_no: &str,
+    user_id: &str,
+    force: bool,
+    kind: ArtifactKind,
+    size: usize,
+) -> Response {
+    let (Some(base_url), Some(model)) = (
+        state.cfg.minutes_url.as_deref(),
+        state.cfg.minutes_model.as_deref(),
+    ) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let record = match state
+        .store
+        .record_for_minutes(room_id, meeting_no, user_id)
+        .await
+    {
+        Ok(record) => record,
+        Err(error) => return store_error(error),
+    };
+    if record.captions.is_empty() {
+        return error(StatusCode::BAD_REQUEST, "no transcript");
     }
+    let cached = kind.cached_of(&record);
+    if !force && !cached.is_empty() {
+        return Json(json!({ kind.response_key(): cached, "cached": true })).into_response();
+    }
+    let transcript = transcript_of(&record.captions);
+    let generated = match kind {
+        ArtifactKind::Minutes => {
+            call_minutes_upstream(
+                state,
+                base_url,
+                model,
+                kind.system_prompt(),
+                &cap_transcript(transcript, size),
+            )
+            .await
+        }
+        ArtifactKind::Cleanup => {
+            let mut parts = Vec::new();
+            for chunk in transcript_chunks(&transcript, size) {
+                match call_minutes_upstream(state, base_url, model, kind.system_prompt(), chunk)
+                    .await
+                {
+                    Ok(part) => parts.push(part),
+                    Err(response) => return *response,
+                }
+            }
+            Ok(parts.join("\n\n"))
+        }
+    };
+    let content = match generated {
+        Ok(content) => content,
+        Err(response) => return *response,
+    };
+    if let Err(error) = state
+        .store
+        .save_record_artifact(room_id, meeting_no, kind.store_artifact(), content.clone())
+        .await
+    {
+        return store_error(error);
+    }
+    Json(json!({ kind.response_key(): content, "cached": false })).into_response()
+}
+
+#[derive(Deserialize)]
+struct ArtifactQuery {
+    force: Option<bool>,
+}
+
+async fn meeting_minutes(
+    State(state): State<AppState>,
+    Path((room_id, meeting_no)): Path<(String, String)>,
+    Query(query): Query<ArtifactQuery>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    artifact_response(
+        &state,
+        &room_id,
+        &meeting_no,
+        &user.0,
+        query.force.unwrap_or(false),
+        ArtifactKind::Minutes,
+        MINUTES_TRANSCRIPT_LIMIT,
+    )
+    .await
+}
+
+async fn cleanup_transcript(
+    State(state): State<AppState>,
+    Path((room_id, meeting_no)): Path<(String, String)>,
+    Query(query): Query<ArtifactQuery>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    artifact_response(
+        &state,
+        &room_id,
+        &meeting_no,
+        &user.0,
+        query.force.unwrap_or(false),
+        ArtifactKind::Cleanup,
+        CLEANUP_CHUNK_LIMIT,
+    )
+    .await
 }
 
 // ---------- presence ----------

@@ -17,7 +17,7 @@ pub const PRESENCE_TTL_SECS: u64 = 45;
 pub const PARTICIPANT_TTL_SECS: u64 = 24 * 60 * 60;
 pub const MAX_MESSAGES_PER_MEETING: usize = 500;
 pub const MAX_CAPTIONS_PER_MEETING: usize = 2000;
-const DATA_VERSION: u32 = 2;
+const DATA_VERSION: u32 = 3;
 const ROOM_ID_ATTEMPTS: usize = 16;
 
 pub fn now_secs() -> i64 {
@@ -311,6 +311,8 @@ impl Inner {
                 .cloned()
                 .unwrap_or_default(),
             captions,
+            minutes: String::new(),
+            polished_transcript: String::new(),
         };
         self.data.records.push(record);
     }
@@ -338,6 +340,13 @@ pub struct JoinResult {
     pub user_id: String,
     pub role: Role,
     pub name: String,
+}
+
+/// A generated artifact cached on an archived `Record`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RecordArtifact {
+    Minutes,
+    PolishedTranscript,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -386,10 +395,11 @@ impl Store {
         };
         if data.version != DATA_VERSION {
             match data.version {
-                // Version 1 predates caption archiving; the `captions` map is
-                // filled by serde defaults and the next persist writes the
-                // current version.
-                1 => data.version = DATA_VERSION,
+                // Version 1 predates caption archiving and version 2 predates
+                // cached record artifacts; the missing fields are filled by
+                // serde defaults and the next persist writes the current
+                // version.
+                1 | 2 => data.version = DATA_VERSION,
                 version => {
                     return Err(StoreError::InvalidData(format!(
                         "unsupported version {version}, expected {DATA_VERSION}"
@@ -1038,6 +1048,33 @@ impl Store {
         Ok(record.clone())
     }
 
+    /// Cache a generated artifact (minutes, polished transcript) on an
+    /// archived record. Records are read-side state, so this persists
+    /// without broadcasting any SSE event.
+    pub async fn save_record_artifact(
+        &self,
+        room_id: &str,
+        meeting_no: &str,
+        artifact: RecordArtifact,
+        content: String,
+    ) -> Result<(), StoreError> {
+        self.persistent_command(|inner| {
+            let record = inner
+                .data
+                .records
+                .iter_mut()
+                .find(|record| record.room_id == room_id && record.meeting_no == meeting_no)
+                .ok_or(StoreError::NotFound)?;
+            match artifact {
+                RecordArtifact::Minutes => record.minutes = content,
+                RecordArtifact::PolishedTranscript => record.polished_transcript = content,
+            }
+            Ok(((), Change::Persist))
+        })
+        .await?;
+        Ok(())
+    }
+
     pub async fn sweep(
         &self,
         now: i64,
@@ -1483,7 +1520,7 @@ mod tests {
         let path = directory.data_file();
         tokio::fs::write(&path, b"not json").await.unwrap();
         assert!(matches!(Store::open(&path).await, Err(StoreError::Json(_))));
-        for version in [0, 3, 99] {
+        for version in [0, 4, 99] {
             let bytes = format!(r#"{{"version":{version}}}"#);
             tokio::fs::write(&path, bytes.as_bytes()).await.unwrap();
             assert!(
@@ -1491,7 +1528,7 @@ mod tests {
                 "version {version} must be rejected"
             );
         }
-        for version in [1, DATA_VERSION] {
+        for version in [1, 2, DATA_VERSION] {
             let bytes = format!(r#"{{"version":{version}}}"#);
             tokio::fs::write(&path, bytes.as_bytes()).await.unwrap();
             assert!(
@@ -1554,11 +1591,140 @@ mod tests {
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].messages[0].content, "hello");
         assert!(records[0].captions.is_empty());
+        assert!(records[0].minutes.is_empty());
+        assert!(records[0].polished_transcript.is_empty());
 
         store.create_room("owner").await.unwrap();
         let on_disk: serde_json::Value =
             serde_json::from_slice(&tokio::fs::read(&path).await.unwrap()).unwrap();
         assert_eq!(on_disk["version"], DATA_VERSION);
+    }
+
+    #[tokio::test]
+    async fn version_two_files_are_upgraded_preserving_captions() {
+        let directory = TestDir::new();
+        let path = directory.data_file();
+        let version_two = serde_json::json!({
+            "version": 2,
+            "rooms": {
+                "123-456-789": {
+                    "roomId": "123-456-789",
+                    "owner": "owner",
+                    "topic": "",
+                    "password": "",
+                    "locked": false,
+                    "presenter": "",
+                    "muteAllAt": 0,
+                    "createdAt": 1
+                }
+            },
+            "captions": {},
+            "records": [{
+                "meetingNo": "meeting-1",
+                "roomId": "123-456-789",
+                "startedAt": 1,
+                "endedAt": 2,
+                "maxConcurrent": 1,
+                "participants": [{
+                    "userId": "owner",
+                    "name": "owner",
+                    "role": "owner",
+                    "joinAt": 1,
+                    "leaveAt": 2
+                }],
+                "messages": [],
+                "captions": [{
+                    "id": "segment-1",
+                    "userId": "owner",
+                    "name": "owner",
+                    "text": "hello world",
+                    "isFinal": true,
+                    "ts": 1
+                }]
+            }]
+        });
+        tokio::fs::write(&path, serde_json::to_vec_pretty(&version_two).unwrap())
+            .await
+            .unwrap();
+
+        let store = Store::open(&path).await.unwrap();
+        let records = store
+            .records_for_room("123-456-789", "owner")
+            .await
+            .unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].captions.len(), 1);
+        assert_eq!(records[0].captions[0].text, "hello world");
+        assert!(records[0].minutes.is_empty());
+        assert!(records[0].polished_transcript.is_empty());
+
+        store.create_room("owner").await.unwrap();
+        let on_disk: serde_json::Value =
+            serde_json::from_slice(&tokio::fs::read(&path).await.unwrap()).unwrap();
+        assert_eq!(on_disk["version"], DATA_VERSION);
+    }
+
+    #[tokio::test]
+    async fn record_artifacts_are_saved_and_survive_reopen() {
+        let directory = TestDir::new();
+        let path = directory.data_file();
+        let store = Store::open(&path).await.unwrap();
+        let room_id = room_with_owner(&store).await;
+        let meeting_no = store
+            .join(&room_id, "owner", None, None)
+            .await
+            .unwrap()
+            .value
+            .meeting_no;
+        store.end(&room_id, "owner").await.unwrap();
+
+        assert!(matches!(
+            store
+                .save_record_artifact(
+                    &room_id,
+                    "no-such-meeting",
+                    RecordArtifact::Minutes,
+                    "minutes".to_string()
+                )
+                .await,
+            Err(StoreError::NotFound)
+        ));
+        store
+            .save_record_artifact(
+                &room_id,
+                &meeting_no,
+                RecordArtifact::Minutes,
+                "first minutes".to_string(),
+            )
+            .await
+            .unwrap();
+        store
+            .save_record_artifact(
+                &room_id,
+                &meeting_no,
+                RecordArtifact::Minutes,
+                "better minutes".to_string(),
+            )
+            .await
+            .unwrap();
+        store
+            .save_record_artifact(
+                &room_id,
+                &meeting_no,
+                RecordArtifact::PolishedTranscript,
+                "polished transcript".to_string(),
+            )
+            .await
+            .unwrap();
+        let records = store.records_for_room(&room_id, "owner").await.unwrap();
+        assert_eq!(records[0].minutes, "better minutes");
+        assert_eq!(records[0].polished_transcript, "polished transcript");
+        drop(store);
+
+        let reopened = Store::open(&path).await.unwrap();
+        let records = reopened.records_for_room(&room_id, "owner").await.unwrap();
+        assert_eq!(records[0].minutes, "better minutes");
+        assert_eq!(records[0].polished_transcript, "polished transcript");
     }
 
     #[tokio::test]

@@ -115,4 +115,10 @@ pub struct Record {
     pub messages: Vec<Message>,
     #[serde(default)]
     pub captions: Vec<Caption>,
+    /// Cached LLM-generated minutes; empty means not yet generated.
+    #[serde(default)]
+    pub minutes: String,
+    /// Cached LLM-polished transcript; empty means not yet generated.
+    #[serde(default)]
+    pub polished_transcript: String,
 }
