@@ -13,17 +13,25 @@ WOOM is a self-hosted meeting service built on the
   WebApp. Media and room APIs require current active-participant
   authorization. SSE uses short-lived tickets from
   `POST /room/{id}/events/ticket`; `snapshot` and `message` events carry a
-  per-room monotonically increasing `revision`.
+  per-room monotonically increasing `revision`. Live-subtitle `caption`
+  events share the same revision counter: partial segments are ephemeral,
+  final segments persist per meeting (capped at 2000) and archive into
+  records for transcripts and meeting minutes.
 - `src/store.rs` — Atomic domain commands and a single-process durable JSON
-  store. Rooms, meeting instances, participants, chat and archived records
-  are persisted with clone-on-write and atomic file replacement. Presence is
-  ephemeral with a 45s TTL; participant offline reclamation uses a separate
-  24h TTL. `DATA_FILE=:memory:` is available for tests. Do not run multiple
+  store. Rooms, meeting instances, participants, chat, final caption
+  segments and archived records are persisted with clone-on-write and
+  atomic file replacement. The data file is versioned (currently 2);
+  version 1 files are migrated on open. Presence is ephemeral with a 45s
+  TTL; participant offline reclamation uses a separate 24h TTL.
+  `DATA_FILE=:memory:` is available for tests. Do not run multiple
   processes against one JSON file.
 - `src/config.rs` — Environment configuration. `SECRET` is required and must
   contain at least 32 bytes. Other variables: `PORT` 4000, `LIVE777_URL`,
-  `LIVE777_TOKEN`, `DATA_FILE` (default `./data/woom.json`), and optional
-  `LOG_READ_TOKEN` for admin-only diagnostic export. Never log secrets, JWTs,
+  `LIVE777_TOKEN`, `DATA_FILE` (default `./data/woom.json`), optional
+  `LOG_READ_TOKEN` for admin-only diagnostic export, optional
+  `CAPTION_TOKEN` enabling the caption-bot API, and optional
+  `MINUTES_URL`/`MINUTES_MODEL`/`MINUTES_API_KEY` enabling LLM meeting
+  minutes through any OpenAI-compatible endpoint. Never log secrets, JWTs,
   SSE ticket query strings or room passwords.
 - `src/events.rs` — Per-room broadcast channels. Subscribe before taking the
   initial snapshot, deduplicate by revision, and recover from lag with a full
@@ -49,6 +57,19 @@ WOOM is a self-hosted meeting service built on the
 - `static/` — WebApp build output embedded into the Rust binary via rust-embed
   (`src/spa.rs`). `static/dist` is produced by `npm run build` and must exist
   before compiling.
+- `caption-bot/` — Standalone Rust crate (own workspace and lockfile) building
+  `woom-caption`, the live-captions worker. It polls `GET /caption/streams`
+  (static `CAPTION_TOKEN` bearer, never a user JWT), WHEP-subscribes each
+  speaker's audio directly from Live777 (bypassing the WOOM proxy, which
+  requires participant auth), decodes Opus to 16 kHz PCM, streams it to an
+  external streaming-STT server over WebSocket
+  (`caption-bot/scripts/sherpa_ws_server.py` is the reference server), and
+  posts partial/final segments to `POST /room/{id}/caption`. The WebApp
+  overlay lives in `webapp/components/captions.vue`. The Opus dependency is
+  vendored (built via cmake, statically linked — no system libopus needed).
+  The bot and the reference STT server have their own Dockerfiles and a
+  `captions` compose profile. Biome/ESLint exclude `caption-bot/`; format,
+  lint and test it with cargo inside that directory.
 - `tests/` — Playwright E2E tests, see below.
 
 ## Build and run
@@ -69,6 +90,10 @@ make                   # WebApp -> static/dist, then cargo build --release --loc
 
 Keep `SECRET` stable across restarts. Docker uses `/data/woom.json` and expects
 a persistent `/data` volume. See README for Live777 networking and upgrades.
+The caption bot is optional and builds separately: `cargo run` inside
+`caption-bot/` (needs cmake for the vendored Opus build and a running STT
+server), or `docker compose --profile captions up -d --build`; see
+`caption-bot/README.md`.
 
 ## Testing
 
@@ -106,7 +131,8 @@ E2E conventions:
   indent, trailing commas only when multiline. Use `npm run format` for safe
   fixes and `npm run lint` for all checks; lint is part of `npm run build`.
 - Rust must pass `cargo fmt --check` and
-  `cargo clippy --all-targets -- -D warnings`.
+  `cargo clippy --all-targets -- -D warnings` (root crate; `caption-bot/` is a
+  separate workspace — run the same checks inside it).
 - Commits: Conventional Commits with scope, for example `feat(webapp): ...`,
   `fix(server): ...`, `test(e2e): ...`.
 - CI: `.github/workflows/build.yml` (three-OS build),

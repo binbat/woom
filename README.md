@@ -59,6 +59,10 @@ Vite listens on `http://localhost:5173` and proxies the API, browser logs, WHIP/
 | `LIVE777_TOKEN` | empty | Optional upstream bearer token |
 | `DATA_FILE` | `./data/woom.json` | Durable state file; `:memory:` disables persistence for tests |
 | `LOG_READ_TOKEN` | empty | Optional admin token for reading browser diagnostics; at least 32 bytes when set |
+| `CAPTION_TOKEN` | empty | Optional static token enabling the live-captions API used by `caption-bot/`; at least 32 bytes when set |
+| `MINUTES_URL` | empty | Optional OpenAI-compatible chat-completions base URL (e.g. Ollama `http://localhost:11434/v1`) enabling `POST /room/{id}/records/{meetingNo}/minutes` |
+| `MINUTES_MODEL` | empty | Model name for the minutes endpoint; required when `MINUTES_URL` is set |
+| `MINUTES_API_KEY` | empty | Optional bearer token for the minutes upstream |
 
 WOOM requires membership authorization for room events, chat, presence and media signaling. Room passwords and secrets are never included in API responses or startup logs.
 
@@ -76,6 +80,22 @@ curl -H "Authorization: Bearer $LOG_READ_TOKEN" \
 Filters include `meetingId`, `sessionId`, `level`, `since` (epoch milliseconds) and `limit`. The NDJSON output contains session and meeting identifiers, timestamps, event data, page URL and user agent, so it can be supplied directly to an AI assistant for troubleshooting.
 
 `GET /log` is disabled when `LOG_READ_TOKEN` is unset and never accepts an ordinary user JWT. The in-memory buffer retains the most recent 5000 entries and is cleared on restart; long-term history remains available through the existing `client_log` service-log output. Exported data is redacted, but should still be treated as sensitive diagnostic material.
+
+### Live captions
+
+WOOM supports live meeting subtitles through an optional sidecar process, [`caption-bot/`](./caption-bot/README.md) (binary `woom-caption`). For every participant publishing audio, the bot subscribes to their Live777 stream over WHEP, decodes Opus, streams PCM to an external streaming speech-to-text server (a sherpa-onnx reference implementation is included; bilingual Chinese/English, CPU-only), and posts caption segments back to WOOM. Browsers receive them as `caption` SSE events and render an overlay. Partial segments are ephemeral; final segments are archived into the meeting record and exposed through the records APIs as the meeting transcript.
+
+Enable the caption API on the server, then run the STT server and the bot — either directly (see [caption-bot/README.md](./caption-bot/README.md)) or with the `captions` compose profile, which builds both images:
+
+```bash
+export CAPTION_TOKEN="$(openssl rand -hex 32)"
+# WOOM server runs with CAPTION_TOKEN set
+docker compose --profile captions up -d --build
+```
+
+The caption endpoints are disabled when `CAPTION_TOKEN` is unset and never accept an ordinary user JWT.
+
+With `MINUTES_URL`/`MINUTES_MODEL` configured, any meeting participant can generate Markdown minutes from an archived transcript via `POST /room/{roomId}/records/{meetingNo}/minutes`. Any OpenAI-compatible endpoint works (for example a self-hosted Ollama), so transcripts never have to leave your infrastructure.
 
 ### Data and deployment model
 
