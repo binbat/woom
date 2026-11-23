@@ -10,10 +10,12 @@ use super::*;
 use crate::model::Message;
 
 mod logging;
+mod minutes;
 mod revocation;
 
 const TEST_SECRET: &str = "test-secret-0123456789abcdef0123456789";
 const TEST_LOG_READ_TOKEN: &str = "log-read-token-0123456789abcdef0123456789";
+const TEST_CAPTION_TOKEN: &str = "caption-token-0123456789abcdef0123456789";
 
 struct TestServer {
     origin: String,
@@ -38,9 +40,10 @@ async fn serve(app: Router) -> TestServer {
     }
 }
 
-async fn spawn_app_with_log_token(
+async fn spawn_app_with_tokens(
     live777_url: &str,
     log_read_token: Option<&str>,
+    caption_token: Option<&str>,
 ) -> (TestServer, AppState) {
     let cfg = Config {
         secret: TEST_SECRET.to_string(),
@@ -48,6 +51,10 @@ async fn spawn_app_with_log_token(
         live777_url: live777_url.to_string(),
         live777_token: "upstream-token".to_string(),
         log_read_token: log_read_token.map(str::to_string),
+        caption_token: caption_token.map(str::to_string),
+        minutes_url: None,
+        minutes_model: None,
+        minutes_api_key: None,
         data_file: PathBuf::from(":memory:"),
     };
     let state = AppState::new(Arc::new(Store::memory()), crate::events::new_bus(), cfg);
@@ -56,7 +63,12 @@ async fn spawn_app_with_log_token(
 }
 
 async fn spawn_app(live777_url: &str) -> (TestServer, AppState) {
-    spawn_app_with_log_token(live777_url, Some(TEST_LOG_READ_TOKEN)).await
+    spawn_app_with_tokens(
+        live777_url,
+        Some(TEST_LOG_READ_TOKEN),
+        Some(TEST_CAPTION_TOKEN),
+    )
+    .await
 }
 
 #[derive(Deserialize)]
@@ -866,6 +878,10 @@ async fn event_stream_recovers_a_full_snapshot_after_lag() {
         live777_url: "http://127.0.0.1:9".to_string(),
         live777_token: String::new(),
         log_read_token: None,
+        caption_token: None,
+        minutes_url: None,
+        minutes_model: None,
+        minutes_api_key: None,
         data_file: PathBuf::from(":memory:"),
     };
     let state = AppState::new(Arc::new(Store::memory()), crate::events::new_bus(), cfg);
@@ -969,4 +985,394 @@ async fn spa_and_client_log_boundaries_are_enforced() {
         .await
         .unwrap();
     assert_eq!(oversized.status(), ReqwestStatus::PAYLOAD_TOO_LARGE);
+}
+
+// ---------- captions ----------
+
+async fn post_caption(
+    client: &reqwest::Client,
+    server: &TestServer,
+    room_id: &str,
+    body: Value,
+) -> reqwest::Response {
+    client
+        .post(format!("{}/room/{room_id}/caption", server.origin))
+        .bearer_auth(TEST_CAPTION_TOKEN)
+        .json(&body)
+        .send()
+        .await
+        .unwrap()
+}
+
+async fn get_caption_streams(client: &reqwest::Client, server: &TestServer) -> reqwest::Response {
+    client
+        .get(format!("{}/caption/streams", server.origin))
+        .bearer_auth(TEST_CAPTION_TOKEN)
+        .send()
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn caption_endpoints_require_a_configured_static_token() {
+    let client = reqwest::Client::new();
+    let (disabled, _state) = spawn_app_with_tokens("http://127.0.0.1:9", None, None).await;
+    for token in [None, Some(TEST_CAPTION_TOKEN)] {
+        let post = client.post(format!("{}/room/123-456-789/caption", disabled.origin));
+        let post = match token {
+            Some(token) => post.bearer_auth(token),
+            None => post,
+        };
+        let post = post
+            .json(&json!({ "userId": "user", "text": "hello" }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(post.status(), ReqwestStatus::NOT_FOUND);
+        let get = client.get(format!("{}/caption/streams", disabled.origin));
+        let get = match token {
+            Some(token) => get.bearer_auth(token),
+            None => get,
+        };
+        assert_eq!(get.send().await.unwrap().status(), ReqwestStatus::NOT_FOUND);
+    }
+
+    let (server, _state) = spawn_app("http://127.0.0.1:9").await;
+    let user = new_user(&client, &server).await;
+    for token in [None, Some("wrong-token"), Some(user.token.as_str())] {
+        let post = client.post(format!("{}/room/123-456-789/caption", server.origin));
+        let post = match token {
+            Some(token) => post.bearer_auth(token),
+            None => post,
+        };
+        let post = post
+            .json(&json!({ "userId": "user", "text": "hello" }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(post.status(), ReqwestStatus::UNAUTHORIZED);
+        assert!(response_text(post).await.contains("invalid caption token"));
+        let get = client.get(format!("{}/caption/streams", server.origin));
+        let get = match token {
+            Some(token) => get.bearer_auth(token),
+            None => get,
+        };
+        assert_eq!(
+            get.send().await.unwrap().status(),
+            ReqwestStatus::UNAUTHORIZED
+        );
+    }
+}
+
+#[tokio::test]
+async fn caption_is_broadcast_with_server_filled_name_and_timestamp() {
+    let (server, state) = spawn_app("http://127.0.0.1:9").await;
+    let client = reqwest::Client::new();
+    let owner = new_user(&client, &server).await;
+    let room_id = new_room(&client, &server, &owner).await;
+    join(&client, &server, &room_id, &owner).await;
+    let mut events = state.bus.subscribe(&room_id);
+
+    let before = crate::store::now_secs();
+    let response = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({ "userId": owner.stream_id, "text": "  hello world  ", "isFinal": true }),
+    )
+    .await;
+    assert_eq!(response.status(), ReqwestStatus::CREATED);
+    let caption = response.json::<Value>().await.unwrap();
+    let caption_id = caption["id"].as_str().unwrap().to_string();
+    assert!(!caption_id.is_empty());
+    assert_eq!(caption["userId"], owner.stream_id);
+    assert_eq!(caption["name"], "test-user");
+    assert_eq!(caption["text"], "hello world");
+    assert_eq!(caption["isFinal"], true);
+    let ts = caption["ts"].as_i64().unwrap();
+    assert!(ts >= before && ts <= crate::store::now_secs());
+
+    let event = tokio::time::timeout(Duration::from_secs(5), events.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(event.room_id, room_id);
+    assert!(event.snapshot_ref().is_none());
+    let payload: Value = serde_json::from_str(&event.payload_json()).unwrap();
+    assert_eq!(payload["type"], "caption");
+    assert_eq!(payload["revision"], event.revision);
+    assert!(payload["revision"].as_u64().unwrap() > 0);
+    assert_eq!(payload["caption"]["id"], caption_id);
+    assert_eq!(payload["caption"]["text"], "hello world");
+    assert_eq!(payload["caption"]["isFinal"], true);
+}
+
+#[tokio::test]
+async fn caption_validation_and_store_errors_are_mapped() {
+    let (server, _state) = spawn_app("http://127.0.0.1:9").await;
+    let client = reqwest::Client::new();
+    let owner = new_user(&client, &server).await;
+    let outsider = new_user(&client, &server).await;
+    let room_id = new_room(&client, &server, &owner).await;
+
+    let no_meeting = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({ "userId": owner.stream_id, "text": "hello" }),
+    )
+    .await;
+    assert_eq!(no_meeting.status(), ReqwestStatus::NOT_FOUND);
+    let unknown = post_caption(
+        &client,
+        &server,
+        "000-000-000",
+        json!({ "userId": owner.stream_id, "text": "hello" }),
+    )
+    .await;
+    assert_eq!(unknown.status(), ReqwestStatus::NOT_FOUND);
+
+    join(&client, &server, &room_id, &owner).await;
+
+    let blank_text = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({ "userId": owner.stream_id, "text": "   " }),
+    )
+    .await;
+    assert_eq!(blank_text.status(), ReqwestStatus::BAD_REQUEST);
+    assert!(response_text(blank_text).await.contains("empty caption"));
+    let missing_text = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({ "userId": owner.stream_id }),
+    )
+    .await;
+    assert_eq!(missing_text.status(), ReqwestStatus::BAD_REQUEST);
+    for body in [
+        json!({ "text": "hello" }),
+        json!({ "userId": "  ", "text": "hello" }),
+    ] {
+        let response = post_caption(&client, &server, &room_id, body).await;
+        assert_eq!(response.status(), ReqwestStatus::BAD_REQUEST);
+    }
+    let not_participant = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({ "userId": outsider.stream_id, "text": "hello" }),
+    )
+    .await;
+    assert_eq!(not_participant.status(), ReqwestStatus::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn caption_ids_pass_through_for_partial_updates_and_fields_are_capped() {
+    let (server, _state) = spawn_app("http://127.0.0.1:9").await;
+    let client = reqwest::Client::new();
+    let owner = new_user(&client, &server).await;
+    let room_id = new_room(&client, &server, &owner).await;
+    join(&client, &server, &room_id, &owner).await;
+
+    let first = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({ "id": "segment-1", "userId": owner.stream_id, "text": "partial" }),
+    )
+    .await;
+    assert_eq!(first.status(), ReqwestStatus::CREATED);
+    let second = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({
+            "id": "segment-1",
+            "userId": owner.stream_id,
+            "text": "partial updated",
+            "isFinal": true,
+        }),
+    )
+    .await;
+    assert_eq!(second.status(), ReqwestStatus::CREATED);
+    let first = first.json::<Value>().await.unwrap();
+    let second = second.json::<Value>().await.unwrap();
+    assert_eq!(first["id"], "segment-1");
+    assert_eq!(second["id"], "segment-1");
+    assert_eq!(second["text"], "partial updated");
+    assert_eq!(second["isFinal"], true);
+
+    let generated_a = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({ "userId": owner.stream_id, "text": "a" }),
+    )
+    .await
+    .json::<Value>()
+    .await
+    .unwrap();
+    let generated_b = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({ "id": "", "userId": owner.stream_id, "text": "b" }),
+    )
+    .await
+    .json::<Value>()
+    .await
+    .unwrap();
+    assert!(!generated_a["id"].as_str().unwrap().is_empty());
+    assert!(!generated_b["id"].as_str().unwrap().is_empty());
+    assert_ne!(generated_a["id"], generated_b["id"]);
+
+    let capped = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({
+            "id": "i".repeat(80),
+            "userId": owner.stream_id,
+            "text": "t".repeat(600),
+        }),
+    )
+    .await;
+    assert_eq!(capped.status(), ReqwestStatus::CREATED);
+    let capped = capped.json::<Value>().await.unwrap();
+    assert_eq!(capped["id"].as_str().unwrap().len(), 64);
+    assert_eq!(capped["text"].as_str().unwrap().chars().count(), 500);
+}
+
+#[tokio::test]
+async fn caption_streams_lists_audio_speakers_for_rooms_with_meetings() {
+    let (server, _state) = spawn_app("http://127.0.0.1:9").await;
+    let client = reqwest::Client::new();
+    let owner = new_user(&client, &server).await;
+    let guest = new_user(&client, &server).await;
+    let other = new_user(&client, &server).await;
+    let room_id = new_room(&client, &server, &owner).await;
+    let other_room = new_room(&client, &server, &other).await;
+    let lobby_room = new_room(&client, &server, &owner).await;
+
+    let response = get_caption_streams(&client, &server).await;
+    assert_eq!(response.status(), ReqwestStatus::OK);
+    let body = response.json::<Value>().await.unwrap();
+    assert!(body["rooms"].as_array().unwrap().is_empty());
+
+    join(&client, &server, &room_id, &owner).await;
+    join(&client, &server, &room_id, &guest).await;
+    join(&client, &server, &other_room, &other).await;
+    for (user, presence) in [
+        (
+            &owner,
+            json!({ "name": "owner", "state": "connected", "audio": true }),
+        ),
+        (
+            &guest,
+            json!({ "name": "guest", "state": "connected", "video": true }),
+        ),
+    ] {
+        let response = bearer(
+            client.patch(format!("{}/room/{room_id}/presence", server.origin)),
+            user,
+        )
+        .json(&presence)
+        .send()
+        .await
+        .unwrap();
+        assert_eq!(response.status(), ReqwestStatus::NO_CONTENT);
+    }
+
+    let response = get_caption_streams(&client, &server).await;
+    assert_eq!(response.status(), ReqwestStatus::OK);
+    let body = response.json::<Value>().await.unwrap();
+    let rooms = body["rooms"].as_array().unwrap();
+    assert_eq!(rooms.len(), 2);
+    let room = rooms.iter().find(|room| room["roomId"] == room_id).unwrap();
+    let speakers = room["speakers"].as_array().unwrap();
+    assert_eq!(speakers.len(), 1);
+    assert_eq!(speakers[0]["userId"], owner.stream_id);
+    assert_eq!(speakers[0]["name"], "test-user");
+    let quiet = rooms
+        .iter()
+        .find(|room| room["roomId"] == other_room)
+        .unwrap();
+    assert!(quiet["speakers"].as_array().unwrap().is_empty());
+    assert!(rooms.iter().all(|room| room["roomId"] != lobby_room));
+}
+
+#[tokio::test]
+async fn final_captions_are_archived_and_served_by_records_endpoints() {
+    let (server, state) = spawn_app("http://127.0.0.1:9").await;
+    let client = reqwest::Client::new();
+    let owner = new_user(&client, &server).await;
+    let guest = new_user(&client, &server).await;
+    let room_id = new_room(&client, &server, &owner).await;
+    join(&client, &server, &room_id, &owner).await;
+    join(&client, &server, &room_id, &guest).await;
+
+    let partial = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({ "userId": owner.stream_id, "text": "draft", "isFinal": false }),
+    )
+    .await;
+    assert_eq!(partial.status(), ReqwestStatus::CREATED);
+    let final_segment = post_caption(
+        &client,
+        &server,
+        &room_id,
+        json!({ "id": "seg-1", "userId": owner.stream_id, "text": "final words", "isFinal": true }),
+    )
+    .await;
+    assert_eq!(final_segment.status(), ReqwestStatus::CREATED);
+
+    let snapshot = serde_json::to_value(state.store.snapshot(&room_id).await.unwrap()).unwrap();
+    assert!(snapshot.get("captions").is_none());
+
+    let ended = bearer(
+        client.post(format!("{}/room/{room_id}/end", server.origin)),
+        &owner,
+    )
+    .send()
+    .await
+    .unwrap();
+    assert_eq!(ended.status(), ReqwestStatus::NO_CONTENT);
+
+    let room_records = bearer(
+        client.get(format!("{}/room/{room_id}/records", server.origin)),
+        &owner,
+    )
+    .send()
+    .await
+    .unwrap()
+    .json::<Value>()
+    .await
+    .unwrap();
+    let captions = room_records[0]["captions"].as_array().unwrap();
+    assert_eq!(captions.len(), 1);
+    assert_eq!(captions[0]["id"], "seg-1");
+    assert_eq!(captions[0]["userId"], owner.stream_id);
+    assert_eq!(captions[0]["name"], "test-user");
+    assert_eq!(captions[0]["text"], "final words");
+    assert_eq!(captions[0]["isFinal"], true);
+    assert!(captions[0]["ts"].is_number());
+
+    let user_records = bearer(
+        client.get(format!("{}/user/records", server.origin)),
+        &guest,
+    )
+    .send()
+    .await
+    .unwrap()
+    .json::<Value>()
+    .await
+    .unwrap();
+    assert_eq!(user_records.as_array().unwrap().len(), 1);
+    let captions = user_records[0]["captions"].as_array().unwrap();
+    assert_eq!(captions.len(), 1);
+    assert_eq!(captions[0]["text"], "final words");
 }

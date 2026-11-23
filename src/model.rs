@@ -71,6 +71,37 @@ pub struct Message {
     pub ts: i64,
 }
 
+/// One caption segment for a speaker. Partial segments are ephemeral: they
+/// are broadcast over SSE but never persisted. Final segments are persisted
+/// per meeting and archived into the meeting `Record` when it ends.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Caption {
+    pub id: String,
+    pub user_id: String,
+    pub name: String,
+    pub text: String,
+    pub is_final: bool,
+    pub ts: i64,
+}
+
+/// A participant currently publishing audio, as seen by the caption bot.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptionSpeaker {
+    pub user_id: String,
+    pub name: String,
+}
+
+/// A room with an ongoing meeting and the speakers the caption bot should
+/// transcribe.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptionRoom {
+    pub room_id: String,
+    pub speakers: Vec<CaptionSpeaker>,
+}
+
 /// Archived meeting: the "meeting record" listed in history.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,4 +113,6 @@ pub struct Record {
     pub max_concurrent: usize,
     pub participants: Vec<Participant>,
     pub messages: Vec<Message>,
+    #[serde(default)]
+    pub captions: Vec<Caption>,
 }

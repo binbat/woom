@@ -15,7 +15,7 @@ async fn post_logs(client: &reqwest::Client, server: &TestServer, batch: Value) 
 #[tokio::test]
 async fn log_read_token_can_be_disabled_and_is_independent_of_user_jwt() {
     let client = reqwest::Client::new();
-    let (disabled, _state) = spawn_app_with_log_token("http://127.0.0.1:9", None).await;
+    let (disabled, _state) = spawn_app_with_tokens("http://127.0.0.1:9", None, None).await;
     for token in [None, Some(TEST_LOG_READ_TOKEN)] {
         let request = client.get(format!("{}/log", disabled.origin));
         let request = match token {

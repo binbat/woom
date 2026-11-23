@@ -17,7 +17,7 @@ use axum::{
 };
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use tokio::sync::Mutex;
 use tokio_stream::{wrappers::BroadcastStream, Stream, StreamExt};
 use tower_http::trace::TraceLayer;
@@ -86,6 +86,10 @@ pub fn router(state: AppState) -> Router {
         .route("/room/{roomId}/presence", patch(set_presence))
         .route("/room/{roomId}/message", post(create_message))
         .route("/room/{roomId}/records", get(room_records))
+        .route(
+            "/room/{roomId}/records/{meetingNo}/minutes",
+            post(meeting_minutes),
+        )
         .route("/room/{roomId}/events/ticket", post(create_event_ticket))
         .route("/user/records", get(user_records))
         .merge(media_routes())
@@ -100,6 +104,8 @@ pub fn router(state: AppState) -> Router {
                 .get(read_client_logs)
                 .layer(DefaultBodyLimit::max(MAX_CLIENT_LOG_BODY)),
         )
+        .route("/room/{roomId}/caption", post(create_caption))
+        .route("/caption/streams", get(caption_streams))
         .route("/room/{roomId}/events", get(room_events))
         .fallback(spa::handler)
         .layer(
@@ -494,6 +500,109 @@ async fn room_records(
     }
 }
 
+// ---------- minutes ----------
+
+const MINUTES_TIMEOUT: Duration = Duration::from_secs(60);
+const MINUTES_TRANSCRIPT_LIMIT: usize = 100_000;
+const MINUTES_SYSTEM_PROMPT: &str = "You are a concise meeting assistant. Turn the meeting \
+     transcript into structured meeting minutes in Markdown: a short summary, key discussion \
+     points, and action items. Answer in the dominant language of the transcript.";
+
+fn minutes_transcript(captions: &[crate::model::Caption]) -> String {
+    let mut transcript = String::new();
+    for caption in captions {
+        transcript.push_str(&caption.name);
+        transcript.push_str(": ");
+        transcript.push_str(&caption.text);
+        transcript.push('\n');
+    }
+    if transcript.len() > MINUTES_TRANSCRIPT_LIMIT {
+        let mut start = transcript.len() - MINUTES_TRANSCRIPT_LIMIT;
+        while !transcript.is_char_boundary(start) {
+            start += 1;
+        }
+        transcript.drain(..start);
+    }
+    transcript
+}
+
+async fn meeting_minutes(
+    State(state): State<AppState>,
+    Path((room_id, meeting_no)): Path<(String, String)>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    let (Some(base_url), Some(model)) = (
+        state.cfg.minutes_url.as_deref(),
+        state.cfg.minutes_model.as_deref(),
+    ) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let record = match state
+        .store
+        .record_for_minutes(&room_id, &meeting_no, &user.0)
+        .await
+    {
+        Ok(record) => record,
+        Err(error) => return store_error(error),
+    };
+    if record.captions.is_empty() {
+        return error(StatusCode::BAD_REQUEST, "no transcript");
+    }
+    let request = json!({
+        "model": model,
+        "messages": [
+            { "role": "system", "content": MINUTES_SYSTEM_PROMPT },
+            { "role": "user", "content": minutes_transcript(&record.captions) },
+        ],
+        "stream": false,
+    });
+    let mut upstream = state
+        .http
+        .post(format!(
+            "{}/chat/completions",
+            base_url.trim_end_matches('/')
+        ))
+        .timeout(MINUTES_TIMEOUT)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(request.to_string());
+    if let Some(api_key) = state.cfg.minutes_api_key.as_deref() {
+        upstream = upstream.bearer_auth(api_key);
+    }
+    let response = match upstream.send().await {
+        Ok(response) => response,
+        Err(error) => {
+            tracing::error!("minutes upstream request failed: {error}");
+            return self::error(StatusCode::BAD_GATEWAY, "minutes upstream error");
+        }
+    };
+    let status = response.status();
+    let body = match response.bytes().await {
+        Ok(body) => body,
+        Err(error) => {
+            tracing::error!("minutes upstream body read failed: {error}");
+            return self::error(StatusCode::BAD_GATEWAY, "minutes upstream error");
+        }
+    };
+    if !status.is_success() {
+        tracing::error!("minutes upstream returned {status}");
+        return self::error(StatusCode::BAD_GATEWAY, "minutes upstream error");
+    }
+    let minutes = serde_json::from_slice::<Value>(&body)
+        .ok()
+        .and_then(|body| {
+            body["choices"].as_array()?.first()?["message"]["content"]
+                .as_str()
+                .map(str::to_string)
+        });
+    match minutes {
+        Some(minutes) => Json(json!({ "minutes": minutes })).into_response(),
+        None => {
+            tracing::error!("minutes upstream returned a malformed response");
+            error(StatusCode::BAD_GATEWAY, "minutes upstream error")
+        }
+    }
+}
+
 // ---------- presence ----------
 
 async fn set_presence(
@@ -596,6 +705,78 @@ async fn read_client_logs(
         )
         .body(Body::from(body))
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+// ---------- captions ----------
+
+const MAX_CAPTION_LEN: usize = 500;
+const MAX_CAPTION_ID_LEN: usize = 64;
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct CaptionRequest {
+    id: Option<String>,
+    user_id: Option<String>,
+    text: Option<String>,
+    is_final: bool,
+}
+
+fn caption_token_error(state: &AppState, headers: &HeaderMap) -> Option<Response> {
+    let Some(expected_token) = state.cfg.caption_token.as_deref() else {
+        return Some(StatusCode::NOT_FOUND.into_response());
+    };
+    if token_from_header(headers) != Some(expected_token) {
+        return Some(error(StatusCode::UNAUTHORIZED, "invalid caption token"));
+    }
+    None
+}
+
+async fn create_caption(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<CaptionRequest>,
+) -> Response {
+    if let Some(response) = caption_token_error(&state, &headers) {
+        return response;
+    }
+    let user_id = body.user_id.unwrap_or_default().trim().to_string();
+    if user_id.is_empty() {
+        return error(StatusCode::BAD_REQUEST, "missing user id");
+    }
+    let text = body
+        .text
+        .unwrap_or_default()
+        .trim()
+        .chars()
+        .take(MAX_CAPTION_LEN)
+        .collect::<String>();
+    if text.is_empty() {
+        return error(StatusCode::BAD_REQUEST, "empty caption");
+    }
+    let segment_id = body
+        .id
+        .map(|id| id.chars().take(MAX_CAPTION_ID_LEN).collect::<String>())
+        .filter(|id| !id.is_empty());
+    let _guard = state.write_gate.lock().await;
+    match state
+        .store
+        .caption(&room_id, &user_id, segment_id, text, body.is_final)
+        .await
+    {
+        Ok(command) => {
+            publish(&state, &command).await;
+            (StatusCode::CREATED, Json(command.value)).into_response()
+        }
+        Err(error) => store_error(error),
+    }
+}
+
+async fn caption_streams(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if let Some(response) = caption_token_error(&state, &headers) {
+        return response;
+    }
+    Json(json!({ "rooms": state.store.caption_rooms().await })).into_response()
 }
 
 // ---------- SSE ----------

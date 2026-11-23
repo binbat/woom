@@ -8,12 +8,16 @@ use tokio::sync::RwLock;
 
 use crate::events::{RoomEvent, Snapshot, SNAPSHOT_MESSAGE_LIMIT};
 use crate::helper;
-use crate::model::{Meeting, Message, Participant, Presence, Record, Role, Room};
+use crate::model::{
+    Caption, CaptionRoom, CaptionSpeaker, Meeting, Message, Participant, Presence, Record, Role,
+    Room,
+};
 
 pub const PRESENCE_TTL_SECS: u64 = 45;
 pub const PARTICIPANT_TTL_SECS: u64 = 24 * 60 * 60;
 pub const MAX_MESSAGES_PER_MEETING: usize = 500;
-const DATA_VERSION: u32 = 1;
+pub const MAX_CAPTIONS_PER_MEETING: usize = 2000;
+const DATA_VERSION: u32 = 2;
 const ROOM_ID_ATTEMPTS: usize = 16;
 
 pub fn now_secs() -> i64 {
@@ -90,6 +94,9 @@ struct Data {
     current: HashMap<String, String>,
     participants: HashMap<String, Vec<Participant>>,
     messages: HashMap<String, Vec<Message>>,
+    /// Final caption segments per ongoing meeting, moved into the `Record`
+    /// when the meeting ends. Added in data version 2.
+    captions: HashMap<String, Vec<Caption>>,
     records: Vec<Record>,
 }
 
@@ -102,6 +109,7 @@ impl Default for Data {
             current: HashMap::new(),
             participants: HashMap::new(),
             messages: HashMap::new(),
+            captions: HashMap::new(),
             records: Vec::new(),
         }
     }
@@ -141,6 +149,40 @@ impl Inner {
             .current
             .get(room_id)
             .is_some_and(|meeting_no| self.active_participant(meeting_no, user_id).is_some())
+    }
+
+    fn checked_caption(
+        &self,
+        room_id: &str,
+        user_id: &str,
+        segment_id: Option<String>,
+        text: String,
+        is_final: bool,
+    ) -> Result<(String, Caption), StoreError> {
+        if !self.data.rooms.contains_key(room_id) {
+            return Err(StoreError::NotFound);
+        }
+        let meeting_no = self
+            .data
+            .current
+            .get(room_id)
+            .cloned()
+            .ok_or(StoreError::NoMeeting)?;
+        let participant = self
+            .active_participant(&meeting_no, user_id)
+            .ok_or(StoreError::NotParticipant)?
+            .clone();
+        let caption = Caption {
+            id: segment_id
+                .filter(|id| !id.is_empty())
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+            user_id: user_id.to_string(),
+            name: participant.name,
+            text,
+            is_final,
+            ts: now_secs(),
+        };
+        Ok((meeting_no, caption))
     }
 
     fn presence_for(&self, meeting_no: &str, now: i64) -> HashMap<String, Presence> {
@@ -235,6 +277,7 @@ impl Inner {
             }
         }
         self.presence.remove(meeting_no);
+        let captions = self.data.captions.remove(meeting_no).unwrap_or_default();
         if self
             .data
             .records
@@ -267,6 +310,7 @@ impl Inner {
                 .get(meeting_no)
                 .cloned()
                 .unwrap_or_default(),
+            captions,
         };
         self.data.records.push(record);
     }
@@ -313,6 +357,7 @@ enum Change {
     Persist,
     Snapshot(String),
     Message(String, Message),
+    Caption(String, Caption),
 }
 
 pub struct Store {
@@ -334,16 +379,23 @@ impl Store {
             return Ok(Self::memory());
         }
 
-        let data = match tokio::fs::read(path).await {
+        let mut data = match tokio::fs::read(path).await {
             Ok(bytes) => serde_json::from_slice::<Data>(&bytes)?,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Data::default(),
             Err(error) => return Err(error.into()),
         };
         if data.version != DATA_VERSION {
-            return Err(StoreError::InvalidData(format!(
-                "unsupported version {}, expected {DATA_VERSION}",
-                data.version
-            )));
+            match data.version {
+                // Version 1 predates caption archiving; the `captions` map is
+                // filled by serde defaults and the next persist writes the
+                // current version.
+                1 => data.version = DATA_VERSION,
+                version => {
+                    return Err(StoreError::InvalidData(format!(
+                        "unsupported version {version}, expected {DATA_VERSION}"
+                    )))
+                }
+            }
         }
         for (room_id, meeting_no) in &data.current {
             let meeting = data
@@ -413,6 +465,10 @@ impl Store {
             Change::Message(room_id, message) => {
                 let revision = next.next_revision(&room_id);
                 Some(RoomEvent::message(&room_id, revision, message))
+            }
+            Change::Caption(room_id, caption) => {
+                let revision = next.next_revision(&room_id);
+                Some(RoomEvent::caption(&room_id, revision, caption))
             }
         };
         self.persist(next.data.clone()).await?;
@@ -804,6 +860,80 @@ impl Store {
         })
     }
 
+    pub async fn caption(
+        &self,
+        room_id: &str,
+        user_id: &str,
+        segment_id: Option<String>,
+        text: String,
+        is_final: bool,
+    ) -> Result<Command<Caption>, StoreError> {
+        if !is_final {
+            let mut inner = self.inner.write().await;
+            let (_, caption) = inner.checked_caption(room_id, user_id, segment_id, text, false)?;
+            let revision = inner.next_revision(room_id);
+            let event = RoomEvent::caption(room_id, revision, caption.clone());
+            return Ok(Command {
+                value: caption,
+                event: Some(event),
+            });
+        }
+        self.persistent_command(|inner| {
+            let (meeting_no, caption) =
+                inner.checked_caption(room_id, user_id, segment_id, text, true)?;
+            let captions = inner.data.captions.entry(meeting_no).or_default();
+            captions.push(caption.clone());
+            if captions.len() > MAX_CAPTIONS_PER_MEETING {
+                let overflow = captions.len() - MAX_CAPTIONS_PER_MEETING;
+                captions.drain(..overflow);
+            }
+            Ok((
+                caption.clone(),
+                Change::Caption(room_id.to_string(), caption),
+            ))
+        })
+        .await
+    }
+
+    pub async fn caption_rooms(&self) -> Vec<CaptionRoom> {
+        let inner = self.inner.read().await;
+        let now = now_secs();
+        let mut rooms = inner
+            .data
+            .current
+            .iter()
+            .map(|(room_id, meeting_no)| {
+                let presence = inner.presence_for(meeting_no, now);
+                let speakers = inner
+                    .data
+                    .participants
+                    .get(meeting_no)
+                    .map(|participants| {
+                        participants
+                            .iter()
+                            .filter(|participant| participant.leave_at.is_none())
+                            .filter(|participant| {
+                                presence
+                                    .get(&participant.user_id)
+                                    .is_some_and(|presence| presence.audio)
+                            })
+                            .map(|participant| CaptionSpeaker {
+                                user_id: participant.user_id.clone(),
+                                name: participant.name.clone(),
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                CaptionRoom {
+                    room_id: room_id.clone(),
+                    speakers,
+                }
+            })
+            .collect::<Vec<_>>();
+        rooms.sort_by(|a, b| a.room_id.cmp(&b.room_id));
+        rooms
+    }
+
     pub async fn add_message(
         &self,
         room_id: &str,
@@ -879,6 +1009,33 @@ impl Store {
             .filter(|record| record.room_id == room_id)
             .cloned()
             .collect())
+    }
+
+    /// One archived record visible to the room owner or to any participant of
+    /// that meeting (the `/user/records` visibility rule).
+    pub async fn record_for_minutes(
+        &self,
+        room_id: &str,
+        meeting_no: &str,
+        user_id: &str,
+    ) -> Result<Record, StoreError> {
+        let inner = self.inner.read().await;
+        let room = inner.data.rooms.get(room_id).ok_or(StoreError::NotFound)?;
+        let record = inner
+            .data
+            .records
+            .iter()
+            .find(|record| record.room_id == room_id && record.meeting_no == meeting_no)
+            .ok_or(StoreError::NotFound)?;
+        let visible = room.owner == user_id
+            || record
+                .participants
+                .iter()
+                .any(|participant| participant.user_id == user_id);
+        if !visible {
+            return Err(StoreError::Forbidden);
+        }
+        Ok(record.clone())
     }
 
     pub async fn sweep(
@@ -1326,11 +1483,154 @@ mod tests {
         let path = directory.data_file();
         tokio::fs::write(&path, b"not json").await.unwrap();
         assert!(matches!(Store::open(&path).await, Err(StoreError::Json(_))));
-        tokio::fs::write(&path, br#"{"version":99}"#).await.unwrap();
-        assert!(matches!(
-            Store::open(&path).await,
-            Err(StoreError::InvalidData(_))
-        ));
+        for version in [0, 3, 99] {
+            let bytes = format!(r#"{{"version":{version}}}"#);
+            tokio::fs::write(&path, bytes.as_bytes()).await.unwrap();
+            assert!(
+                matches!(Store::open(&path).await, Err(StoreError::InvalidData(_))),
+                "version {version} must be rejected"
+            );
+        }
+        for version in [1, DATA_VERSION] {
+            let bytes = format!(r#"{{"version":{version}}}"#);
+            tokio::fs::write(&path, bytes.as_bytes()).await.unwrap();
+            assert!(
+                Store::open(&path).await.is_ok(),
+                "version {version} must be accepted"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn version_one_files_are_upgraded_and_captions_default_to_empty() {
+        let directory = TestDir::new();
+        let path = directory.data_file();
+        let version_one = serde_json::json!({
+            "version": 1,
+            "rooms": {
+                "123-456-789": {
+                    "roomId": "123-456-789",
+                    "owner": "owner",
+                    "topic": "",
+                    "password": "",
+                    "locked": false,
+                    "presenter": "",
+                    "muteAllAt": 0,
+                    "createdAt": 1
+                }
+            },
+            "records": [{
+                "meetingNo": "meeting-1",
+                "roomId": "123-456-789",
+                "startedAt": 1,
+                "endedAt": 2,
+                "maxConcurrent": 1,
+                "participants": [{
+                    "userId": "owner",
+                    "name": "owner",
+                    "role": "owner",
+                    "joinAt": 1,
+                    "leaveAt": 2
+                }],
+                "messages": [{
+                    "id": "message-1",
+                    "userId": "owner",
+                    "name": "owner",
+                    "content": "hello",
+                    "ts": 1
+                }]
+            }]
+        });
+        tokio::fs::write(&path, serde_json::to_vec_pretty(&version_one).unwrap())
+            .await
+            .unwrap();
+
+        let store = Store::open(&path).await.unwrap();
+        assert!(store.inner.read().await.data.captions.is_empty());
+        let records = store
+            .records_for_room("123-456-789", "owner")
+            .await
+            .unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].messages[0].content, "hello");
+        assert!(records[0].captions.is_empty());
+
+        store.create_room("owner").await.unwrap();
+        let on_disk: serde_json::Value =
+            serde_json::from_slice(&tokio::fs::read(&path).await.unwrap()).unwrap();
+        assert_eq!(on_disk["version"], DATA_VERSION);
+    }
+
+    #[tokio::test]
+    async fn final_captions_are_persisted_and_archived_partials_are_not() {
+        let directory = TestDir::new();
+        let path = directory.data_file();
+        let store = Store::open(&path).await.unwrap();
+        let room_id = room_with_owner(&store).await;
+        store.join(&room_id, "owner", None, None).await.unwrap();
+
+        let before = tokio::fs::read(&path).await.unwrap();
+        let partial = store
+            .caption(&room_id, "owner", None, "draft".to_string(), false)
+            .await
+            .unwrap();
+        assert!(partial.event.is_some());
+        assert_eq!(before, tokio::fs::read(&path).await.unwrap());
+        assert!(store.inner.read().await.data.captions.is_empty());
+
+        let final_segment = store
+            .caption(
+                &room_id,
+                "owner",
+                Some("segment-1".to_string()),
+                "hello world".to_string(),
+                true,
+            )
+            .await
+            .unwrap();
+        let event = final_segment.event.unwrap();
+        assert!(event.payload_json().contains("\"type\":\"caption\""));
+        let persisted = String::from_utf8(tokio::fs::read(&path).await.unwrap()).unwrap();
+        assert!(persisted.contains("hello world"));
+
+        store.end(&room_id, "owner").await.unwrap();
+        assert!(store.inner.read().await.data.captions.is_empty());
+        let records = store.records_for_room(&room_id, "owner").await.unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].captions.len(), 1);
+        assert_eq!(records[0].captions[0].id, "segment-1");
+        assert_eq!(records[0].captions[0].text, "hello world");
+        assert!(records[0].captions[0].is_final);
+        drop(store);
+
+        let reopened = Store::open(&path).await.unwrap();
+        let records = reopened.records_for_room(&room_id, "owner").await.unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].captions.len(), 1);
+        assert_eq!(records[0].captions[0].text, "hello world");
+    }
+
+    #[tokio::test]
+    async fn final_captions_are_capped_per_meeting_draining_oldest() {
+        let store = Store::memory();
+        let room_id = room_with_owner(&store).await;
+        store.join(&room_id, "owner", None, None).await.unwrap();
+        for index in 0..MAX_CAPTIONS_PER_MEETING + 3 {
+            store
+                .caption(&room_id, "owner", None, format!("caption-{index}"), true)
+                .await
+                .unwrap();
+        }
+        store.leave(&room_id, "owner").await.unwrap();
+        let records = store.records_for_room(&room_id, "owner").await.unwrap();
+        assert_eq!(records.len(), 1);
+        let captions = &records[0].captions;
+        assert_eq!(captions.len(), MAX_CAPTIONS_PER_MEETING);
+        assert_eq!(captions[0].text, "caption-3");
+        assert_eq!(
+            captions[MAX_CAPTIONS_PER_MEETING - 1].text,
+            format!("caption-{}", MAX_CAPTIONS_PER_MEETING + 2)
+        );
     }
 
     #[test]

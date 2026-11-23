@@ -8,6 +8,10 @@ pub struct Config {
     pub live777_url: String,
     pub live777_token: String,
     pub log_read_token: Option<String>,
+    pub caption_token: Option<String>,
+    pub minutes_url: Option<String>,
+    pub minutes_model: Option<String>,
+    pub minutes_api_key: Option<String>,
     pub data_file: PathBuf,
 }
 
@@ -16,6 +20,8 @@ pub enum ConfigError {
     MissingSecret,
     WeakSecret,
     WeakLogReadToken,
+    WeakCaptionToken,
+    WeakMinutesConfig,
 }
 
 impl fmt::Display for ConfigError {
@@ -27,6 +33,10 @@ impl fmt::Display for ConfigError {
                 "SECRET must be at least 32 bytes and not a known default"
             ),
             Self::WeakLogReadToken => write!(f, "LOG_READ_TOKEN must be at least 32 bytes"),
+            Self::WeakCaptionToken => write!(f, "CAPTION_TOKEN must be at least 32 bytes"),
+            Self::WeakMinutesConfig => {
+                write!(f, "MINUTES_MODEL must be set when MINUTES_URL is set")
+            }
         }
     }
 }
@@ -43,6 +53,16 @@ impl fmt::Debug for Config {
             .field(
                 "log_read_token",
                 &self.log_read_token.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "caption_token",
+                &self.caption_token.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field("minutes_url", &self.minutes_url)
+            .field("minutes_model", &self.minutes_model)
+            .field(
+                "minutes_api_key",
+                &self.minutes_api_key.as_ref().map(|_| "[REDACTED]"),
             )
             .field("data_file", &self.data_file)
             .finish()
@@ -77,6 +97,32 @@ impl Config {
             Some(token) => Some(token),
             None => None,
         };
+        let caption_token = match lookup("CAPTION_TOKEN") {
+            Some(token) if token.is_empty() => None,
+            Some(token) if token.trim().is_empty() || token.len() < 32 => {
+                return Err(ConfigError::WeakCaptionToken)
+            }
+            Some(token) => Some(token),
+            None => None,
+        };
+        let minutes_url = match lookup("MINUTES_URL") {
+            Some(url) if url.trim().is_empty() => None,
+            Some(url) => Some(url),
+            None => None,
+        };
+        let minutes_model = match lookup("MINUTES_MODEL") {
+            Some(model) if model.trim().is_empty() => None,
+            Some(model) => Some(model),
+            None => None,
+        };
+        if minutes_url.is_some() && minutes_model.is_none() {
+            return Err(ConfigError::WeakMinutesConfig);
+        }
+        let minutes_api_key = match lookup("MINUTES_API_KEY") {
+            Some(key) if key.is_empty() => None,
+            Some(key) => Some(key),
+            None => None,
+        };
         let env = |key: &str, default: &str| lookup(key).unwrap_or_else(|| default.to_string());
         Ok(Self {
             secret,
@@ -84,6 +130,10 @@ impl Config {
             live777_url: env("LIVE777_URL", "http://localhost:7777"),
             live777_token: env("LIVE777_TOKEN", ""),
             log_read_token,
+            caption_token,
+            minutes_url,
+            minutes_model,
+            minutes_api_key,
             data_file: PathBuf::from(env("DATA_FILE", "./data/woom.json")),
         })
     }
@@ -141,6 +191,87 @@ mod tests {
     }
 
     #[test]
+    fn caption_token_is_optional_and_validated() {
+        let secret = ("SECRET", "0123456789abcdef0123456789abcdef");
+        assert_eq!(
+            config(&[secret, ("CAPTION_TOKEN", "short")]).err(),
+            Some(ConfigError::WeakCaptionToken)
+        );
+        assert_eq!(
+            config(&[secret, ("CAPTION_TOKEN", "")])
+                .unwrap()
+                .caption_token,
+            None
+        );
+        let token = "caption-token-0123456789abcdef0123456789";
+        assert_eq!(
+            config(&[secret, ("CAPTION_TOKEN", token)])
+                .unwrap()
+                .caption_token
+                .as_deref(),
+            Some(token)
+        );
+    }
+
+    #[test]
+    fn minutes_config_is_optional_and_requires_a_model() {
+        let secret = ("SECRET", "0123456789abcdef0123456789abcdef");
+        let cfg = config(&[secret]).unwrap();
+        assert_eq!(cfg.minutes_url, None);
+        assert_eq!(cfg.minutes_model, None);
+        assert_eq!(cfg.minutes_api_key, None);
+
+        let cfg = config(&[secret, ("MINUTES_URL", ""), ("MINUTES_MODEL", "ignored")]).unwrap();
+        assert_eq!(cfg.minutes_url, None);
+        assert_eq!(cfg.minutes_model, Some("ignored".to_string()));
+        let cfg = config(&[secret, ("MINUTES_URL", "  ")]).unwrap();
+        assert_eq!(cfg.minutes_url, None);
+
+        assert_eq!(
+            config(&[secret, ("MINUTES_URL", "http://localhost:11434/v1")]).err(),
+            Some(ConfigError::WeakMinutesConfig)
+        );
+        assert_eq!(
+            config(&[
+                secret,
+                ("MINUTES_URL", "http://localhost:11434/v1"),
+                ("MINUTES_MODEL", "  ")
+            ])
+            .err(),
+            Some(ConfigError::WeakMinutesConfig)
+        );
+
+        let cfg = config(&[
+            secret,
+            ("MINUTES_URL", "http://localhost:11434/v1"),
+            ("MINUTES_MODEL", "qwen3"),
+        ])
+        .unwrap();
+        assert_eq!(
+            cfg.minutes_url.as_deref(),
+            Some("http://localhost:11434/v1")
+        );
+        assert_eq!(cfg.minutes_model.as_deref(), Some("qwen3"));
+        assert_eq!(cfg.minutes_api_key, None);
+        let cfg = config(&[
+            secret,
+            ("MINUTES_URL", "http://localhost:11434/v1"),
+            ("MINUTES_MODEL", "qwen3"),
+            ("MINUTES_API_KEY", "minutes-key"),
+        ])
+        .unwrap();
+        assert_eq!(cfg.minutes_api_key.as_deref(), Some("minutes-key"));
+        let cfg = config(&[
+            secret,
+            ("MINUTES_URL", "http://localhost:11434/v1"),
+            ("MINUTES_MODEL", "qwen3"),
+            ("MINUTES_API_KEY", ""),
+        ])
+        .unwrap();
+        assert_eq!(cfg.minutes_api_key, None);
+    }
+
+    #[test]
     fn defaults_and_debug_output_are_safe() {
         let cfg = config(&[
             ("SECRET", "0123456789abcdef0123456789abcdef"),
@@ -149,6 +280,10 @@ mod tests {
                 "LOG_READ_TOKEN",
                 "log-read-secret-0123456789abcdef0123456789",
             ),
+            ("CAPTION_TOKEN", "caption-secret-0123456789abcdef0123456789"),
+            ("MINUTES_URL", "http://localhost:11434/v1"),
+            ("MINUTES_MODEL", "qwen3"),
+            ("MINUTES_API_KEY", "minutes-secret-key"),
         ])
         .unwrap();
         assert_eq!(cfg.data_file, PathBuf::from("./data/woom.json"));
@@ -156,6 +291,9 @@ mod tests {
         assert!(!debug.contains("0123456789abcdef"));
         assert!(!debug.contains("upstream-secret"));
         assert!(!debug.contains("log-read-secret"));
+        assert!(!debug.contains("caption-secret"));
+        assert!(!debug.contains("minutes-secret-key"));
+        assert!(debug.contains("qwen3"));
         assert!(debug.contains("REDACTED"));
     }
 }
