@@ -16,6 +16,9 @@ RUN apt-get update \
     && curl -fsSL "$MODEL_URL" -o /tmp/model.tar.bz2 \
     && tar -xjf /tmp/model.tar.bz2 -C /opt \
     && rm /tmp/model.tar.bz2 \
+    # only the int8 runtime files are used; drop fp32 duplicates and test wavs
+    && find "/opt/${MODEL_DIR}" -name '*.onnx' ! -name '*.int8.onnx' -delete \
+    && rm -rf "/opt/${MODEL_DIR}/test_wavs" \
     && apt-get purge -y curl bzip2 \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
