@@ -39,6 +39,7 @@ import SvgChat from './svg/chat.vue'
 import SvgDone from './svg/done.vue'
 import SvgEnd from './svg/end.vue'
 import SvgMembers from './svg/members.vue'
+import connectCableEvents from './use/cableEvents'
 import useWhipClient from './use/whip'
 
 const MAX_VISIBLE_TILES = 9
@@ -140,6 +141,11 @@ const chatOpen = ref(false)
 const membersOpen = ref(false)
 const unread = ref(0)
 const messages = ref<Message[]>([])
+// ids of chat messages already accounted for (rendered or unread-counted);
+// reset on mount, re-based on every snapshot. Lets a snapshot heal messages
+// missed as live events (e.g. fired while a cable channel was connecting)
+// without double counting, counting history, or counting own messages.
+const seenMessages = new Set<string>()
 const captions = ref<Caption[]>([])
 const streamsAll = ref<Record<string, Stream>>({})
 
@@ -195,6 +201,8 @@ const toggleMembers = () => {
 let active = true
 let lifecycle = 0
 let events: EventSource | undefined
+let cable: { close: () => void } | undefined
+let eventsStream: string | undefined
 let eventsGeneration = 0
 let eventsRetry: number | undefined
 let heartbeat: number | undefined
@@ -204,12 +212,38 @@ let lastMuteAllAt: number | null = null
 
 const isCurrent = (generation: number) => active && generation === lifecycle
 
+// shared dispatch for both room-event transports (SSE and cable): per-room
+// revisions are monotonic, so stale duplicates are dropped
+const roomEventDispatcher = () => {
+  let lastRevision = -1
+  return (data: RoomEvent) => {
+    if (typeof data.revision === 'number') {
+      if (data.revision <= lastRevision) return
+      lastRevision = data.revision
+    }
+    if (data.type === 'message') {
+      if (!seenMessages.has(data.message.id)) {
+        seenMessages.add(data.message.id)
+        messages.value.push(data.message)
+        if (!chatOpen.value && data.message.userId !== localStreamId)
+          unread.value++
+      }
+    } else if (data.type === 'caption') {
+      upsertCaption(data.caption)
+    } else {
+      applySnapshot(data)
+    }
+  }
+}
+
 const invalidate = () => {
   active = false
   lifecycle++
   eventsGeneration++
   events?.close()
   events = undefined
+  cable?.close()
+  cable = undefined
   window.clearTimeout(eventsRetry)
   window.clearInterval(heartbeat)
   window.removeEventListener('beforeunload', cleanup)
@@ -247,6 +281,26 @@ const applySnapshot = (data: RoomSnapshot) => {
     locked: data.locked,
   }
   roomParticipants.value = data.participants
+  // heal unread for messages missed as live events (e.g. fired while the
+  // events transport was connecting): unseen, post-join, not mine. Messages
+  // from before my join are history, never unread.
+  const myJoinAt = data.participants.find(
+    p => p.userId === localStreamId
+  )?.joinAt
+  let healed = 0
+  for (const message of data.messages) {
+    if (!seenMessages.has(message.id)) {
+      if (
+        !chatOpen.value &&
+        message.userId !== localStreamId &&
+        myJoinAt !== undefined &&
+        message.ts >= myJoinAt
+      )
+        healed++
+      seenMessages.add(message.id)
+    }
+  }
+  if (healed > 0) unread.value += healed
   messages.value = data.messages
   const me = data.participants.find(p => p.userId === localStreamId)
   if (data.meetingNo && me?.leaveAt) {
@@ -288,6 +342,8 @@ const handleOffline = () => {
   eventsGeneration++
   events?.close()
   events = undefined
+  cable?.close()
+  cable = undefined
   window.clearTimeout(eventsRetry)
   eventsRetry = undefined
 }
@@ -297,6 +353,8 @@ const handleOnline = () => {
   eventsGeneration++
   events?.close()
   events = undefined
+  cable?.close()
+  cable = undefined
   void restoreMeeting()
   void connectEvents()
 }
@@ -318,6 +376,12 @@ const restoreMeeting = (): Promise<void> => {
       if (detail.meeting?.meetingNo !== joinedMeetingNo.value || !me) {
         callEnd()
         return
+      }
+      // the cable advertisement can appear or disappear across server
+      // restarts; switch transports when it changes
+      if (detail.eventsStream !== eventsStream) {
+        eventsStream = detail.eventsStream
+        void connectEvents()
       }
       if (!(await setPresence(props.meetingId, whip.value.userStatus))) {
         throw new Error('presence rejected')
@@ -364,40 +428,45 @@ const scheduleEventsReconnect = () => {
 const connectEvents = async () => {
   const generation = lifecycle
   const connection = ++eventsGeneration
-  const previous = events
+  const previousEvents = events
+  const previousCable = cable
   events = undefined
-  previous?.close()
+  cable = undefined
+  previousEvents?.close()
+  previousCable?.close()
   window.clearTimeout(eventsRetry)
   eventsRetry = undefined
+  const dispatch = roomEventDispatcher()
+  const guarded = () => isCurrent(generation) && connection === eventsGeneration
+
+  // cable (Live777 datachannel) is opt-in via server advertisement; both
+  // transports never run simultaneously for the same generation
+  if (eventsStream) {
+    const stream = eventsStream
+    cable = connectCableEvents(props.meetingId, stream, {
+      onEvent: dispatch,
+      onReopen: () => {
+        if (guarded()) void restoreMeeting()
+      },
+      onTerminal: () => {
+        if (guarded()) callEnd()
+      },
+      isCurrent: guarded,
+    })
+    return
+  }
+
   try {
     const source = await openRoomEvents(props.meetingId)
-    if (!isCurrent(generation) || connection !== eventsGeneration) {
+    if (!guarded()) {
       source.close()
       return
     }
     events = source
-    let lastRevision = -1
     source.onmessage = e => {
-      if (
-        !isCurrent(generation) ||
-        connection !== eventsGeneration ||
-        events !== source
-      )
-        return
+      if (!guarded() || events !== source) return
       try {
-        const data = JSON.parse(e.data) as RoomEvent
-        if (typeof data.revision === 'number') {
-          if (data.revision <= lastRevision) return
-          lastRevision = data.revision
-        }
-        if (data.type === 'message') {
-          messages.value.push(data.message)
-          if (!chatOpen.value) unread.value++
-        } else if (data.type === 'caption') {
-          upsertCaption(data.caption)
-        } else {
-          applySnapshot(data)
-        }
+        dispatch(JSON.parse(e.data) as RoomEvent)
       } catch (e) {
         log('warn', 'sse_event_invalid', String(e), {
           meetingId: props.meetingId,
@@ -405,17 +474,12 @@ const connectEvents = async () => {
       }
     }
     source.onopen = () => {
-      if (
-        !isCurrent(generation) ||
-        connection !== eventsGeneration ||
-        events !== source
-      )
-        return
+      if (!guarded() || events !== source) return
       if (sseOpenedOnce) void restoreMeeting()
       sseOpenedOnce = true
     }
     source.onerror = () => {
-      if (!isCurrent(generation) || connection !== eventsGeneration) return
+      if (!guarded()) return
       log('warn', 'sse_error', '', { meetingId: props.meetingId })
       if (source.readyState === EventSource.CLOSED) {
         source.close()
@@ -424,7 +488,7 @@ const connectEvents = async () => {
       }
     }
   } catch (e) {
-    if (!isCurrent(generation) || connection !== eventsGeneration) return
+    if (!guarded()) return
     log('warn', 'sse_ticket_failed', String(e), { meetingId: props.meetingId })
     if (isTerminalApiError(e)) {
       callEnd()
@@ -444,8 +508,15 @@ onMounted(async () => {
   const generation = lifecycle
   try {
     const detail = await getRoom(props.meetingId)
-    if (isCurrent(generation))
+    if (isCurrent(generation)) {
       roomInfo.value = { ...roomInfo.value, owner: detail.owner }
+      eventsStream = detail.eventsStream
+      // Seed the mute-all baseline at join from REST. The events transport
+      // delivers its first snapshot later (SSE connect, or cable channel
+      // open + resync); without this, a mute-all fired in that window is
+      // silently absorbed as the baseline instead of muting me.
+      if (lastMuteAllAt === null) lastMuteAllAt = detail.muteAllAt
+    }
   } catch {
     /* room may be gone */
   }

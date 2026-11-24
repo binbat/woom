@@ -48,6 +48,8 @@ export default defineConfig({
       LOG_READ_TOKEN: 'e2e-log-reader-9f6c2a84d17b43e0a5c98f21e6d04b7a',
       CAPTION_TOKEN: 'e2e-caption-9f6c2a84d17b43e0a5c98f21e6d04b7a',
       DATA_FILE: ':memory:',
+      // opt in locally (live777 >= 0.11.0); CI's pinned live777 keeps it off
+      EVENTS_CABLE: process.env.EVENTS_CABLE ?? '',
     },
   },
 })

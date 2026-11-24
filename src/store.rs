@@ -572,6 +572,27 @@ impl Store {
         })
     }
 
+    /// WHEP grant for a room's `{room_id}-events` cable stream: any active
+    /// participant of the room's current meeting may subscribe. The grant
+    /// carries the current meeting number, so a meeting turnover invalidates
+    /// existing sessions via `take_invalid_media_sessions`.
+    pub async fn whep_events_authorization(
+        &self,
+        user_id: &str,
+        stream_id: &str,
+    ) -> Option<MediaGrant> {
+        let room_id = crate::cable::events_room_id(stream_id)?;
+        let inner = self.inner.read().await;
+        let meeting_no = inner.data.current.get(room_id)?.clone();
+        inner
+            .active_participant(&meeting_no, user_id)
+            .is_some()
+            .then_some(MediaGrant {
+                room_id: room_id.to_string(),
+                meeting_no,
+            })
+    }
+
     pub async fn join(
         &self,
         room_id: &str,

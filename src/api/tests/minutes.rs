@@ -85,6 +85,7 @@ async fn spawn_app_with_minutes(minutes_url: Option<&str>) -> (TestServer, AppSt
         minutes_url: minutes_url.map(str::to_string),
         minutes_model: minutes_url.map(|_| TEST_MINUTES_MODEL.to_string()),
         minutes_api_key: minutes_url.map(|_| TEST_MINUTES_API_KEY.to_string()),
+        events_cable: false,
         data_file: PathBuf::from(":memory:"),
     };
     let state = AppState::new(Arc::new(Store::memory()), crate::events::new_bus(), cfg);

@@ -60,6 +60,7 @@ Vite listens on `http://localhost:5173` and proxies the API, browser logs, WHIP/
 | `DATA_FILE` | `./data/woom.json` | Durable state file; `:memory:` disables persistence for tests |
 | `LOG_READ_TOKEN` | empty | Optional admin token for reading browser diagnostics; at least 32 bytes when set |
 | `CAPTION_TOKEN` | empty | Optional static token enabling the live-captions API used by `caption-bot/`; at least 32 bytes when set |
+| `EVENTS_CABLE` | empty (disabled) | Optional opt-in (any value except empty/`0`/`false`) dual-push of room events over a Live777 cable datachannel alongside SSE; requires the Live777 cable messages API (merged, no release yet — dev compose and CI build a pinned live777 commit) and a single-node Live777 (cables do not bridge liveman cascade nodes) |
 | `MINUTES_URL` | empty | Optional OpenAI-compatible chat-completions base URL (e.g. Ollama `http://localhost:11434/v1`) enabling `POST /room/{id}/records/{meetingNo}/minutes` |
 | `MINUTES_MODEL` | empty | Model name for the minutes endpoint; required when `MINUTES_URL` is set |
 | `MINUTES_API_KEY` | empty | Optional bearer token for the minutes upstream |

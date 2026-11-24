@@ -114,6 +114,9 @@ for (const viewport of [
 test('changes the processed camera image without restarting it', async ({
   page,
 }, testInfo) => {
+  // Two background swaps with 30s-bound waits each — overruns the default
+  // 60s test budget on a loaded CI runner.
+  test.setTimeout(120_000)
   await createMeeting(page)
   const video = page.getByTestId('video-self')
   const toggle = page.getByTestId('toggle-background')

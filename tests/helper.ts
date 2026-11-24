@@ -3,6 +3,14 @@ import { expect, type Locator, type Page } from '@playwright/test'
 // Room ids are 9 digits dash-grouped, e.g. 123-456-789 (server/helper)
 export const ROOM_ID_PATTERN = /\/\d{3}-\d{3}-\d{3}$/
 
+// True when the suite runs with EVENTS_CABLE enabled (room events over a
+// live777 datachannel instead of SSE). SSE-transport-specific tests (ticket
+// stubs, EventSource counting) are meaningless in that mode and skip.
+export const EVENTS_CABLE = !!(
+  process.env.EVENTS_CABLE &&
+  !['0', 'false'].includes(process.env.EVENTS_CABLE.toLowerCase())
+)
+
 export async function createMeeting(page: Page): Promise<string> {
   await page.goto('/')
   await page.getByTestId('new-meeting').click()

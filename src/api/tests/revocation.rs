@@ -397,6 +397,7 @@ async fn lag_after_kick_and_new_meeting_returns_only_safe_end_snapshot() {
         minutes_url: None,
         minutes_model: None,
         minutes_api_key: None,
+        events_cable: false,
         data_file: PathBuf::from(":memory:"),
     };
     let state = AppState::new(Arc::new(Store::memory()), crate::events::new_bus(), cfg);

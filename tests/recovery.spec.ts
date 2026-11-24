@@ -1,11 +1,17 @@
 import { expect, type Page, test } from '@playwright/test'
 import {
   createMeeting,
+  EVENTS_CABLE,
   expectVideoPlaying,
   getApiToken,
   joinMeetingFromWelcome,
   joinRoom,
 } from './helper'
+
+// SSE-transport note: with EVENTS_CABLE the room events ride a live777
+// datachannel instead of SSE; tests stubbing the ticket/events endpoints or
+// counting EventSource connections are meaningless there and skip.
+const SKIP_ON_CABLE = 'SSE-transport-only test (EVENTS_CABLE is on)'
 
 async function patchRoom(
   page: Page,
@@ -77,6 +83,7 @@ test.describe('meeting recovery', () => {
   test('a closed ticket connection obtains a fresh ticket', async ({
     page,
   }) => {
+    test.skip(EVENTS_CABLE, SKIP_ON_CABLE)
     let ticketRequests = 0
     let rejectEvents = true
     await page.route('**/room/*/events/ticket', async route => {
@@ -103,6 +110,7 @@ test.describe('meeting recovery', () => {
     test(`exits when the first snapshot meeting is ${String(snapshotMeetingNo)}`, async ({
       page,
     }) => {
+      test.skip(EVENTS_CABLE, SKIP_ON_CABLE)
       let releaseEvents = () => {}
       const eventsGate = new Promise<void>(resolve => {
         releaseEvents = resolve
@@ -183,6 +191,7 @@ test.describe('SSE connection ownership', () => {
     test(`ticket ${status} stops retries and returns to the lobby`, async ({
       page,
     }) => {
+      test.skip(EVENTS_CABLE, SKIP_ON_CABLE)
       let ticketRequests = 0
       let releaseTicket = () => {}
       const ticketGate = new Promise<void>(resolve => {
@@ -206,6 +215,7 @@ test.describe('SSE connection ownership', () => {
   test('concurrent connects leave only one active event source', async ({
     page,
   }) => {
+    test.skip(EVENTS_CABLE, SKIP_ON_CABLE)
     await page.addInitScript(() => {
       const NativeEventSource = window.EventSource
       const connections = {

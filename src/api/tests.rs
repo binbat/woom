@@ -9,6 +9,7 @@ use tokio::task::JoinHandle;
 use super::*;
 use crate::model::Message;
 
+mod cable;
 mod logging;
 mod minutes;
 mod revocation;
@@ -40,22 +41,31 @@ async fn serve(app: Router) -> TestServer {
     }
 }
 
+fn test_config(live777_url: &str) -> Config {
+    Config {
+        secret: TEST_SECRET.to_string(),
+        port: "0".to_string(),
+        live777_url: live777_url.to_string(),
+        live777_token: "upstream-token".to_string(),
+        log_read_token: None,
+        caption_token: None,
+        minutes_url: None,
+        minutes_model: None,
+        minutes_api_key: None,
+        events_cable: false,
+        data_file: PathBuf::from(":memory:"),
+    }
+}
+
 async fn spawn_app_with_tokens(
     live777_url: &str,
     log_read_token: Option<&str>,
     caption_token: Option<&str>,
 ) -> (TestServer, AppState) {
     let cfg = Config {
-        secret: TEST_SECRET.to_string(),
-        port: "0".to_string(),
-        live777_url: live777_url.to_string(),
-        live777_token: "upstream-token".to_string(),
         log_read_token: log_read_token.map(str::to_string),
         caption_token: caption_token.map(str::to_string),
-        minutes_url: None,
-        minutes_model: None,
-        minutes_api_key: None,
-        data_file: PathBuf::from(":memory:"),
+        ..test_config(live777_url)
     };
     let state = AppState::new(Arc::new(Store::memory()), crate::events::new_bus(), cfg);
     let server = serve(router(state.clone())).await;
@@ -882,6 +892,7 @@ async fn event_stream_recovers_a_full_snapshot_after_lag() {
         minutes_url: None,
         minutes_model: None,
         minutes_api_key: None,
+        events_cable: false,
         data_file: PathBuf::from(":memory:"),
     };
     let state = AppState::new(Arc::new(Store::memory()), crate::events::new_bus(), cfg);
