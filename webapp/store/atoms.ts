@@ -24,6 +24,8 @@ const joinedMeetingNo = ref('')
 const joinPassword = ref('')
 /** true when the app was opened on the /admin console path */
 const adminMode = ref(false)
+/** non-null while the current meeting is being recorded (server snapshot) */
+const recordingAt = ref<number | null>(null)
 
 const presentationStream = shallowRef<UserStream>({
   streamId: '',
@@ -56,6 +58,7 @@ export {
   meetingId,
   meetingJoined,
   presentationStream,
+  recordingAt,
   roomInfo,
   roomParticipants,
   speakerStatus,

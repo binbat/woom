@@ -4,12 +4,16 @@ import {
   ApiError,
   createCleanup,
   createMinutes,
+  createPlaybackTicket,
   getRoom,
   getRoomRecords,
   type MeetingRecord,
+  playbackUrl,
+  type RecordingInfo,
   setApiToken,
 } from '../lib/api'
 import { getStorage } from '../lib/storage'
+import DashPlayer from './player/dash-player.vue'
 import Loading from './svg/loading.vue'
 
 const RECENT_LIMIT = 5
@@ -83,6 +87,41 @@ const generate = async (kind: 'minutes' | 'cleanup', record: MeetingRecord) => {
 const generateMinutes = (record: MeetingRecord) => generate('minutes', record)
 const polishTranscript = (record: MeetingRecord) => generate('cleanup', record)
 
+/** at most one recording plays at a time, keyed by meetingNo + recordDir */
+const playbackKey = ref('')
+const playbackSrc = ref('')
+const playbackLoading = ref('')
+const playbackError = ref('')
+
+const playRecording = async (
+  record: MeetingRecord,
+  recording: RecordingInfo
+) => {
+  const key = `${record.meetingNo}:${recording.recordDir}`
+  if (playbackKey.value === key) {
+    playbackKey.value = ''
+    playbackSrc.value = ''
+    return
+  }
+  if (playbackLoading.value) return
+  playbackLoading.value = key
+  playbackError.value = ''
+  try {
+    const ticket = await createPlaybackTicket(props.roomId, record.meetingNo)
+    playbackSrc.value = playbackUrl(
+      props.roomId,
+      record.meetingNo,
+      recording.recordDir,
+      ticket.ticket
+    )
+    playbackKey.value = key
+  } catch (e) {
+    playbackError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    playbackLoading.value = ''
+  }
+}
+
 const formatStart = (secs: number) => new Date(secs * 1000).toLocaleString()
 
 const formatDuration = (record: MeetingRecord) => {
@@ -145,6 +184,29 @@ onMounted(async () => {
               <p v-for="caption in record.captions" :key="caption.id" class="text-foreground break-words whitespace-pre-wrap">{{ caption.name }}: {{ caption.text }}</p>
             </template>
             <p v-else class="text-muted">No transcript</p>
+          </div>
+
+          <div v-if="record.recordings.length" class="flex flex-col gap-2" data-testid="record-recordings">
+            <p class="text-xs font-medium text-muted">Recordings</p>
+            <div
+              v-for="recording in record.recordings"
+              :key="recording.recordDir"
+              class="flex items-center gap-2 text-sm"
+              data-testid="record-recording"
+            >
+              <span class="text-foreground">{{ recording.name || 'Unknown' }}</span>
+              <span class="text-xs text-muted">{{ formatStart(recording.startedAt) }}</span>
+              <button
+                class="btn-primary px-3 py-1 text-xs ml-auto"
+                :disabled="!!playbackLoading"
+                data-testid="record-play"
+                @click="playRecording(record, recording)"
+              >
+                {{ playbackKey === `${record.meetingNo}:${recording.recordDir}` ? 'Stop' : 'Play' }}
+              </button>
+            </div>
+            <p v-if="playbackError" class="text-xs text-danger" data-testid="record-playback-error">{{ playbackError }}</p>
+            <DashPlayer v-if="playbackSrc" :key="playbackKey" :src="playbackSrc" />
           </div>
 
           <div class="flex flex-wrap gap-2">
