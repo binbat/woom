@@ -19,8 +19,10 @@ WOOM is a self-hosted meeting service built on the
   participants get `eventsStream` in `GET /room/{id}` and the WebApp
   (`webapp/components/use/cableEvents.ts`) receives the identical payloads
   and revisions on a WHEP datachannel instead of SSE. The cable requires
-  Live777 >= 0.11.0 (cable messages API); the pinned 0.10.2 image cannot
-  serve it, so keep the toggle off there. It also requires a single-node
+  the Live777 cable messages API (merged, no release yet — dev compose and
+  CI e2e build a pinned live777 commit, see `LIVE777_REF` in
+  `.github/workflows/test.yml` and `compose.yml`). It also
+  requires a single-node
   woom↔live777 direct connection: cables do not bridge across liveman
   cascade nodes, so cluster deployments are unsupported for now. Live777
   reaps publisher-less events streams, so WHEP subscribes ensure the stream
@@ -46,7 +48,8 @@ WOOM is a self-hosted meeting service built on the
   `LOG_READ_TOKEN` for admin-only diagnostic export, optional
   `CAPTION_TOKEN` enabling the caption-bot API, optional
   `EVENTS_CABLE` (unset/empty/`0`/`false` = off) dual-pushing room events
-  over a Live777 cable datachannel (requires Live777 >= 0.11.0), and optional
+  over a Live777 cable datachannel (requires the cable messages API, on
+  live777 main until 0.11.0 releases), and optional
   `MINUTES_URL`/`MINUTES_MODEL`/`MINUTES_API_KEY` enabling LLM meeting
   minutes through any OpenAI-compatible endpoint. Never log secrets, JWTs,
   SSE ticket query strings or room passwords.

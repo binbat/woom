@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+env:
+  # Pinned live777 commit for the e2e live777 server (the cable messages API
+  # used by EVENTS_CABLE is merged but unreleased; no registry image tracks
+  # main). Keep compose.yml in sync.
+  LIVE777_REF: d1ef16ada3374428c031776871370365cf186a05
+
 jobs:
   rust:
     name: Rust quality
@@ -35,13 +41,14 @@ jobs:
         run: cd caption-bot && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test --all-targets
 
   e2e:
-    name: Playwright e2e
+    name: Playwright e2e (${{ matrix.transport }})
     runs-on: ubuntu-latest
-    services:
-      live777:
-        image: ghcr.io/binbat/liveion:0.10.2
-        ports:
-          - 7777:7777
+    strategy:
+      fail-fast: false
+      matrix:
+        # Room events transport: SSE (default) and the live777 cable
+        # datachannel (opt-in). SSE-stubbing specs skip on the cable leg.
+        transport: [sse, cable]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -55,13 +62,31 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+      # No registry image tracks live777 main (pushes happen on version tags
+      # only), and the cable messages API has no release yet — build the
+      # pinned commit, layer-cached via GitHub Actions cache.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build live777 from the pinned commit
+        uses: docker/build-push-action@v7
+        with:
+          context: https://github.com/binbat/live777.git#${{ env.LIVE777_REF }}
+          file: docker/Dockerfile.liveion
+          load: true
+          tags: liveion:local
+          cache-from: type=gha,scope=liveion-e2e
+          cache-to: type=gha,mode=max,scope=liveion-e2e
+      - name: Start live777
+        run: docker run -d --name live777 -p 7777:7777 liveion:local
       - name: Run e2e tests
         run: npm run test:e2e
+        env:
+          EVENTS_CABLE: ${{ matrix.transport == 'cable' && '1' || '' }}
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.transport }}
           path: playwright-report/
           retention-days: 7
 

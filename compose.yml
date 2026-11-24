@@ -1,6 +1,14 @@
 services:
   live777:
-    image: ghcr.io/binbat/liveion:0.10.2
+    # Pinned live777 commit (the cable messages API used by EVENTS_CABLE is
+    # merged but unreleased). Bump by updating the hash — keep
+    # LIVE777_REF in .github/workflows/test.yml in sync. The image builds
+    # from source on first `up` (slow); rebuild with
+    # `docker compose build live777`.
+    build:
+      context: https://github.com/binbat/live777.git#d1ef16ada3374428c031776871370365cf186a05
+      dockerfile: docker/Dockerfile.liveion
+    image: liveion-main:local
     container_name: live777
     hostname: live777
     ports:
