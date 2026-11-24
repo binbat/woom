@@ -8,7 +8,7 @@ import {
   setStorageMeeting,
   setStorageStream,
 } from '../lib/storage'
-import { meetingId } from '../store/atoms'
+import { adminMode, meetingId } from '../store/atoms'
 import Records from './records.vue'
 import Settings from './settings.vue'
 import SvgSetting from './svg/setting.vue'
@@ -50,6 +50,8 @@ const joinMeeting = async () => {
 }
 
 onMounted(() => {
+  // /admin is the console path, never a room id
+  if (adminMode.value) return
   const id = window.location.pathname.replace('/', '')
   if (id) {
     tmpId.value = id

@@ -1,7 +1,7 @@
 const CACHE_PREFIX = 'woom-shell-'
 const CACHE = '__WOOM_CACHE__'
 const CORE = JSON.parse('__WOOM_PRECACHE__')
-const BYPASS = /^\/(user|room|log|whip|whep|session)(\/|$)/
+const BYPASS = /^\/(user|room|log|whip|whep|session|api)(\/|$)/
 
 self.addEventListener('install', event => {
   event.waitUntil(

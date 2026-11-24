@@ -22,6 +22,8 @@ const meetingId = ref('')
 const meetingJoined = ref(false)
 const joinedMeetingNo = ref('')
 const joinPassword = ref('')
+/** true when the app was opened on the /admin console path */
+const adminMode = ref(false)
 
 const presentationStream = shallowRef<UserStream>({
   streamId: '',
@@ -46,6 +48,7 @@ const roomParticipants = ref<Participant[]>([])
 
 export type { UserStatus, UserStream }
 export {
+  adminMode,
   deviceSpeaker,
   enabledPresentation,
   joinedMeetingNo,
