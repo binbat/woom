@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { watch } from 'vue'
-import { presentationStream } from '../../store/atoms'
+import { onUnmounted, watch } from 'vue'
+import { registerPresentation, unregisterPresentation } from '../../store/atoms'
 import useWhipClient from '../use/whip'
 import Detail from './detail.vue'
 import Player from './player.vue'
@@ -12,23 +12,20 @@ const whip = useWhipClient(props.streamId)
 watch(
   [() => whip.value.userStatus.screen, () => whip.value.stream],
   () => {
-    const stream = whip.value.stream
     if (whip.value.userStatus.screen) {
-      presentationStream.value = {
+      registerPresentation(props.streamId, {
         streamId: props.streamId,
         name: `${whip.value.userStatus.name}_Presentation`,
-        stream,
-      }
-    } else if (presentationStream.value.streamId === props.streamId) {
-      presentationStream.value = {
-        streamId: '',
-        name: '',
-        stream: new MediaStream(),
-      }
+        stream: whip.value.stream,
+      })
+    } else {
+      unregisterPresentation(props.streamId)
     }
   },
   { immediate: true }
 )
+
+onUnmounted(() => unregisterPresentation(props.streamId))
 </script>
 
 <template>

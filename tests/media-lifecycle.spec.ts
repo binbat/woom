@@ -259,4 +259,52 @@ test.describe('device and media lifecycle', () => {
     await expect(toggle).toHaveAttribute('data-active', 'true')
     await expect(toggle).toBeEnabled()
   })
+
+  // https://github.com/binbat/woom/issues/47
+  // A stops sharing while B is still sharing must not lose B's presentation:
+  // the slot is derived from everyone currently sharing, not last-writer-wins.
+  test('stopping the second share keeps the first presentation', async ({
+    browser,
+  }) => {
+    const aliceContext = await browser.newContext()
+    const bobContext = await browser.newContext()
+    const alice = await aliceContext.newPage()
+    const bob = await bobContext.newPage()
+    try {
+      await mockDisplayMedia(alice)
+      await mockDisplayMedia(bob)
+      const roomId = await createMeeting(alice)
+      await joinRoom(alice, 'Alice')
+      await joinMeetingFromWelcome(bob, roomId)
+      await joinRoom(bob, 'Bob')
+
+      const alicePresentation = alice
+        .getByTestId('presentation-player')
+        .getByTestId('video-remote')
+      const bobPresentation = bob
+        .getByTestId('presentation-player')
+        .getByTestId('video-remote')
+
+      const aliceToggle = alice.getByTestId('toggle-screen')
+      await aliceToggle.click()
+      await expect(aliceToggle).toHaveAttribute('data-active', 'true')
+      await expectVideoPlaying(alicePresentation)
+      await expectVideoPlaying(bobPresentation)
+
+      const bobToggle = bob.getByTestId('toggle-screen')
+      await bobToggle.click()
+      await expect(bobToggle).toHaveAttribute('data-active', 'true')
+      await expectVideoPlaying(alicePresentation)
+      await expectVideoPlaying(bobPresentation)
+
+      await bobToggle.click()
+      await expect(bobToggle).toHaveAttribute('data-active', 'false')
+      await expect(aliceToggle).toHaveAttribute('data-active', 'true')
+      await expectVideoPlaying(alicePresentation)
+      await expectVideoPlaying(bobPresentation)
+    } finally {
+      await aliceContext.close()
+      await bobContext.close()
+    }
+  })
 })

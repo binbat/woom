@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue'
 import { Stream, StreamState } from '../../lib/api'
-import { presentationStream } from '../../store/atoms'
+import { registerPresentation, unregisterPresentation } from '../../store/atoms'
 import SvgVideo from '../svg/video.vue'
 import useWhepClient from '../use/whep'
 import Detail from './detail.vue'
@@ -49,14 +49,7 @@ watch(
 // module-level WHEPContext would keep receiving media forever
 onUnmounted(() => {
   whep.value.stop()
-
-  if (presentationStream.value.streamId === props.streamId) {
-    presentationStream.value = {
-      streamId: '',
-      name: '',
-      stream: new MediaStream(),
-    }
-  }
+  unregisterPresentation(props.streamId)
 })
 
 watch(
@@ -70,19 +63,14 @@ watch(
 watch(
   [() => props.userStatus.screen, () => whep.value.stream],
   () => {
-    const stream = whep.value.stream
     if (props.userStatus.screen) {
-      presentationStream.value = {
+      registerPresentation(props.streamId, {
         streamId: props.streamId,
         name: `${props.userStatus.name}_Presentation`,
-        stream,
-      }
-    } else if (presentationStream.value.streamId === props.streamId) {
-      presentationStream.value = {
-        streamId: '',
-        name: '',
-        stream: new MediaStream(),
-      }
+        stream: whep.value.stream,
+      })
+    } else {
+      unregisterPresentation(props.streamId)
     }
   },
   { immediate: true }
