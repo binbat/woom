@@ -1,8 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { ApiError, startRecording, stopRecording } from '../lib/api'
 import { Device, deviceNone, deviceScreen } from '../lib/device'
 import { isMobile, isScreenShareSupported } from '../lib/util'
-import { deviceSpeaker, roomInfo, speakerStatus } from '../store/atoms'
+import {
+  deviceSpeaker,
+  meetingId,
+  recordingAt,
+  roomInfo,
+  speakerStatus,
+} from '../store/atoms'
 import { setting } from '../store/setting'
 import MobileSheet from './mobile-sheet.vue'
 import Settings from './settings.vue'
@@ -53,6 +60,28 @@ const deviceVideo = ref<Device[]>([deviceNone])
 
 const isSetting = ref(false)
 const mobileActionsOpen = ref(false)
+
+const recordLoading = ref(false)
+const isOwner = computed(() => roomInfo.value.owner === props.streamId)
+
+const toggleRecord = async () => {
+  if (recordLoading.value) return
+  recordLoading.value = true
+  deviceError.value = ''
+  try {
+    if (recordingAt.value) await stopRecording(meetingId.value)
+    else await startRecording(meetingId.value)
+  } catch (e) {
+    deviceError.value =
+      e instanceof ApiError && e.status === 503
+        ? 'Recording is not available on this server'
+        : e instanceof Error
+          ? e.message
+          : String(e)
+  } finally {
+    recordLoading.value = false
+  }
+}
 
 const permissionsQuery = async () =>
   (
@@ -429,6 +458,21 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
       </div>
     </div>
 
+    <div v-if="isOwner" class="control-group max-md:hidden">
+      <button
+        class="icon-btn"
+        :class="recordingAt ? 'text-rose-400' : ''"
+        aria-label="Toggle recording"
+        data-testid="toggle-record"
+        :data-active="recordingAt ? 'true' : 'false'"
+        :disabled="recordLoading"
+        @click="toggleRecord"
+      >
+        <Loading v-if="recordLoading" />
+        <svg v-else class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8" /></svg>
+      </button>
+    </div>
+
     <div class="control-group max-md:hidden">
       <button class="icon-btn" aria-label="Settings" data-testid="settings-toggle" @click="isSetting = true">
         <SvgSetting />
@@ -469,6 +513,11 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value
           <SvgPresentCancel v-else-if="whip.userStatus.screen" />
           <SvgPresentToAll v-else />
           <span class="flex-1">{{ whip.userStatus.screen ? 'Stop sharing' : 'Share screen' }}</span>
+        </button>
+        <button v-if="isOwner" class="meeting-menu-item" data-testid="mobile-toggle-record" :data-active="recordingAt ? 'true' : 'false'" :disabled="recordLoading" @click="toggleRecord(); mobileActionsOpen = false">
+          <Loading v-if="recordLoading" />
+          <svg v-else class="h-5 w-5" :class="recordingAt ? 'text-rose-400' : ''" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8" /></svg>
+          <span class="flex-1">{{ recordingAt ? 'Stop recording' : 'Record' }}</span>
         </button>
         <button class="meeting-menu-item" data-testid="mobile-settings-toggle" @click="mobileActionsOpen = false; isSetting = true">
           <SvgSetting />

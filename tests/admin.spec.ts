@@ -4,19 +4,17 @@ import {
   type Page,
   test,
 } from '@playwright/test'
-import { createMeeting, getApiToken, getStreamId, joinRoom } from './helper'
+import {
+  ADMIN_PASSWORD,
+  ADMIN_USER,
+  adminSignIn,
+  createMeeting,
+  getApiToken,
+  getStreamId,
+  joinRoom,
+} from './helper'
 
-const ADMIN_USER = 'admin'
-const ADMIN_PASSWORD = 'e2e-admin-9f6c2a84d17b43e0a5c98f21e6d04b7a'
 const CAPTION_TOKEN = 'e2e-caption-9f6c2a84d17b43e0a5c98f21e6d04b7a'
-
-async function adminSignIn(page: Page) {
-  await page.goto('/admin')
-  await page.getByTestId('admin-username').fill(ADMIN_USER)
-  await page.getByTestId('admin-password').fill(ADMIN_PASSWORD)
-  await page.getByTestId('admin-sign-in').click()
-  await expect(page.getByTestId('admin-sign-out')).toBeVisible()
-}
 
 // Seed one archived meeting (caption + chat) through the API and return its
 // room id; uses a throwaway page only for the standard join flow

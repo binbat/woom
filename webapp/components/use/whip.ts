@@ -208,6 +208,38 @@ class WHIPContext extends Context {
     } else {
       pc.addTransceiver('video', { direction: 'sendonly' })
     }
+    this.preferRecordableVideoCodecs(pc)
+  }
+
+  // The Live777 recorder cannot store VP8; prefer VP9, then H264, keeping the
+  // remaining codecs as fallbacks so negotiation never breaks on ordering.
+  private preferRecordableVideoCodecs(pc: RTCPeerConnection) {
+    const capabilities = RTCRtpSender.getCapabilities?.('video')
+    if (!capabilities) return
+    const rank = (mimeType: string) => {
+      const normalized = mimeType.toUpperCase()
+      if (normalized === 'VIDEO/VP9') return 0
+      if (normalized === 'VIDEO/H264') return 1
+      return 2
+    }
+    const codecs = capabilities.codecs
+      .filter(
+        codec => !/^VIDEO\/(RTX|ULPFEC|RED|FLEXFEC)/i.test(codec.mimeType)
+      )
+      .map((codec, index) => ({ codec, index }))
+      .sort(
+        (a, b) =>
+          rank(a.codec.mimeType) - rank(b.codec.mimeType) || a.index - b.index
+      )
+      .map(entry => entry.codec)
+    for (const transceiver of pc.getTransceivers()) {
+      if (transceiver.receiver.track.kind !== 'video') continue
+      try {
+        transceiver.setCodecPreferences(codecs)
+      } catch {
+        // engines without setCodecPreferences keep the default ordering
+      }
+    }
   }
 
   private createSession(generation: number): PublishSession {

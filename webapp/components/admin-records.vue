@@ -3,19 +3,24 @@ import { onMounted, ref } from 'vue'
 import {
   type AdminRecordSummary,
   ApiError,
+  adminPlaybackUrl,
   createAdminCleanup,
   createAdminMinutes,
+  createAdminPlaybackTicket,
   deleteAdminRecord,
+  deleteAdminRecording,
   getAdminRecord,
   getAdminRecords,
   type MeetingRecord,
+  type RecordingInfo,
 } from '../lib/api'
 import AdminReplay from './admin-replay.vue'
+import DashPlayer from './player/dash-player.vue'
 import Loading from './svg/loading.vue'
 
 const emit = defineEmits<(e: 'auth-expired') => void>()
 
-type Tab = 'transcript' | 'chat' | 'minutes' | 'replay'
+type Tab = 'transcript' | 'chat' | 'minutes' | 'recordings' | 'replay'
 
 /** transient per-artifact state; generated content lives on the record itself */
 interface ArtifactState {
@@ -81,6 +86,9 @@ const toggle = async (meetingNo: string) => {
   detailError.value = ''
   tab.value = 'transcript'
   confirmDelete.value = ''
+  confirmDeleteRecording.value = ''
+  playbackKey.value = ''
+  playbackSrc.value = ''
   detailLoading.value = true
   try {
     detail.value = await getAdminRecord(meetingNo)
@@ -89,6 +97,76 @@ const toggle = async (meetingNo: string) => {
     detailError.value = e instanceof Error ? e.message : String(e)
   } finally {
     detailLoading.value = false
+  }
+}
+
+/** at most one DASH player at a time, keyed by the recording's recordDir */
+const playbackKey = ref('')
+const playbackSrc = ref('')
+const playbackLoading = ref('')
+const playbackError = ref('')
+const confirmDeleteRecording = ref('')
+const deletingRecording = ref(false)
+
+const playRecording = async (recording: RecordingInfo) => {
+  const record = detail.value
+  if (!record) return
+  if (playbackKey.value === recording.recordDir) {
+    playbackKey.value = ''
+    playbackSrc.value = ''
+    return
+  }
+  if (playbackLoading.value) return
+  playbackLoading.value = recording.recordDir
+  playbackError.value = ''
+  try {
+    const ticket = await createAdminPlaybackTicket(record.meetingNo)
+    playbackSrc.value = adminPlaybackUrl(
+      record.meetingNo,
+      recording.recordDir,
+      ticket.ticket
+    )
+    playbackKey.value = recording.recordDir
+  } catch (e) {
+    if (handleAuth(e)) return
+    playbackError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    playbackLoading.value = ''
+  }
+}
+
+const removeRecording = async (recording: RecordingInfo) => {
+  const record = detail.value
+  if (!record || deletingRecording.value) return
+  if (confirmDeleteRecording.value !== recording.recordDir) {
+    confirmDeleteRecording.value = recording.recordDir
+    return
+  }
+  deletingRecording.value = true
+  try {
+    await deleteAdminRecording(record.meetingNo, recording.recordDir)
+    record.recordings = record.recordings.filter(
+      item => item.recordDir !== recording.recordDir
+    )
+    const summary = summaries.value.find(
+      item => item.meetingNo === record.meetingNo
+    )
+    if (summary) summary.recordingCount = record.recordings.length
+    if (playbackKey.value === recording.recordDir) {
+      playbackKey.value = ''
+      playbackSrc.value = ''
+    }
+  } catch (e) {
+    if (handleAuth(e)) return
+    // already gone server-side: drop it from the detail as well
+    if (e instanceof ApiError && e.status === 404) {
+      record.recordings = record.recordings.filter(
+        item => item.recordDir !== recording.recordDir
+      )
+    }
+  } finally {
+    deletingRecording.value = false
+    confirmDeleteRecording.value = ''
   }
 }
 
@@ -178,6 +256,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'transcript', label: 'Transcript' },
   { id: 'chat', label: 'Chat' },
   { id: 'minutes', label: 'Minutes' },
+  { id: 'recordings', label: 'Recordings' },
   { id: 'replay', label: 'Replay' },
 ]
 
@@ -226,6 +305,7 @@ onMounted(load)
             </p>
             <p class="mt-0.5 text-xs text-muted">
               {{ formatDuration(summary) }} · {{ summary.participantCount }} participants · {{ summary.messageCount }} messages · {{ summary.captionCount }} transcript lines
+              <span v-if="summary.recordingCount" class="ml-1 rounded bg-control px-1.5 py-0.5 text-accent">{{ summary.recordingCount }} rec</span>
               <span v-if="summary.hasMinutes" class="ml-1 rounded bg-control px-1.5 py-0.5 text-success">minutes</span>
               <span v-if="summary.hasPolishedTranscript" class="ml-1 rounded bg-control px-1.5 py-0.5 text-success">polished</span>
             </p>
@@ -326,6 +406,43 @@ onMounted(load)
               <p v-if="!detail.minutes && !detail.polishedTranscript" class="text-sm text-muted">
                 No minutes generated yet
               </p>
+            </div>
+
+            <div v-else-if="tab === 'recordings'" class="flex flex-col gap-2" data-testid="admin-recordings">
+              <template v-if="detail.recordings.length">
+                <div
+                  v-for="recording in detail.recordings"
+                  :key="recording.recordDir"
+                  class="flex flex-wrap items-center gap-2 text-sm"
+                  data-testid="admin-recording-item"
+                >
+                  <span class="text-foreground">{{ recording.name || 'Unknown' }}</span>
+                  <span class="text-xs text-muted font-mono">{{ recording.userId.slice(0, 8) }}</span>
+                  <span class="text-xs text-muted">{{ formatStart(recording.startedAt) }}</span>
+                  <span class="ml-auto flex gap-2">
+                    <button
+                      class="btn-primary px-3 py-1 text-xs"
+                      :disabled="!!playbackLoading"
+                      data-testid="admin-recording-play"
+                      @click="playRecording(recording)"
+                    >
+                      {{ playbackKey === recording.recordDir ? 'Stop' : 'Play' }}
+                    </button>
+                    <button
+                      class="rounded-lg px-3 py-1 text-xs transition-colors"
+                      :class="confirmDeleteRecording === recording.recordDir ? 'bg-rose-700 text-white' : 'bg-control text-danger hover:bg-control-hover'"
+                      :disabled="deletingRecording"
+                      data-testid="admin-recording-delete"
+                      @click="removeRecording(recording)"
+                    >
+                      {{ confirmDeleteRecording === recording.recordDir ? 'Confirm' : 'Delete' }}
+                    </button>
+                  </span>
+                </div>
+                <p v-if="playbackError" class="text-xs text-danger" data-testid="admin-playback-error">{{ playbackError }}</p>
+                <DashPlayer v-if="playbackSrc" :key="playbackKey" :src="playbackSrc" />
+              </template>
+              <p v-else class="text-sm text-muted">No recordings</p>
             </div>
 
             <AdminReplay v-else :record="detail" />

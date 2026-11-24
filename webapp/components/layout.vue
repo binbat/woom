@@ -23,6 +23,7 @@ import {
   joinPassword,
   meetingJoined,
   presentationStream,
+  recordingAt,
   roomInfo,
   roomParticipants,
   type UserStatus,
@@ -280,6 +281,7 @@ const applySnapshot = (data: RoomSnapshot) => {
     presenter: data.presenter,
     locked: data.locked,
   }
+  recordingAt.value = data.recordingAt
   roomParticipants.value = data.participants
   // heal unread for messages missed as live events (e.g. fired while the
   // events transport was connecting): unseen, post-join, not mine. Messages
@@ -533,6 +535,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   invalidate()
+  recordingAt.value = null
   whip.value.setSyncUserStatus(() => {})
   void whip.value.stop()
 })
@@ -571,6 +574,15 @@ onUnmounted(() => {
           </div>
         </div>
         <Captions :captions="captions" />
+        <div
+          v-if="recordingAt"
+          class="chip absolute left-4 z-10 text-rose-300"
+          :style="{ top: 'max(1rem, env(safe-area-inset-top, 0px))' }"
+          data-testid="recording-indicator"
+        >
+          <span class="inline-block w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+          REC
+        </div>
       </div>
 
       <MeetingPanel v-if="chatOpen" kind="chat" @close="chatOpen = false">

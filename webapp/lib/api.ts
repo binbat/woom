@@ -14,6 +14,8 @@ interface Meeting {
   startedAt: number
   endedAt?: number
   maxConcurrent: number
+  /** set while the meeting is being recorded */
+  recordingAt?: number | null
 }
 
 interface Participant {
@@ -42,6 +44,17 @@ interface JoinResponse {
   name: string
 }
 
+/** One participant stream recorded during a meeting (Live777 DASH output) */
+interface RecordingInfo {
+  streamId: string
+  userId: string
+  name: string
+  /** Live777 storage path prefix holding manifest.mpd and the segments */
+  recordDir: string
+  startedAt: number
+  endedAt?: number
+}
+
 interface MeetingRecord {
   meetingNo: string
   roomId: string
@@ -51,6 +64,7 @@ interface MeetingRecord {
   participants: Participant[]
   messages: Message[]
   captions: Caption[]
+  recordings: RecordingInfo[]
   /** cached LLM artifacts; empty string = not generated yet */
   minutes: string
   polishedTranscript: string
@@ -111,6 +125,7 @@ interface RoomSnapshot {
   participants: Participant[]
   messages: Message[]
   muteAllAt: number
+  recordingAt: number | null
 }
 
 interface RoomMessageEvent {
@@ -342,6 +357,7 @@ interface AdminRecordSummary {
   participantCount: number
   messageCount: number
   captionCount: number
+  recordingCount: number
   hasMinutes: boolean
   hasPolishedTranscript: boolean
 }
@@ -432,6 +448,84 @@ async function createAdminCleanup(
   return res.json()
 }
 
+// ---------- recording & playback ----------
+
+async function startRecording(id: string): Promise<void> {
+  const res = await fetch(`/room/${id}/recording`, {
+    headers: authHeaders(),
+    method: 'POST',
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+}
+
+async function stopRecording(id: string): Promise<void> {
+  const res = await fetch(`/room/${id}/recording`, {
+    headers: authHeaders(),
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+}
+
+interface PlaybackTicket {
+  ticket: string
+  expiresAt: number
+}
+
+async function createPlaybackTicket(
+  id: string,
+  meetingNo: string
+): Promise<PlaybackTicket> {
+  const res = await fetch(`/room/${id}/records/${meetingNo}/playback/ticket`, {
+    headers: authHeaders(),
+    method: 'POST',
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json()
+}
+
+async function createAdminPlaybackTicket(
+  meetingNo: string
+): Promise<PlaybackTicket> {
+  const res = await fetch(`/api/admin/records/${meetingNo}/playback/ticket`, {
+    headers: adminHeaders(),
+    method: 'POST',
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json()
+}
+
+/** DASH manifest URL for a recording; the ticket authorizes media GETs */
+function playbackUrl(
+  id: string,
+  meetingNo: string,
+  recordDir: string,
+  ticket: string
+): string {
+  return `/room/${id}/records/${meetingNo}/playback/${recordDir}/manifest.mpd?ticket=${encodeURIComponent(ticket)}`
+}
+
+function adminPlaybackUrl(
+  meetingNo: string,
+  recordDir: string,
+  ticket: string
+): string {
+  return `/api/admin/records/${meetingNo}/playback/${recordDir}/manifest.mpd?ticket=${encodeURIComponent(ticket)}`
+}
+
+async function deleteAdminRecording(
+  meetingNo: string,
+  recordDir: string
+): Promise<void> {
+  const res = await fetch(
+    `/api/admin/records/${meetingNo}/recordings/${recordDir}`,
+    {
+      headers: adminHeaders(),
+      method: 'DELETE',
+    }
+  )
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+}
+
 export type {
   AdminRecordSummary,
   Caption,
@@ -440,6 +534,8 @@ export type {
   MeetingRecord,
   Message,
   Participant,
+  PlaybackTicket,
+  RecordingInfo,
   Room,
   RoomDetail,
   RoomEvent,
@@ -449,12 +545,16 @@ export type {
 export {
   ApiError,
   adminLogin,
+  adminPlaybackUrl,
   adminToken,
   createAdminCleanup,
   createAdminMinutes,
+  createAdminPlaybackTicket,
   createCleanup,
   createMinutes,
+  createPlaybackTicket,
   deleteAdminRecord,
+  deleteAdminRecording,
   endMeeting,
   getAdminRecord,
   getAdminRecords,
@@ -470,10 +570,13 @@ export {
   newUser,
   openRoomEvents,
   patchRoom,
+  playbackUrl,
   StreamState,
   sendMessage,
   setAdminToken,
   setApiToken,
   setPresence,
+  startRecording,
+  stopRecording,
   token,
 }

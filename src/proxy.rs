@@ -385,8 +385,13 @@ pub async fn forward(
                 }
             }
             if let Some((path, session)) = session_mapping {
-                match register_media_session(&state, path, session).await {
-                    Ok(replaced) => revoke_media_sessions(&state, replaced).await,
+                match register_media_session(&state, path, session.clone()).await {
+                    Ok(replaced) => {
+                        revoke_media_sessions(&state, replaced).await;
+                        // A publisher joining a meeting that is being recorded
+                        // gets its stream recorded too.
+                        crate::recorder::start_for_session(&state, &session).await;
+                    }
                     Err(session) => {
                         revoke_media_sessions(&state, vec![*session]).await;
                         return (
