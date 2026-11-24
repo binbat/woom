@@ -219,14 +219,20 @@ pub(crate) async fn stop_meeting(state: &AppState, meeting_no: &str) {
     let _ = state.store.finish_recordings(meeting_no, now_secs()).await;
 }
 
-/// Best-effort removal of a recording's Live777 index row (ack + delete).
-/// Files in storage are never touched by any API; retention is handled by the
-/// deployment (bucket lifecycle rules, filesystem pruning).
+/// Best-effort removal of a recording from Live777: ack the index row, then
+/// delete it with `delete_files` so the media files leave storage too. Older
+/// Live777 versions ignore the unknown field and only drop the index row.
 pub(crate) async fn drop_index_entry(state: &AppState, stream_id: &str, record_id: &str) {
-    let body = serde_json::json!({
+    let ack = serde_json::json!({
         "records": [{ "stream": stream_id, "record": record_id }]
     });
-    for method in [Method::PATCH, Method::DELETE] {
+    let delete = serde_json::json!({
+        "records": [{ "stream": stream_id, "record": record_id }],
+        // remove the media files too; older Live777 ignores the unknown
+        // field and only drops the index row
+        "delete_files": true,
+    });
+    for (method, body) in [(Method::PATCH, ack), (Method::DELETE, delete)] {
         match live777(state, method.clone(), "/api/recordings")
             .header(axum::http::header::CONTENT_TYPE, "application/json")
             .body(body.to_string())

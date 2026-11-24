@@ -1105,6 +1105,7 @@ async fn playback_object(
     meeting_no: &str,
     path: &str,
     ticket: Option<&str>,
+    client_headers: &HeaderMap,
 ) -> Response {
     if !valid_playback_ticket(state, meeting_no, ticket).await {
         return error(StatusCode::UNAUTHORIZED, "invalid playback ticket");
@@ -1130,6 +1131,10 @@ async fn playback_object(
     if !state.cfg.live777_token.is_empty() {
         request = request.bearer_auth(&state.cfg.live777_token);
     }
+    // Range passthrough lets players seek without buffering whole segments.
+    if let Some(range) = client_headers.get(header::RANGE) {
+        request = request.header(header::RANGE, range);
+    }
     let response = match request.send().await {
         Ok(response) => response,
         Err(error) => {
@@ -1139,28 +1144,27 @@ async fn playback_object(
     };
     let status =
         StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let content_type = response.headers().get(header::CONTENT_TYPE).cloned();
-    match response.bytes().await {
-        Ok(body) => {
-            let mut builder = Response::builder().status(status);
-            if let Some(value) = content_type {
-                builder = builder.header(header::CONTENT_TYPE, value);
-            }
-            builder
-                .body(Body::from(body))
-                .unwrap_or_else(|_| StatusCode::BAD_GATEWAY.into_response())
-        }
-        Err(error) => {
-            tracing::warn!("Live777 record object {path} body failed: {error}");
-            self::error(StatusCode::BAD_GATEWAY, "upstream response body failed")
+    let mut builder = Response::builder().status(status);
+    for name in [
+        header::CONTENT_TYPE,
+        header::CONTENT_LENGTH,
+        header::CONTENT_RANGE,
+        header::ACCEPT_RANGES,
+    ] {
+        if let Some(value) = response.headers().get(&name) {
+            builder = builder.header(&name, value);
         }
     }
+    builder
+        .body(Body::from_stream(response.bytes_stream()))
+        .unwrap_or_else(|_| StatusCode::BAD_GATEWAY.into_response())
 }
 
 async fn record_playback(
     State(state): State<AppState>,
     Path((room_id, meeting_no, path)): Path<(String, String, String)>,
     Query(query): Query<AuthQuery>,
+    headers: HeaderMap,
 ) -> Response {
     // The room id in the path is cosmetic (the ticket binds the meeting), but
     // mismatches are rejected to keep URLs truthful.
@@ -1168,7 +1172,14 @@ async fn record_playback(
         Ok(record) if record.room_id == room_id => {}
         _ => return StatusCode::NOT_FOUND.into_response(),
     }
-    playback_object(&state, &meeting_no, &path, query.ticket.as_deref()).await
+    playback_object(
+        &state,
+        &meeting_no,
+        &path,
+        query.ticket.as_deref(),
+        &headers,
+    )
+    .await
 }
 
 // ---------- browser log intake ----------
@@ -1463,8 +1474,16 @@ async fn admin_record_playback(
     State(state): State<AppState>,
     Path((meeting_no, path)): Path<(String, String)>,
     Query(query): Query<AuthQuery>,
+    headers: HeaderMap,
 ) -> Response {
-    playback_object(&state, &meeting_no, &path, query.ticket.as_deref()).await
+    playback_object(
+        &state,
+        &meeting_no,
+        &path,
+        query.ticket.as_deref(),
+        &headers,
+    )
+    .await
 }
 
 /// Remove a recording entry from an archived record. The Live777 index row is

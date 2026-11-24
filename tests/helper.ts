@@ -112,3 +112,14 @@ export async function getStreamId(page: Page): Promise<string> {
   if (!stream) throw new Error('Stream id is missing')
   return stream
 }
+
+export const ADMIN_USER = 'admin'
+export const ADMIN_PASSWORD = 'e2e-admin-9f6c2a84d17b43e0a5c98f21e6d04b7a'
+
+export async function adminSignIn(page: Page) {
+  await page.goto('/admin')
+  await page.getByTestId('admin-username').fill(ADMIN_USER)
+  await page.getByTestId('admin-password').fill(ADMIN_PASSWORD)
+  await page.getByTestId('admin-sign-in').click()
+  await expect(page.getByTestId('admin-sign-out')).toBeVisible()
+}

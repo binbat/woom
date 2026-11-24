@@ -95,15 +95,45 @@ async fn playback_probe(State(upstream): State<RecorderUpstream>) -> Response {
 async fn record_object(
     State(upstream): State<RecorderUpstream>,
     Path(path): Path<String>,
+    headers: HeaderMap,
 ) -> Response {
-    match upstream.objects.lock().unwrap().get(&path) {
-        Some((content_type, bytes)) => Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, content_type)
-            .body(axum::body::Body::from(bytes.clone()))
-            .unwrap(),
-        None => StatusCode::NOT_FOUND.into_response(),
+    let objects = upstream.objects.lock().unwrap();
+    let Some((content_type, bytes)) = objects.get(&path) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    // Mirror Live777's single-range support (bytes=N-M, inclusive)
+    if let Some((start, end)) = headers
+        .get(header::RANGE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("bytes="))
+        .and_then(|value| value.split_once('-'))
+        .map(|(start, end)| {
+            (
+                start.parse::<usize>().unwrap_or(0),
+                end.parse::<usize>()
+                    .unwrap_or(bytes.len() - 1)
+                    .min(bytes.len() - 1),
+            )
+        })
+    {
+        if start <= end {
+            return Response::builder()
+                .status(StatusCode::PARTIAL_CONTENT)
+                .header(header::CONTENT_TYPE, content_type)
+                .header(
+                    header::CONTENT_RANGE,
+                    format!("bytes {start}-{end}/{}", bytes.len()),
+                )
+                .body(axum::body::Body::from(bytes[start..=end].to_vec()))
+                .unwrap();
+        }
     }
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::ACCEPT_RANGES, "bytes")
+        .body(axum::body::Body::from(bytes.clone()))
+        .unwrap()
 }
 
 async fn recordings_index(
@@ -474,6 +504,20 @@ async fn playback_proxy_serves_objects_with_tickets() {
     );
     assert_eq!(manifest.text().await.unwrap(), "<MPD/>");
 
+    // Range requests pass through to Live777 (206 + Content-Range + slice)
+    let ranged = client
+        .get(format!("{}?ticket={ticket}", playback_url()))
+        .header(header::RANGE.as_str(), "bytes=1-4")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(ranged.status(), ReqwestStatus::PARTIAL_CONTENT);
+    assert_eq!(
+        ranged.headers()[header::CONTENT_RANGE.as_str()],
+        "bytes 1-4/6"
+    );
+    assert_eq!(ranged.text().await.unwrap(), "MPD/");
+
     // Paths outside the meeting's record dirs are not served.
     let outside = client
         .get(format!(
@@ -564,11 +608,12 @@ async fn admin_deletes_recording_entries() {
         .unwrap();
     assert_eq!(again.status(), ReqwestStatus::NOT_FOUND);
 
-    // The Live777 index row is acked and deleted best-effort.
+    // The Live777 index row is acked, then deleted with files removed.
     let writes = upstream_state.index_writes.lock().unwrap().clone();
     assert_eq!(writes.len(), 2);
     assert!(writes[0].starts_with("PATCH"));
     assert!(writes[1].starts_with("DELETE"));
+    assert!(writes[1].contains("\"delete_files\":true"));
     assert!(writes[0].contains(&owner.stream_id));
     assert!(writes[0].contains("1762842203"));
 }
