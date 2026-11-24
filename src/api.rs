@@ -28,7 +28,7 @@ use crate::{
     events::{EventBus, RoomEvent},
     log::{ClientLogBatch, ClientLogFilter, ClientLogStore},
     model::{Participant, Presence, Record, Room},
-    proxy, spa,
+    proxy, recorder, spa,
     store::{
         Command, JoinResult, RoomPatch, RoomState, Store, StoreError, PARTICIPANT_TTL_SECS,
         PRESENCE_TTL_SECS,
@@ -45,6 +45,14 @@ struct EventTicket {
     expires_at: i64,
 }
 
+/// Playback tickets authorize media GETs (DASH manifest/segments) that cannot
+/// carry an Authorization header; they bind to one archived meeting.
+#[derive(Clone)]
+struct PlaybackTicket {
+    meeting_no: String,
+    expires_at: i64,
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub store: Arc<Store>,
@@ -56,6 +64,7 @@ pub struct AppState {
     pub(crate) media_sessions: Arc<Mutex<HashMap<String, proxy::MediaSession>>>,
     pub(crate) write_gate: Arc<Mutex<()>>,
     tickets: Arc<Mutex<HashMap<String, EventTicket>>>,
+    playback_tickets: Arc<Mutex<HashMap<String, PlaybackTicket>>>,
 }
 
 impl AppState {
@@ -74,6 +83,7 @@ impl AppState {
             media_sessions: Arc::new(Mutex::new(HashMap::new())),
             write_gate: Arc::new(Mutex::new(())),
             tickets: Arc::new(Mutex::new(HashMap::new())),
+            playback_tickets: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -92,7 +102,15 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/room/{roomId}/presence", patch(set_presence))
         .route("/room/{roomId}/message", post(create_message))
+        .route(
+            "/room/{roomId}/recording",
+            post(start_recording).delete(stop_recording),
+        )
         .route("/room/{roomId}/records", get(room_records))
+        .route(
+            "/room/{roomId}/records/{meetingNo}/playback/ticket",
+            post(create_playback_ticket),
+        )
         .route(
             "/room/{roomId}/records/{meetingNo}/minutes",
             post(meeting_minutes),
@@ -119,6 +137,10 @@ pub fn router(state: AppState) -> Router {
         .route("/room/{roomId}/caption", post(create_caption))
         .route("/caption/streams", get(caption_streams))
         .route("/room/{roomId}/events", get(room_events))
+        .route(
+            "/room/{roomId}/records/{meetingNo}/playback/{*path}",
+            get(record_playback),
+        )
         .fallback(spa::handler)
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &axum::http::Request<Body>| {
@@ -163,9 +185,23 @@ fn admin_routes(state: &AppState) -> Router<AppState> {
             "/api/admin/records/{meetingNo}/cleanup",
             post(admin_cleanup_transcript),
         )
+        .route(
+            "/api/admin/records/{meetingNo}/playback/ticket",
+            post(create_admin_playback_ticket),
+        )
+        .route(
+            "/api/admin/records/{meetingNo}/recordings/{*recordDir}",
+            delete(admin_delete_recording),
+        )
         .route_layer(middleware::from_fn_with_state(state.clone(), admin_auth));
+    // Media GETs authenticate by ticket query parameter because DASH players
+    // cannot set Authorization headers.
     Router::new()
         .route("/api/admin/login", post(admin_login))
+        .route(
+            "/api/admin/records/{meetingNo}/playback/{*path}",
+            get(admin_record_playback),
+        )
         .merge(records)
 }
 
@@ -192,7 +228,9 @@ async fn sweep_at(state: &AppState, now: i64, presence_ttl: u64, participant_ttl
         }
     }
     let invalid = proxy::take_invalid_media_sessions(state).await;
+    recorder::stop_for_sessions(state, &invalid).await;
     proxy::revoke_media_sessions(state, invalid).await;
+    recorder::reconcile(state).await;
 }
 
 #[derive(Clone)]
@@ -523,6 +561,7 @@ async fn leave_meeting(
             let sessions = proxy::take_media_sessions(&state, &room_id, Some(&user.0)).await;
             publish(&state, &command).await;
             drop(guard);
+            recorder::stop_for_sessions(&state, &sessions).await;
             proxy::revoke_media_sessions(&state, sessions).await;
             StatusCode::NO_CONTENT.into_response()
         }
@@ -541,6 +580,7 @@ async fn end_meeting(
             let sessions = proxy::take_media_sessions(&state, &room_id, None).await;
             publish(&state, &command).await;
             drop(guard);
+            recorder::stop_for_sessions(&state, &sessions).await;
             proxy::revoke_media_sessions(&state, sessions).await;
             StatusCode::NO_CONTENT.into_response()
         }
@@ -574,6 +614,7 @@ async fn remove_participant(
             let sessions = proxy::take_media_sessions(&state, &room_id, Some(&target)).await;
             publish(&state, &command).await;
             drop(guard);
+            recorder::stop_for_sessions(&state, &sessions).await;
             proxy::revoke_media_sessions(&state, sessions).await;
             StatusCode::NO_CONTENT.into_response()
         }
@@ -946,6 +987,190 @@ async fn create_message(
     }
 }
 
+// ---------- recording & playback ----------
+
+async fn start_recording(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    let already = state
+        .store
+        .room_state(&room_id)
+        .await
+        .and_then(|room| room.meeting)
+        .is_some_and(|meeting| meeting.recording_at.is_some());
+    if !already && !recorder::available(&state).await {
+        return error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "recording unavailable on this server",
+        );
+    }
+    let guard = state.write_gate.lock().await;
+    let command = match state.store.set_recording(&room_id, &user.0, true).await {
+        Ok(command) => command,
+        Err(error) => return store_error(error),
+    };
+    publish(&state, &command).await;
+    drop(guard);
+    if let Some(meeting) = state
+        .store
+        .room_state(&room_id)
+        .await
+        .and_then(|room| room.meeting)
+    {
+        recorder::start_meeting(&state, &room_id, &meeting.meeting_no).await;
+    }
+    Json(json!({ "recording": true })).into_response()
+}
+
+async fn stop_recording(
+    State(state): State<AppState>,
+    Path(room_id): Path<String>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    let guard = state.write_gate.lock().await;
+    let command = match state.store.set_recording(&room_id, &user.0, false).await {
+        Ok(command) => command,
+        Err(error) => return store_error(error),
+    };
+    publish(&state, &command).await;
+    drop(guard);
+    if let Some(meeting) = state
+        .store
+        .room_state(&room_id)
+        .await
+        .and_then(|room| room.meeting)
+    {
+        recorder::stop_meeting(&state, &meeting.meeting_no).await;
+    }
+    StatusCode::NO_CONTENT.into_response()
+}
+
+const PLAYBACK_TICKET_TTL_SECS: i64 = 3600;
+
+async fn issue_playback_ticket(state: &AppState, meeting_no: &str) -> Response {
+    let now = crate::store::now_secs();
+    let expires_at = now + PLAYBACK_TICKET_TTL_SECS;
+    let ticket = format!(
+        "{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    );
+    let mut tickets = state.playback_tickets.lock().await;
+    tickets.retain(|_, ticket| ticket.expires_at > now);
+    tickets.insert(
+        ticket.clone(),
+        PlaybackTicket {
+            meeting_no: meeting_no.to_string(),
+            expires_at,
+        },
+    );
+    Json(json!({ "ticket": ticket, "expiresAt": expires_at })).into_response()
+}
+
+/// Playback tickets follow the same visibility rule as minutes: the room
+/// owner or any participant of that meeting.
+async fn create_playback_ticket(
+    State(state): State<AppState>,
+    Path((room_id, meeting_no)): Path<(String, String)>,
+    axum::Extension(user): axum::Extension<UserId>,
+) -> Response {
+    match state
+        .store
+        .record_for_minutes(&room_id, &meeting_no, &user.0)
+        .await
+    {
+        Ok(_) => issue_playback_ticket(&state, &meeting_no).await,
+        Err(error) => store_error(error),
+    }
+}
+
+async fn valid_playback_ticket(state: &AppState, meeting_no: &str, ticket: Option<&str>) -> bool {
+    let Some(ticket_value) = ticket else {
+        return false;
+    };
+    let now = crate::store::now_secs();
+    let mut tickets = state.playback_tickets.lock().await;
+    tickets.retain(|_, ticket| ticket.expires_at > now);
+    tickets
+        .get(ticket_value)
+        .is_some_and(|ticket| ticket.meeting_no == meeting_no && ticket.expires_at > now)
+}
+
+/// Proxy one recording object (DASH manifest or fMP4 segment) from Live777
+/// storage. The path must stay inside one of the meeting's record dirs.
+async fn playback_object(
+    state: &AppState,
+    meeting_no: &str,
+    path: &str,
+    ticket: Option<&str>,
+) -> Response {
+    if !valid_playback_ticket(state, meeting_no, ticket).await {
+        return error(StatusCode::UNAUTHORIZED, "invalid playback ticket");
+    }
+    if path.split('/').any(|segment| segment == "..") {
+        return error(StatusCode::BAD_REQUEST, "invalid path");
+    }
+    let record = match state.store.record_by_meeting_no(meeting_no).await {
+        Ok(record) => record,
+        Err(_) => return error(StatusCode::NOT_FOUND, "record not found"),
+    };
+    let allowed = record
+        .recordings
+        .iter()
+        .any(|entry| path.starts_with(&format!("{}/", entry.record_dir)));
+    if !allowed {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let mut request = state.http.get(format!(
+        "{}/api/record/object/{path}",
+        state.cfg.live777_url.trim_end_matches('/')
+    ));
+    if !state.cfg.live777_token.is_empty() {
+        request = request.bearer_auth(&state.cfg.live777_token);
+    }
+    let response = match request.send().await {
+        Ok(response) => response,
+        Err(error) => {
+            tracing::warn!("Live777 record object {path} failed: {error}");
+            return self::error(StatusCode::BAD_GATEWAY, "upstream request failed");
+        }
+    };
+    let status =
+        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let content_type = response.headers().get(header::CONTENT_TYPE).cloned();
+    match response.bytes().await {
+        Ok(body) => {
+            let mut builder = Response::builder().status(status);
+            if let Some(value) = content_type {
+                builder = builder.header(header::CONTENT_TYPE, value);
+            }
+            builder
+                .body(Body::from(body))
+                .unwrap_or_else(|_| StatusCode::BAD_GATEWAY.into_response())
+        }
+        Err(error) => {
+            tracing::warn!("Live777 record object {path} body failed: {error}");
+            self::error(StatusCode::BAD_GATEWAY, "upstream response body failed")
+        }
+    }
+}
+
+async fn record_playback(
+    State(state): State<AppState>,
+    Path((room_id, meeting_no, path)): Path<(String, String, String)>,
+    Query(query): Query<AuthQuery>,
+) -> Response {
+    // The room id in the path is cosmetic (the ticket binds the meeting), but
+    // mismatches are rejected to keep URLs truthful.
+    match state.store.record_by_meeting_no(&meeting_no).await {
+        Ok(record) if record.room_id == room_id => {}
+        _ => return StatusCode::NOT_FOUND.into_response(),
+    }
+    playback_object(&state, &meeting_no, &path, query.ticket.as_deref()).await
+}
+
 // ---------- browser log intake ----------
 
 async fn client_log(
@@ -1129,6 +1354,7 @@ struct RecordSummary {
     participant_count: usize,
     message_count: usize,
     caption_count: usize,
+    recording_count: usize,
     has_minutes: bool,
     has_polished_transcript: bool,
 }
@@ -1146,6 +1372,7 @@ async fn admin_records(State(state): State<AppState>) -> Response {
             participant_count: record.participants.len(),
             message_count: record.messages.len(),
             caption_count: record.captions.len(),
+            recording_count: record.recordings.len(),
             has_minutes: !record.minutes.is_empty(),
             has_polished_transcript: !record.polished_transcript.is_empty(),
         });
@@ -1220,6 +1447,59 @@ async fn admin_cleanup_transcript(
         CLEANUP_CHUNK_LIMIT,
     )
     .await
+}
+
+async fn create_admin_playback_ticket(
+    State(state): State<AppState>,
+    Path(meeting_no): Path<String>,
+) -> Response {
+    match state.store.record_by_meeting_no(&meeting_no).await {
+        Ok(_) => issue_playback_ticket(&state, &meeting_no).await,
+        Err(error) => store_error(error),
+    }
+}
+
+async fn admin_record_playback(
+    State(state): State<AppState>,
+    Path((meeting_no, path)): Path<(String, String)>,
+    Query(query): Query<AuthQuery>,
+) -> Response {
+    playback_object(&state, &meeting_no, &path, query.ticket.as_deref()).await
+}
+
+/// Remove a recording entry from an archived record. The Live777 index row is
+/// cleaned up best-effort; the media files themselves stay in storage (no
+/// Live777 API deletes files) and are reclaimed by deployment-side retention.
+async fn admin_delete_recording(
+    State(state): State<AppState>,
+    Path((meeting_no, record_dir)): Path<(String, String)>,
+) -> Response {
+    if record_dir.split('/').any(|segment| segment == "..") {
+        return error(StatusCode::BAD_REQUEST, "invalid path");
+    }
+    let record = match state.store.record_by_meeting_no(&meeting_no).await {
+        Ok(record) => record,
+        Err(error) => return store_error(error),
+    };
+    let Some(entry) = record
+        .recordings
+        .iter()
+        .find(|entry| entry.record_dir == record_dir)
+    else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let stream_id = entry.stream_id.clone();
+    if let Err(error) = state
+        .store
+        .delete_recording_entry(&meeting_no, &record_dir)
+        .await
+    {
+        return store_error(error);
+    }
+    if let Some(record_id) = record_dir.rsplit('/').next() {
+        recorder::drop_index_entry(&state, &stream_id, record_id).await;
+    }
+    StatusCode::NO_CONTENT.into_response()
 }
 
 // ---------- SSE ----------

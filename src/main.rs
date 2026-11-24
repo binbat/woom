@@ -6,6 +6,7 @@ mod helper;
 mod log;
 mod model;
 mod proxy;
+mod recorder;
 mod spa;
 mod store;
 

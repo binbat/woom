@@ -28,6 +28,10 @@ pub struct Meeting {
     pub started_at: i64,
     pub ended_at: Option<i64>,
     pub max_concurrent: usize,
+    /// When the owner last started recording; `None` means not recording.
+    /// Default keeps pre-recording data files loadable.
+    #[serde(default)]
+    pub recording_at: Option<i64>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -102,6 +106,23 @@ pub struct CaptionRoom {
     pub speakers: Vec<CaptionSpeaker>,
 }
 
+/// One participant stream recorded during a meeting via the Live777
+/// recorder. `record_dir` is the Live777 storage path prefix holding the
+/// DASH manifest and segments.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RecordingInfo {
+    pub stream_id: String,
+    pub user_id: String,
+    /// participant display name at recording start
+    pub name: String,
+    pub record_dir: String,
+    pub started_at: i64,
+    /// `None` while the recording is (or was believed) still in flight;
+    /// Live777 finalizes the files asynchronously when a stream stops
+    pub ended_at: Option<i64>,
+}
+
 /// Archived meeting: the "meeting record" listed in history.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -115,6 +136,9 @@ pub struct Record {
     pub messages: Vec<Message>,
     #[serde(default)]
     pub captions: Vec<Caption>,
+    /// Streams recorded during this meeting; empty when never recording.
+    #[serde(default)]
+    pub recordings: Vec<RecordingInfo>,
     /// Cached LLM-generated minutes; empty means not yet generated.
     #[serde(default)]
     pub minutes: String,

@@ -5,8 +5,8 @@ use serde_json::{json, Value};
 use super::minutes::{archived_meeting, spawn_minutes_upstream, MINUTES_MARKDOWN};
 use super::*;
 
-const TEST_ADMIN_USER: &str = "admin";
-const TEST_ADMIN_PASSWORD: &str = "admin-password-0123456789";
+pub(super) const TEST_ADMIN_USER: &str = "admin";
+pub(super) const TEST_ADMIN_PASSWORD: &str = "admin-password-0123456789";
 
 async fn spawn_admin_app(minutes_url: Option<&str>) -> (TestServer, AppState) {
     let cfg = Config {
@@ -29,7 +29,7 @@ async fn spawn_admin_app(minutes_url: Option<&str>) -> (TestServer, AppState) {
     (server, state)
 }
 
-async fn admin_login_token(client: &reqwest::Client, server: &TestServer) -> String {
+pub(super) async fn admin_login_token(client: &reqwest::Client, server: &TestServer) -> String {
     let response = client
         .post(format!("{}/api/admin/login", server.origin))
         .json(&json!({ "username": TEST_ADMIN_USER, "password": TEST_ADMIN_PASSWORD }))

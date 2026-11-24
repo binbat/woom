@@ -9,8 +9,8 @@ use tokio::sync::RwLock;
 use crate::events::{RoomEvent, Snapshot, SNAPSHOT_MESSAGE_LIMIT};
 use crate::helper;
 use crate::model::{
-    Caption, CaptionRoom, CaptionSpeaker, Meeting, Message, Participant, Presence, Record, Role,
-    Room,
+    Caption, CaptionRoom, CaptionSpeaker, Meeting, Message, Participant, Presence, Record,
+    RecordingInfo, Role, Room,
 };
 
 pub const PRESENCE_TTL_SECS: u64 = 45;
@@ -97,6 +97,10 @@ struct Data {
     /// Final caption segments per ongoing meeting, moved into the `Record`
     /// when the meeting ends. Added in data version 2.
     captions: HashMap<String, Vec<Caption>>,
+    /// Recording entries per ongoing meeting, moved into the `Record` when
+    /// the meeting ends. Added after version 3 with a serde default, so old
+    /// files load without a migration.
+    recordings: HashMap<String, Vec<RecordingInfo>>,
     records: Vec<Record>,
 }
 
@@ -110,6 +114,7 @@ impl Default for Data {
             participants: HashMap::new(),
             messages: HashMap::new(),
             captions: HashMap::new(),
+            recordings: HashMap::new(),
             records: Vec::new(),
         }
     }
@@ -246,13 +251,17 @@ impl Inner {
         Ok(Snapshot {
             kind: "snapshot",
             revision,
-            meeting_no: state.meeting.map(|meeting| meeting.meeting_no),
+            meeting_no: state
+                .meeting
+                .as_ref()
+                .map(|meeting| meeting.meeting_no.clone()),
             streams: state.streams,
             presenter: state.room.presenter,
             locked: state.room.locked,
             participants: state.participants,
             messages,
             mute_all_at: state.room.mute_all_at,
+            recording_at: state.meeting.and_then(|meeting| meeting.recording_at),
         })
     }
 
@@ -278,6 +287,15 @@ impl Inner {
         }
         self.presence.remove(meeting_no);
         let captions = self.data.captions.remove(meeting_no).unwrap_or_default();
+        let mut recordings = self.data.recordings.remove(meeting_no).unwrap_or_default();
+        for entry in &mut recordings {
+            // Live777 finalizes the files asynchronously; the store only
+            // tracks the meeting-side lifecycle, so open entries close with
+            // the meeting.
+            if entry.ended_at.is_none() {
+                entry.ended_at = Some(ended_at);
+            }
+        }
         if self
             .data
             .records
@@ -311,6 +329,7 @@ impl Inner {
                 .cloned()
                 .unwrap_or_default(),
             captions,
+            recordings,
             minutes: String::new(),
             polished_transcript: String::new(),
         };
@@ -628,6 +647,7 @@ impl Store {
                         started_at: now,
                         ended_at: None,
                         max_concurrent: 0,
+                        recording_at: None,
                     };
                     inner
                         .data
@@ -1139,6 +1159,188 @@ impl Store {
                 .records
                 .retain(|record| record.meeting_no != meeting_no);
             if inner.data.records.len() == before {
+                return Err(StoreError::NotFound);
+            }
+            Ok(((), Change::Persist))
+        })
+        .await?;
+        Ok(())
+    }
+
+    /// Switch meeting recording on or off. Owner-only and requires an ongoing
+    /// meeting. The command value reports whether the flag actually changed,
+    /// so the API layer can skip redundant recorder work; a snapshot is
+    /// published either way so clients converge on the indicator.
+    pub async fn set_recording(
+        &self,
+        room_id: &str,
+        owner_id: &str,
+        on: bool,
+    ) -> Result<Command<bool>, StoreError> {
+        self.persistent_command(|inner| {
+            let room = inner.data.rooms.get(room_id).ok_or(StoreError::NotFound)?;
+            if room.owner != owner_id {
+                return Err(StoreError::Forbidden);
+            }
+            let meeting_no = inner
+                .data
+                .current
+                .get(room_id)
+                .cloned()
+                .ok_or(StoreError::NoMeeting)?;
+            let meeting = inner
+                .data
+                .meetings
+                .get_mut(&meeting_no)
+                .ok_or(StoreError::NoMeeting)?;
+            let changed = on != meeting.recording_at.is_some();
+            if changed {
+                meeting.recording_at = on.then_some(now_secs());
+            }
+            Ok((changed, Change::Snapshot(room_id.to_string())))
+        })
+        .await
+    }
+
+    /// The recording entries of an ongoing meeting (read-side, for the
+    /// recorder supervisor's dedupe check).
+    pub async fn meeting_recordings(&self, meeting_no: &str) -> Vec<RecordingInfo> {
+        self.inner
+            .read()
+            .await
+            .data
+            .recordings
+            .get(meeting_no)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Ongoing meetings currently flagged as recording: (room_id, meeting_no).
+    pub async fn recording_meetings(&self) -> Vec<(String, String)> {
+        let inner = self.inner.read().await;
+        inner
+            .data
+            .current
+            .iter()
+            .filter_map(|(room_id, meeting_no)| {
+                inner
+                    .data
+                    .meetings
+                    .get(meeting_no)
+                    .filter(|meeting| meeting.recording_at.is_some())
+                    .map(|_| (room_id.clone(), meeting_no.clone()))
+            })
+            .collect()
+    }
+
+    /// True when any recording entry references this stream in this meeting,
+    /// whether the meeting is still ongoing (open map) or already archived.
+    pub async fn stream_recording_exists(&self, meeting_no: &str, stream_id: &str) -> bool {
+        let inner = self.inner.read().await;
+        let ongoing = inner
+            .data
+            .recordings
+            .get(meeting_no)
+            .is_some_and(|entries| entries.iter().any(|entry| entry.stream_id == stream_id));
+        ongoing
+            || inner.data.records.iter().any(|record| {
+                record.meeting_no == meeting_no
+                    && record
+                        .recordings
+                        .iter()
+                        .any(|entry| entry.stream_id == stream_id)
+            })
+    }
+
+    /// Note that one stream of this meeting is being recorded by Live777.
+    /// Idempotent per stream while its entry is still open.
+    pub async fn add_recording_entry(
+        &self,
+        meeting_no: &str,
+        entry: RecordingInfo,
+    ) -> Result<(), StoreError> {
+        self.persistent_command(|inner| {
+            let entries = inner
+                .data
+                .recordings
+                .entry(meeting_no.to_string())
+                .or_default();
+            let already_open = entries
+                .iter()
+                .any(|open| open.stream_id == entry.stream_id && open.ended_at.is_none());
+            if !already_open {
+                entries.push(entry);
+            }
+            Ok(((), Change::Persist))
+        })
+        .await?;
+        Ok(())
+    }
+
+    /// Close every open recording entry of a meeting (recording switched off).
+    /// Entries move into the archived `Record` when the meeting ends.
+    pub async fn finish_recordings(
+        &self,
+        meeting_no: &str,
+        ended_at: i64,
+    ) -> Result<(), StoreError> {
+        self.persistent_command(|inner| {
+            if let Some(entries) = inner.data.recordings.get_mut(meeting_no) {
+                for entry in entries.iter_mut() {
+                    if entry.ended_at.is_none() {
+                        entry.ended_at = Some(ended_at);
+                    }
+                }
+            }
+            Ok(((), Change::Persist))
+        })
+        .await?;
+        Ok(())
+    }
+
+    /// Close the open recording entry of one stream (its publisher left or
+    /// was revoked mid-meeting). No-op once the meeting is archived.
+    pub async fn finish_recording_entry(
+        &self,
+        meeting_no: &str,
+        stream_id: &str,
+        ended_at: i64,
+    ) -> Result<(), StoreError> {
+        self.persistent_command(|inner| {
+            if let Some(entries) = inner.data.recordings.get_mut(meeting_no) {
+                for entry in entries
+                    .iter_mut()
+                    .filter(|entry| entry.stream_id == stream_id && entry.ended_at.is_none())
+                {
+                    entry.ended_at = Some(ended_at);
+                }
+            }
+            Ok(((), Change::Persist))
+        })
+        .await?;
+        Ok(())
+    }
+
+    /// Remove one recording entry from an archived record (admin). Only the
+    /// WOOM-side metadata is removed; the Live777 files are cleaned up
+    /// out-of-band.
+    pub async fn delete_recording_entry(
+        &self,
+        meeting_no: &str,
+        record_dir: &str,
+    ) -> Result<(), StoreError> {
+        self.persistent_command(|inner| {
+            let record = inner
+                .data
+                .records
+                .iter_mut()
+                .find(|record| record.meeting_no == meeting_no)
+                .ok_or(StoreError::NotFound)?;
+            let before = record.recordings.len();
+            record
+                .recordings
+                .retain(|entry| entry.record_dir != record_dir);
+            if record.recordings.len() == before {
                 return Err(StoreError::NotFound);
             }
             Ok(((), Change::Persist))
@@ -1859,6 +2061,115 @@ mod tests {
         let all = reopened.all_records().await;
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].meeting_no, second);
+    }
+
+    #[tokio::test]
+    async fn recording_entries_archive_with_the_meeting() {
+        let directory = TestDir::new();
+        let path = directory.data_file();
+        let store = Store::open(&path).await.unwrap();
+        let room_id = room_with_owner(&store).await;
+        let meeting_no = store
+            .join(&room_id, "owner", None, None)
+            .await
+            .unwrap()
+            .value
+            .meeting_no;
+
+        // Only the owner can toggle recording, and only during a meeting.
+        assert!(matches!(
+            store.set_recording(&room_id, "someone-else", true).await,
+            Err(StoreError::Forbidden)
+        ));
+        let command = store.set_recording(&room_id, "owner", true).await.unwrap();
+        assert!(command.value);
+        assert!(command.event.is_some());
+        // Toggling to the current state still publishes but reports no change.
+        assert!(
+            !store
+                .set_recording(&room_id, "owner", true)
+                .await
+                .unwrap()
+                .value
+        );
+        assert!(store
+            .snapshot(&room_id)
+            .await
+            .unwrap()
+            .recording_at
+            .is_some());
+
+        // Entries dedupe per open stream.
+        let entry = |stream: &str| RecordingInfo {
+            stream_id: stream.to_string(),
+            user_id: "owner".to_string(),
+            name: "owner".to_string(),
+            record_dir: format!("{stream}/1762842203"),
+            started_at: 1,
+            ended_at: None,
+        };
+        store
+            .add_recording_entry(&meeting_no, entry("s1"))
+            .await
+            .unwrap();
+        store
+            .add_recording_entry(&meeting_no, entry("s1"))
+            .await
+            .unwrap();
+        store
+            .add_recording_entry(&meeting_no, entry("s2"))
+            .await
+            .unwrap();
+        assert_eq!(store.meeting_recordings(&meeting_no).await.len(), 2);
+
+        // Stopping recording closes open entries; the flag clears.
+        store.set_recording(&room_id, "owner", false).await.unwrap();
+        store
+            .finish_recordings(&meeting_no, now_secs())
+            .await
+            .unwrap();
+        assert!(store
+            .meeting_recordings(&meeting_no)
+            .await
+            .iter()
+            .all(|entry| entry.ended_at.is_some()));
+        assert!(store
+            .snapshot(&room_id)
+            .await
+            .unwrap()
+            .recording_at
+            .is_none());
+
+        // Archiving moves the entries onto the record.
+        store.end(&room_id, "owner").await.unwrap();
+        assert!(store.meeting_recordings(&meeting_no).await.is_empty());
+        let record = store.record_by_meeting_no(&meeting_no).await.unwrap();
+        assert_eq!(record.recordings.len(), 2);
+        assert!(record
+            .recordings
+            .iter()
+            .all(|entry| entry.ended_at.is_some()));
+        drop(store);
+
+        let reopened = Store::open(&path).await.unwrap();
+        let record = reopened.record_by_meeting_no(&meeting_no).await.unwrap();
+        assert_eq!(record.recordings.len(), 2);
+        assert_eq!(record.recordings[0].record_dir, "s1/1762842203");
+
+        // Admin deletion removes individual entries from the archive.
+        reopened
+            .delete_recording_entry(&meeting_no, "s1/1762842203")
+            .await
+            .unwrap();
+        assert!(matches!(
+            reopened
+                .delete_recording_entry(&meeting_no, "s1/1762842203")
+                .await,
+            Err(StoreError::NotFound)
+        ));
+        let record = reopened.record_by_meeting_no(&meeting_no).await.unwrap();
+        assert_eq!(record.recordings.len(), 1);
+        assert_eq!(record.recordings[0].record_dir, "s2/1762842203");
     }
 
     #[tokio::test]

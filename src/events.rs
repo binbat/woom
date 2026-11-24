@@ -22,6 +22,8 @@ pub struct Snapshot {
     pub participants: Vec<Participant>,
     pub messages: Vec<Message>,
     pub mute_all_at: i64,
+    /// Set while the owner is recording this meeting (drives REC indicators)
+    pub recording_at: Option<i64>,
 }
 
 impl Snapshot {
@@ -44,6 +46,7 @@ impl Snapshot {
             participants: Vec::new(),
             messages: Vec::new(),
             mute_all_at: 0,
+            recording_at: None,
         }
     }
 }

@@ -13,6 +13,7 @@ mod admin;
 mod cable;
 mod logging;
 mod minutes;
+mod recording;
 mod revocation;
 
 const TEST_SECRET: &str = "test-secret-0123456789abcdef0123456789";
