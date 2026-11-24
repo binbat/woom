@@ -66,8 +66,10 @@ WOOM is a self-hosted meeting service built on the
   (hooks: proxy session registration, leave/kick/end revocation, sweep
   reconcile). Entries persist in `data.recordings` and archive into
   `Record.recordings`. Playback proxies Live777 `/api/record/object/*` behind
-  one-hour tickets (DASH players cannot send Authorization headers). Publishers
-  prefer VP9 over VP8 because the recorder cannot store VP8.
+  one-hour tickets (DASH players cannot send Authorization headers), streaming
+  bodies and forwarding Range. Admin deletion also removes the Live777 index
+  row and, on Live777 builds with the `delete_files` fix, the media files.
+  Publishers prefer VP9 over VP8 because the recorder rejects VP8 at start.
 - `src/events.rs` — Per-room broadcast channels. Subscribe before taking the
   initial snapshot, deduplicate by revision, and recover from lag with a full
   snapshot. All state-changing API operations publish in commit order.

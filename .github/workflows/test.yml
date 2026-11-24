@@ -14,7 +14,7 @@ env:
   # Pinned live777 commit for the e2e live777 server (the cable messages API
   # used by EVENTS_CABLE is merged but unreleased; no registry image tracks
   # main). Keep compose.yml in sync.
-  LIVE777_REF: d1ef16ada3374428c031776871370365cf186a05
+  LIVE777_REF: 07a20d211e554c1d5f9394914f011d3eb41a8a22
 
 jobs:
   rust:

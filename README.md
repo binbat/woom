@@ -120,7 +120,7 @@ WOOM records meetings through the Live777 recorder (the bundled `liveion-main:lo
 
 Recordings are attached to the archived meeting record: the room owner can play them from the room's meeting history, and admins from the console's Recordings tab (where entries can also be deleted). Playback runs through WOOM-authorized DASH proxies (`/room/{id}/records/{no}/playback/*`, admin variant under `/api/admin/`) gated by one-hour tickets. Publishers prefer VP9 over VP8 because the recorder cannot store VP8.
 
-Storage notes: the Live777 container writes `./storage` (compose mounts a `live777-storage` volume); S3-compatible storage is configured on the Live777 side (`[recorder.storage]`). Live777 has no file-deletion API — deleting a recording in WOOM removes its metadata and Live777 index row, and the media files are reclaimed by deployment-side retention (bucket lifecycle rules or filesystem pruning).
+Storage notes: the Live777 container writes `./storage` (compose mounts a `live777-storage` volume); S3-compatible storage is configured on the Live777 side (`[recorder.storage]`). Deleting a recording in WOOM removes its metadata, its Live777 index row, and the media files (via `delete_files`; Live777 versions before that fix keep the files, so deployment-side retention like bucket lifecycle rules is still recommended).
 
 ### Data and deployment model
 
