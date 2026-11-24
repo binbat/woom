@@ -114,6 +114,14 @@ The console manages meeting records across all rooms:
 
 The admin API answers 404 while the variables are unset, and the credentials are read at startup — changing them requires a restart. Serve WOOM over HTTPS before exposing the console to a network.
 
+### Meeting recording
+
+WOOM records meetings through the Live777 recorder (the bundled `liveion-main:local` image has it compiled in). The room owner toggles recording in the meeting controls; every publishing participant's stream is recorded to Live777 storage as fragmented MP4 with a DASH manifest, and participants joining or publishing mid-recording are picked up automatically. Everyone in the meeting sees a REC indicator while it runs. Recording stops when the owner toggles it off, when a publisher leaves, or when the meeting ends.
+
+Recordings are attached to the archived meeting record: the room owner can play them from the room's meeting history, and admins from the console's Recordings tab (where entries can also be deleted). Playback runs through WOOM-authorized DASH proxies (`/room/{id}/records/{no}/playback/*`, admin variant under `/api/admin/`) gated by one-hour tickets. Publishers prefer VP9 over VP8 because the recorder cannot store VP8.
+
+Storage notes: the Live777 container writes `./storage` (compose mounts a `live777-storage` volume); S3-compatible storage is configured on the Live777 side (`[recorder.storage]`). Live777 has no file-deletion API — deleting a recording in WOOM removes its metadata and Live777 index row, and the media files are reclaimed by deployment-side retention (bucket lifecycle rules or filesystem pruning).
+
 ### Data and deployment model
 
 Rooms, meetings, participants, chat and meeting records are stored in an atomically replaced JSON file. Presence is ephemeral and is restored by client heartbeats after a restart.

@@ -13,6 +13,11 @@ services:
     hostname: live777
     ports:
       - "7777:7777/tcp"
+    # Recorded DASH fragments (the recorder feature is compiled into this
+    # image). WOOM playback reads objects by path, so the volume keeps
+    # recordings usable across container restarts.
+    volumes:
+      - live777-storage:/storage
 
   stt:
     build: caption-bot/scripts
@@ -39,3 +44,6 @@ services:
 networks:
   default:
     name: woom
+
+volumes:
+  live777-storage:
