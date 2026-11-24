@@ -51,8 +51,16 @@ WOOM is a self-hosted meeting service built on the
   over a Live777 cable datachannel (requires the cable messages API, on
   live777 main until 0.11.0 releases), and optional
   `MINUTES_URL`/`MINUTES_MODEL`/`MINUTES_API_KEY` enabling LLM meeting
-  minutes through any OpenAI-compatible endpoint. Never log secrets, JWTs,
-  SSE ticket query strings or room passwords.
+  minutes through any OpenAI-compatible endpoint, and optional paired
+  `ADMIN_USER` + `ADMIN_PASSWORD` enabling the admin console. Never log
+  secrets, JWTs, SSE ticket query strings or room passwords.
+- Admin console: `/admin` (SPA page) + `/api/admin/*` (API), both 404 while
+  unset. Login exchanges the configured credentials for a 12h admin JWT
+  (`AdminClaims` with `adm`), checked by a dedicated `admin_auth` middleware;
+  admin tokens and user JWTs are distinct claims shapes and are mutually
+  rejected. The console manages meeting records across all rooms
+  (list/detail/delete, minutes/cleanup regeneration, timeline replay); record
+  deletion is admin-only and persists without SSE events.
 - `src/events.rs` — Per-room broadcast channels. Subscribe before taking the
   initial snapshot, deduplicate by revision, and recover from lag with a full
   snapshot. All state-changing API operations publish in commit order.
@@ -65,7 +73,9 @@ WOOM is a self-hosted meeting service built on the
   SFCs). State uses module-level `ref`/`shallowRef` (`webapp/store/atoms.ts`),
   persisted settings (`webapp/store/setting.ts`), and localStorage for
   user/token (`webapp/lib/storage.ts`). Join passwords remain in memory only.
-  Welcome/Meeting views are switched by `meetingId` in `webapp/app.vue`.
+  Welcome/Meeting views are switched by `meetingId` in `webapp/app.vue`; the
+  admin console (`pages/admin.vue`) is a third top-level view gated by
+  `adminMode` (path `/admin`), with its token in sessionStorage.
 - WHIP/WHEP clients are framework-agnostic classes exposed through
   composables. Asynchronous start/stop/restart operations use generations so
   stale sessions cannot update current state. Both publishing and subscribing
