@@ -9,6 +9,7 @@ use tokio::task::JoinHandle;
 use super::*;
 use crate::model::Message;
 
+mod admin;
 mod cable;
 mod logging;
 mod minutes;
@@ -52,6 +53,8 @@ fn test_config(live777_url: &str) -> Config {
         minutes_url: None,
         minutes_model: None,
         minutes_api_key: None,
+        admin_user: None,
+        admin_password: None,
         events_cable: false,
         data_file: PathBuf::from(":memory:"),
     }
@@ -892,6 +895,8 @@ async fn event_stream_recovers_a_full_snapshot_after_lag() {
         minutes_url: None,
         minutes_model: None,
         minutes_api_key: None,
+        admin_user: None,
+        admin_password: None,
         events_cable: false,
         data_file: PathBuf::from(":memory:"),
     };

@@ -108,6 +108,7 @@ pub fn router(state: AppState) -> Router {
 
     Router::new()
         .merge(protected)
+        .merge(admin_routes(&state))
         .route("/user/", post(create_user))
         .route(
             "/log",
@@ -138,6 +139,34 @@ fn media_routes() -> Router<AppState> {
         .route("/whep/{uuid}", any(proxy::forward))
         .route("/whep/{uuid}/{*rest}", any(proxy::forward))
         .route("/session/{*rest}", any(proxy::forward))
+}
+
+/// Admin console API. The whole surface only exists when ADMIN_USER and
+/// ADMIN_PASSWORD are configured; otherwise these paths fall through to the
+/// SPA handler, which answers 404 for the `api` prefix. `/api/admin/login`
+/// stays public; everything else requires an admin token.
+fn admin_routes(state: &AppState) -> Router<AppState> {
+    if state.cfg.admin_user.is_none() {
+        return Router::new();
+    }
+    let records = Router::new()
+        .route("/api/admin/records", get(admin_records))
+        .route(
+            "/api/admin/records/{meetingNo}",
+            get(admin_record_detail).delete(admin_delete_record),
+        )
+        .route(
+            "/api/admin/records/{meetingNo}/minutes",
+            post(admin_meeting_minutes),
+        )
+        .route(
+            "/api/admin/records/{meetingNo}/cleanup",
+            post(admin_cleanup_transcript),
+        )
+        .route_layer(middleware::from_fn_with_state(state.clone(), admin_auth));
+    Router::new()
+        .route("/api/admin/login", post(admin_login))
+        .merge(records)
 }
 
 pub async fn sweep(state: &AppState) {
@@ -198,6 +227,36 @@ async fn jwt_auth(State(state): State<AppState>, mut req: Request, next: Next) -
             next.run(req).await
         }
         _ => error(StatusCode::UNAUTHORIZED, "invalid token"),
+    }
+}
+
+/// Admin tokens are a separate claims shape from user tokens: a user JWT has
+/// no `sub`/`adm` fields and an admin JWT has no `id`, so neither can pass
+/// the other's middleware.
+#[derive(Serialize, Deserialize)]
+struct AdminClaims {
+    sub: String,
+    adm: bool,
+    exp: usize,
+    iat: usize,
+    nbf: usize,
+}
+
+fn decode_admin_token(
+    secret: &str,
+    token: &str,
+) -> Result<AdminClaims, jsonwebtoken::errors::Error> {
+    let key = DecodingKey::from_secret(secret.as_bytes())?;
+    Ok(decode::<AdminClaims>(token, &key, &Validation::new(Algorithm::HS512))?.claims)
+}
+
+async fn admin_auth(State(state): State<AppState>, req: Request, next: Next) -> Response {
+    let Some(token) = token_from_header(req.headers()) else {
+        return error(StatusCode::UNAUTHORIZED, "invalid admin token");
+    };
+    match decode_admin_token(&state.cfg.secret, token) {
+        Ok(claims) if claims.adm => next.run(req).await,
+        _ => error(StatusCode::UNAUTHORIZED, "invalid admin token"),
     }
 }
 
@@ -701,33 +760,33 @@ async fn call_minutes_upstream(
         })
 }
 
-async fn artifact_response(
+fn minutes_config(state: &AppState) -> Option<(&str, &str)> {
+    match (
+        state.cfg.minutes_url.as_deref(),
+        state.cfg.minutes_model.as_deref(),
+    ) {
+        (Some(base_url), Some(model)) => Some((base_url, model)),
+        _ => None,
+    }
+}
+
+/// Shared minutes/cleanup pipeline for both the user-facing and the admin
+/// endpoints. The caller resolves and authorizes the record; this only runs
+/// the LLM generation and caches the result on the record.
+async fn generate_artifact(
     state: &AppState,
-    room_id: &str,
-    meeting_no: &str,
-    user_id: &str,
+    record: &Record,
     force: bool,
     kind: ArtifactKind,
     size: usize,
 ) -> Response {
-    let (Some(base_url), Some(model)) = (
-        state.cfg.minutes_url.as_deref(),
-        state.cfg.minutes_model.as_deref(),
-    ) else {
+    let Some((base_url, model)) = minutes_config(state) else {
         return StatusCode::NOT_FOUND.into_response();
-    };
-    let record = match state
-        .store
-        .record_for_minutes(room_id, meeting_no, user_id)
-        .await
-    {
-        Ok(record) => record,
-        Err(error) => return store_error(error),
     };
     if record.captions.is_empty() {
         return error(StatusCode::BAD_REQUEST, "no transcript");
     }
-    let cached = kind.cached_of(&record);
+    let cached = kind.cached_of(record);
     if !force && !cached.is_empty() {
         return Json(json!({ kind.response_key(): cached, "cached": true })).into_response();
     }
@@ -762,7 +821,12 @@ async fn artifact_response(
     };
     if let Err(error) = state
         .store
-        .save_record_artifact(room_id, meeting_no, kind.store_artifact(), content.clone())
+        .save_record_artifact(
+            &record.room_id,
+            &record.meeting_no,
+            kind.store_artifact(),
+            content.clone(),
+        )
         .await
     {
         return store_error(error);
@@ -781,11 +845,20 @@ async fn meeting_minutes(
     Query(query): Query<ArtifactQuery>,
     axum::Extension(user): axum::Extension<UserId>,
 ) -> Response {
-    artifact_response(
+    if minutes_config(&state).is_none() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let record = match state
+        .store
+        .record_for_minutes(&room_id, &meeting_no, &user.0)
+        .await
+    {
+        Ok(record) => record,
+        Err(error) => return store_error(error),
+    };
+    generate_artifact(
         &state,
-        &room_id,
-        &meeting_no,
-        &user.0,
+        &record,
         query.force.unwrap_or(false),
         ArtifactKind::Minutes,
         MINUTES_TRANSCRIPT_LIMIT,
@@ -799,11 +872,20 @@ async fn cleanup_transcript(
     Query(query): Query<ArtifactQuery>,
     axum::Extension(user): axum::Extension<UserId>,
 ) -> Response {
-    artifact_response(
+    if minutes_config(&state).is_none() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let record = match state
+        .store
+        .record_for_minutes(&room_id, &meeting_no, &user.0)
+        .await
+    {
+        Ok(record) => record,
+        Err(error) => return store_error(error),
+    };
+    generate_artifact(
         &state,
-        &room_id,
-        &meeting_no,
-        &user.0,
+        &record,
         query.force.unwrap_or(false),
         ArtifactKind::Cleanup,
         CLEANUP_CHUNK_LIMIT,
@@ -985,6 +1067,159 @@ async fn caption_streams(State(state): State<AppState>, headers: HeaderMap) -> R
         return response;
     }
     Json(json!({ "rooms": state.store.caption_rooms().await })).into_response()
+}
+
+// ---------- admin console ----------
+
+const ADMIN_TOKEN_TTL_SECS: i64 = 12 * 3600;
+
+#[derive(Deserialize)]
+struct AdminLoginRequest {
+    username: Option<String>,
+    password: Option<String>,
+}
+
+async fn admin_login(
+    State(state): State<AppState>,
+    Json(body): Json<AdminLoginRequest>,
+) -> Response {
+    let (Some(expected_user), Some(expected_password)) = (
+        state.cfg.admin_user.as_deref(),
+        state.cfg.admin_password.as_deref(),
+    ) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let username = body.username.unwrap_or_default();
+    let password = body.password.unwrap_or_default();
+    if username != expected_user || password != expected_password {
+        return error(StatusCode::UNAUTHORIZED, "invalid credentials");
+    }
+    let now = jsonwebtoken::get_current_timestamp();
+    let expires_at = now + ADMIN_TOKEN_TTL_SECS as u64;
+    let claims = AdminClaims {
+        sub: username,
+        adm: true,
+        exp: expires_at as usize,
+        iat: now as usize,
+        nbf: now as usize,
+    };
+    match EncodingKey::from_secret(state.cfg.secret.as_bytes())
+        .and_then(|key| encode(&Header::new(Algorithm::HS512), &claims, &key))
+    {
+        Ok(token) => Json(json!({ "token": token, "expiresAt": expires_at })).into_response(),
+        Err(error) => {
+            tracing::error!("admin JWT encoding failed: {error}");
+            self::error(StatusCode::INTERNAL_SERVER_ERROR, "token error")
+        }
+    }
+}
+
+/// Flat per-record listing for the admin console: no message/caption bodies,
+/// just counts and artifact status. Records carry no room topic of their own,
+/// so the room's current topic is joined in when the room still exists.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecordSummary {
+    meeting_no: String,
+    room_id: String,
+    room_topic: Option<String>,
+    started_at: i64,
+    ended_at: i64,
+    max_concurrent: usize,
+    participant_count: usize,
+    message_count: usize,
+    caption_count: usize,
+    has_minutes: bool,
+    has_polished_transcript: bool,
+}
+
+async fn admin_records(State(state): State<AppState>) -> Response {
+    let mut summaries = Vec::new();
+    for record in state.store.all_records().await {
+        summaries.push(RecordSummary {
+            meeting_no: record.meeting_no,
+            room_topic: state.store.room_topic(&record.room_id).await,
+            room_id: record.room_id,
+            started_at: record.started_at,
+            ended_at: record.ended_at,
+            max_concurrent: record.max_concurrent,
+            participant_count: record.participants.len(),
+            message_count: record.messages.len(),
+            caption_count: record.captions.len(),
+            has_minutes: !record.minutes.is_empty(),
+            has_polished_transcript: !record.polished_transcript.is_empty(),
+        });
+    }
+    Json(summaries).into_response()
+}
+
+async fn admin_record_detail(
+    State(state): State<AppState>,
+    Path(meeting_no): Path<String>,
+) -> Response {
+    match state.store.record_by_meeting_no(&meeting_no).await {
+        Ok(record) => Json(record).into_response(),
+        Err(error) => store_error(error),
+    }
+}
+
+async fn admin_delete_record(
+    State(state): State<AppState>,
+    Path(meeting_no): Path<String>,
+) -> Response {
+    match state.store.delete_record(&meeting_no).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(error) => store_error(error),
+    }
+}
+
+/// Admin artifact generation authorizes by meeting number alone: the admin
+/// token replaces the owner/participant visibility check of the user routes.
+async fn admin_generate_artifact(
+    state: &AppState,
+    meeting_no: &str,
+    force: bool,
+    kind: ArtifactKind,
+    size: usize,
+) -> Response {
+    if minutes_config(state).is_none() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let record = match state.store.record_by_meeting_no(meeting_no).await {
+        Ok(record) => record,
+        Err(error) => return store_error(error),
+    };
+    generate_artifact(state, &record, force, kind, size).await
+}
+
+async fn admin_meeting_minutes(
+    State(state): State<AppState>,
+    Path(meeting_no): Path<String>,
+    Query(query): Query<ArtifactQuery>,
+) -> Response {
+    admin_generate_artifact(
+        &state,
+        &meeting_no,
+        query.force.unwrap_or(false),
+        ArtifactKind::Minutes,
+        MINUTES_TRANSCRIPT_LIMIT,
+    )
+    .await
+}
+
+async fn admin_cleanup_transcript(
+    State(state): State<AppState>,
+    Path(meeting_no): Path<String>,
+    Query(query): Query<ArtifactQuery>,
+) -> Response {
+    admin_generate_artifact(
+        &state,
+        &meeting_no,
+        query.force.unwrap_or(false),
+        ArtifactKind::Cleanup,
+        CLEANUP_CHUNK_LIMIT,
+    )
+    .await
 }
 
 // ---------- SSE ----------
