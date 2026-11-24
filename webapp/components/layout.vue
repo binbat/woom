@@ -511,6 +511,11 @@ onMounted(async () => {
     if (isCurrent(generation)) {
       roomInfo.value = { ...roomInfo.value, owner: detail.owner }
       eventsStream = detail.eventsStream
+      // Seed the mute-all baseline at join from REST. The events transport
+      // delivers its first snapshot later (SSE connect, or cable channel
+      // open + resync); without this, a mute-all fired in that window is
+      // silently absorbed as the baseline instead of muting me.
+      if (lastMuteAllAt === null) lastMuteAllAt = detail.muteAllAt
     }
   } catch {
     /* room may be gone */

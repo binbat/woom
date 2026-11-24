@@ -4,6 +4,7 @@ interface Room {
   topic: string
   locked: boolean
   presenter: string
+  muteAllAt: number
   createdAt: number
 }
 
