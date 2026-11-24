@@ -1096,6 +1096,57 @@ impl Store {
         Ok(())
     }
 
+    /// Every archived record across all rooms, newest first. Admin-only
+    /// visibility: no owner/participant filtering is applied.
+    pub async fn all_records(&self) -> Vec<Record> {
+        let mut records = self.inner.read().await.data.records.clone();
+        records.sort_by_key(|record| std::cmp::Reverse(record.started_at));
+        records
+    }
+
+    /// The current topic of a room that still exists (records outlive rooms).
+    pub async fn room_topic(&self, room_id: &str) -> Option<String> {
+        self.inner
+            .read()
+            .await
+            .data
+            .rooms
+            .get(room_id)
+            .map(|room| room.topic.clone())
+    }
+
+    /// One archived record looked up by its globally unique meeting number,
+    /// without any visibility check (admin-only).
+    pub async fn record_by_meeting_no(&self, meeting_no: &str) -> Result<Record, StoreError> {
+        self.inner
+            .read()
+            .await
+            .data
+            .records
+            .iter()
+            .find(|record| record.meeting_no == meeting_no)
+            .cloned()
+            .ok_or(StoreError::NotFound)
+    }
+
+    /// Permanently remove an archived record. Like artifact saving, this is
+    /// read-side state: it persists without broadcasting any SSE event.
+    pub async fn delete_record(&self, meeting_no: &str) -> Result<(), StoreError> {
+        self.persistent_command(|inner| {
+            let before = inner.data.records.len();
+            inner
+                .data
+                .records
+                .retain(|record| record.meeting_no != meeting_no);
+            if inner.data.records.len() == before {
+                return Err(StoreError::NotFound);
+            }
+            Ok(((), Change::Persist))
+        })
+        .await?;
+        Ok(())
+    }
+
     pub async fn sweep(
         &self,
         now: i64,
@@ -1746,6 +1797,68 @@ mod tests {
         let records = reopened.records_for_room(&room_id, "owner").await.unwrap();
         assert_eq!(records[0].minutes, "better minutes");
         assert_eq!(records[0].polished_transcript, "polished transcript");
+    }
+
+    #[tokio::test]
+    async fn delete_record_removes_permanently_and_survives_reopen() {
+        let directory = TestDir::new();
+        let path = directory.data_file();
+        let store = Store::open(&path).await.unwrap();
+        let room_id = room_with_owner(&store).await;
+        let first = store
+            .join(&room_id, "owner", None, None)
+            .await
+            .unwrap()
+            .value
+            .meeting_no;
+        store.end(&room_id, "owner").await.unwrap();
+        let second = store
+            .join(&room_id, "owner", None, None)
+            .await
+            .unwrap()
+            .value
+            .meeting_no;
+        store.end(&room_id, "owner").await.unwrap();
+
+        let all = store.all_records().await;
+        assert_eq!(all.len(), 2);
+        assert!(all.iter().any(|record| record.meeting_no == first));
+        assert!(all.iter().any(|record| record.meeting_no == second));
+        assert!(all
+            .windows(2)
+            .all(|pair| pair[0].started_at >= pair[1].started_at));
+        assert_eq!(
+            store.record_by_meeting_no(&first).await.unwrap().meeting_no,
+            first
+        );
+        assert!(matches!(
+            store.record_by_meeting_no("no-such-meeting").await,
+            Err(StoreError::NotFound)
+        ));
+
+        store.delete_record(&first).await.unwrap();
+        assert!(matches!(
+            store.delete_record(&first).await,
+            Err(StoreError::NotFound)
+        ));
+        assert!(matches!(
+            store.record_by_meeting_no(&first).await,
+            Err(StoreError::NotFound)
+        ));
+        assert_eq!(
+            store
+                .record_by_meeting_no(&second)
+                .await
+                .unwrap()
+                .meeting_no,
+            second
+        );
+        drop(store);
+
+        let reopened = Store::open(&path).await.unwrap();
+        let all = reopened.all_records().await;
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].meeting_no, second);
     }
 
     #[tokio::test]

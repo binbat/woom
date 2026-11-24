@@ -397,6 +397,8 @@ async fn lag_after_kick_and_new_meeting_returns_only_safe_end_snapshot() {
         minutes_url: None,
         minutes_model: None,
         minutes_api_key: None,
+        admin_user: None,
+        admin_password: None,
         events_cable: false,
         data_file: PathBuf::from(":memory:"),
     };

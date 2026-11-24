@@ -65,6 +65,7 @@ export default defineConfig({
       '^/log(?:/|$)': 'http://localhost:4000',
       '^/room/.*': 'http://localhost:4000',
       '^/user/.*': 'http://localhost:4000',
+      '^/api/.*': 'http://localhost:4000',
     },
   },
   build: {

@@ -329,7 +329,111 @@ async function openRoomEvents(id: string): Promise<EventSource> {
   )
 }
 
+// ---------- admin console ----------
+
+interface AdminRecordSummary {
+  meetingNo: string
+  roomId: string
+  /** current topic of the room; null when the room no longer exists */
+  roomTopic: string | null
+  startedAt: number
+  endedAt: number
+  maxConcurrent: number
+  participantCount: number
+  messageCount: number
+  captionCount: number
+  hasMinutes: boolean
+  hasPolishedTranscript: boolean
+}
+
+// sessionStorage: survives a page refresh, dies with the tab. The admin
+// console never touches the regular user token in localStorage.
+const ADMIN_TOKEN_KEY = 'woom-admin-token'
+
+let adminToken = sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? ''
+
+function setAdminToken(str: string) {
+  adminToken = str
+  if (str) sessionStorage.setItem(ADMIN_TOKEN_KEY, str)
+  else sessionStorage.removeItem(ADMIN_TOKEN_KEY)
+}
+
+function adminHeaders(): HeadersInit {
+  return {
+    Authorization: `Bearer ${adminToken}`,
+    'Content-Type': 'application/json',
+  }
+}
+
+async function adminLogin(
+  username: string,
+  password: string
+): Promise<{ token: string; expiresAt: number }> {
+  const res = await fetch('/api/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json()
+}
+
+async function getAdminRecords(): Promise<AdminRecordSummary[]> {
+  const res = await fetch('/api/admin/records', {
+    headers: adminHeaders(),
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json()
+}
+
+async function getAdminRecord(meetingNo: string): Promise<MeetingRecord> {
+  const res = await fetch(`/api/admin/records/${meetingNo}`, {
+    headers: adminHeaders(),
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json()
+}
+
+async function deleteAdminRecord(meetingNo: string): Promise<void> {
+  const res = await fetch(`/api/admin/records/${meetingNo}`, {
+    headers: adminHeaders(),
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+}
+
+async function createAdminMinutes(
+  meetingNo: string,
+  force = false
+): Promise<{ minutes: string; cached: boolean }> {
+  const res = await fetch(
+    `/api/admin/records/${meetingNo}/minutes${force ? '?force=true' : ''}`,
+    {
+      headers: adminHeaders(),
+      method: 'POST',
+    }
+  )
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json()
+}
+
+async function createAdminCleanup(
+  meetingNo: string,
+  force = false
+): Promise<{ polishedTranscript: string; cached: boolean }> {
+  const res = await fetch(
+    `/api/admin/records/${meetingNo}/cleanup${force ? '?force=true' : ''}`,
+    {
+      headers: adminHeaders(),
+      method: 'POST',
+    }
+  )
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json()
+}
+
 export type {
+  AdminRecordSummary,
   Caption,
   JoinResponse,
   Meeting,
@@ -344,9 +448,16 @@ export type {
 }
 export {
   ApiError,
+  adminLogin,
+  adminToken,
+  createAdminCleanup,
+  createAdminMinutes,
   createCleanup,
   createMinutes,
+  deleteAdminRecord,
   endMeeting,
+  getAdminRecord,
+  getAdminRecords,
   getMyRecords,
   getRoom,
   getRoomRecords,
@@ -361,6 +472,7 @@ export {
   patchRoom,
   StreamState,
   sendMessage,
+  setAdminToken,
   setApiToken,
   setPresence,
   token,

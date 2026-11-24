@@ -13,11 +13,11 @@ use super::*;
 
 const TEST_MINUTES_MODEL: &str = "test-model";
 const TEST_MINUTES_API_KEY: &str = "minutes-api-key";
-const MINUTES_MARKDOWN: &str = "## 纪要";
+pub(super) const MINUTES_MARKDOWN: &str = "## 纪要";
 
 #[derive(Clone, Default)]
-struct MockMinutes {
-    requests: Arc<Mutex<Vec<(String, Value)>>>,
+pub(super) struct MockMinutes {
+    pub(super) requests: Arc<Mutex<Vec<(String, Value)>>>,
     status: StatusCode,
     echo: bool,
 }
@@ -70,7 +70,7 @@ async fn spawn_minutes_upstream_with(status: StatusCode, echo: bool) -> (TestSer
     (serve(app).await, mock)
 }
 
-async fn spawn_minutes_upstream(status: StatusCode) -> (TestServer, MockMinutes) {
+pub(super) async fn spawn_minutes_upstream(status: StatusCode) -> (TestServer, MockMinutes) {
     spawn_minutes_upstream_with(status, false).await
 }
 
@@ -85,6 +85,8 @@ async fn spawn_app_with_minutes(minutes_url: Option<&str>) -> (TestServer, AppSt
         minutes_url: minutes_url.map(str::to_string),
         minutes_model: minutes_url.map(|_| TEST_MINUTES_MODEL.to_string()),
         minutes_api_key: minutes_url.map(|_| TEST_MINUTES_API_KEY.to_string()),
+        admin_user: None,
+        admin_password: None,
         events_cable: false,
         data_file: PathBuf::from(":memory:"),
     };
@@ -93,15 +95,15 @@ async fn spawn_app_with_minutes(minutes_url: Option<&str>) -> (TestServer, AppSt
     (server, state)
 }
 
-struct ArchivedMeeting {
-    owner: TestUser,
-    guest: TestUser,
-    outsider: TestUser,
-    room_id: String,
-    meeting_no: String,
+pub(super) struct ArchivedMeeting {
+    pub(super) owner: TestUser,
+    pub(super) guest: TestUser,
+    pub(super) outsider: TestUser,
+    pub(super) room_id: String,
+    pub(super) meeting_no: String,
 }
 
-async fn archived_meeting(
+pub(super) async fn archived_meeting(
     client: &reqwest::Client,
     server: &TestServer,
     with_captions: bool,
@@ -573,16 +575,7 @@ async fn cleanup_chunks_long_transcripts_sequentially() {
     let chunks = transcript_chunks(&transcript, 30);
     assert!(chunks.len() > 1);
 
-    let response = artifact_response(
-        &state,
-        &meeting.room_id,
-        &meeting.meeting_no,
-        &meeting.owner.stream_id,
-        false,
-        ArtifactKind::Cleanup,
-        30,
-    )
-    .await;
+    let response = generate_artifact(&state, &record, false, ArtifactKind::Cleanup, 30).await;
     assert_eq!(response.status(), StatusCode::OK);
     let body = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await

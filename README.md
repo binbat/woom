@@ -64,6 +64,8 @@ Vite listens on `http://localhost:5173` and proxies the API, browser logs, WHIP/
 | `MINUTES_URL` | empty | Optional OpenAI-compatible chat-completions base URL (e.g. Ollama `http://localhost:11434/v1`) enabling `POST /room/{id}/records/{meetingNo}/minutes` |
 | `MINUTES_MODEL` | empty | Model name for the minutes endpoint; required when `MINUTES_URL` is set |
 | `MINUTES_API_KEY` | empty | Optional bearer token for the minutes upstream |
+| `ADMIN_USER` | empty | Optional admin console username; both `ADMIN_USER` and `ADMIN_PASSWORD` must be set to enable the console |
+| `ADMIN_PASSWORD` | empty | Admin console password; at least 16 bytes when set |
 
 WOOM requires membership authorization for room events, chat, presence and media signaling. Room passwords and secrets are never included in API responses or startup logs.
 
@@ -97,6 +99,20 @@ docker compose --profile captions up -d --build
 The caption endpoints are disabled when `CAPTION_TOKEN` is unset and never accept an ordinary user JWT.
 
 With `MINUTES_URL`/`MINUTES_MODEL` configured, any meeting participant can generate two LLM artifacts from an archived transcript: Markdown minutes via `POST /room/{roomId}/records/{meetingNo}/minutes`, and a polished transcript (ASR errors fixed, punctuation restored, topic-segmented) via `POST /room/{roomId}/records/{meetingNo}/cleanup`. Each artifact is generated once and cached in the meeting record (`?force=true` regenerates). Any OpenAI-compatible endpoint works — for example DeepSeek (`MINUTES_URL=https://api.deepseek.com/v1`, `MINUTES_MODEL=deepseek-flash`) or a self-hosted Ollama — so transcripts never have to leave your infrastructure.
+
+### Admin console
+
+Setting `ADMIN_USER` and `ADMIN_PASSWORD` together enables a built-in admin console at `/admin` (API under `/api/admin/*`). Signing in issues a 12-hour admin token that is held in session storage only; admin tokens are distinct from meeting user JWTs and neither is accepted by the other's API.
+
+The console manages meeting records across all rooms:
+
+- list every archived meeting with its room, duration and content counters
+- inspect a full record: transcript, chat messages and cached LLM artifacts
+- replay a meeting as a merged chat + transcript timeline (play/pause, 1x/2x/4x)
+- generate or regenerate minutes and polished transcripts (requires `MINUTES_URL`/`MINUTES_MODEL`)
+- permanently delete records (records otherwise accumulate forever)
+
+The admin API answers 404 while the variables are unset, and the credentials are read at startup — changing them requires a restart. Serve WOOM over HTTPS before exposing the console to a network.
 
 ### Data and deployment model
 

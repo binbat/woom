@@ -12,6 +12,8 @@ pub struct Config {
     pub minutes_url: Option<String>,
     pub minutes_model: Option<String>,
     pub minutes_api_key: Option<String>,
+    pub admin_user: Option<String>,
+    pub admin_password: Option<String>,
     pub events_cable: bool,
     pub data_file: PathBuf,
 }
@@ -23,6 +25,7 @@ pub enum ConfigError {
     WeakLogReadToken,
     WeakCaptionToken,
     WeakMinutesConfig,
+    WeakAdminConfig,
 }
 
 impl fmt::Display for ConfigError {
@@ -38,6 +41,10 @@ impl fmt::Display for ConfigError {
             Self::WeakMinutesConfig => {
                 write!(f, "MINUTES_MODEL must be set when MINUTES_URL is set")
             }
+            Self::WeakAdminConfig => write!(
+                f,
+                "ADMIN_USER and ADMIN_PASSWORD must be set together, with a password of at least 16 bytes"
+            ),
         }
     }
 }
@@ -64,6 +71,11 @@ impl fmt::Debug for Config {
             .field(
                 "minutes_api_key",
                 &self.minutes_api_key.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field("admin_user", &self.admin_user)
+            .field(
+                "admin_password",
+                &self.admin_password.as_ref().map(|_| "[REDACTED]"),
             )
             .field("events_cable", &self.events_cable)
             .field("data_file", &self.data_file)
@@ -125,6 +137,23 @@ impl Config {
             Some(key) => Some(key),
             None => None,
         };
+        let admin_user = match lookup("ADMIN_USER") {
+            Some(user) if user.is_empty() => None,
+            Some(user) if user.trim().is_empty() => return Err(ConfigError::WeakAdminConfig),
+            Some(user) => Some(user),
+            None => None,
+        };
+        let admin_password = match lookup("ADMIN_PASSWORD") {
+            Some(password) if password.is_empty() => None,
+            Some(password) if password.trim().is_empty() || password.len() < 16 => {
+                return Err(ConfigError::WeakAdminConfig)
+            }
+            Some(password) => Some(password),
+            None => None,
+        };
+        if admin_user.is_some() != admin_password.is_some() {
+            return Err(ConfigError::WeakAdminConfig);
+        }
         let events_cable = lookup("EVENTS_CABLE").is_some_and(|value| {
             !value.is_empty()
                 && !value.eq_ignore_ascii_case("0")
@@ -141,6 +170,8 @@ impl Config {
             minutes_url,
             minutes_model,
             minutes_api_key,
+            admin_user,
+            admin_password,
             events_cable,
             data_file: PathBuf::from(env("DATA_FILE", "./data/woom.json")),
         })
@@ -280,6 +311,50 @@ mod tests {
     }
 
     #[test]
+    fn admin_credentials_are_optional_and_paired() {
+        let secret = ("SECRET", "0123456789abcdef0123456789abcdef");
+        let cfg = config(&[secret]).unwrap();
+        assert_eq!(cfg.admin_user, None);
+        assert_eq!(cfg.admin_password, None);
+
+        // Empty strings mean unset.
+        let cfg = config(&[secret, ("ADMIN_USER", ""), ("ADMIN_PASSWORD", "")]).unwrap();
+        assert_eq!(cfg.admin_user, None);
+        assert_eq!(cfg.admin_password, None);
+
+        // Both must be set together.
+        assert_eq!(
+            config(&[secret, ("ADMIN_USER", "admin")]).err(),
+            Some(ConfigError::WeakAdminConfig)
+        );
+        assert_eq!(
+            config(&[secret, ("ADMIN_PASSWORD", "0123456789abcdef")]).err(),
+            Some(ConfigError::WeakAdminConfig)
+        );
+
+        // Blank user / short or blank password are rejected.
+        for (user, password) in [
+            ("  ", "0123456789abcdef"),
+            ("admin", "   "),
+            ("admin", "short"),
+        ] {
+            assert_eq!(
+                config(&[secret, ("ADMIN_USER", user), ("ADMIN_PASSWORD", password)]).err(),
+                Some(ConfigError::WeakAdminConfig)
+            );
+        }
+
+        let cfg = config(&[
+            secret,
+            ("ADMIN_USER", "admin"),
+            ("ADMIN_PASSWORD", "0123456789abcdef"),
+        ])
+        .unwrap();
+        assert_eq!(cfg.admin_user.as_deref(), Some("admin"));
+        assert_eq!(cfg.admin_password.as_deref(), Some("0123456789abcdef"));
+    }
+
+    #[test]
     fn events_cable_is_an_opt_in_boolean() {
         let secret = ("SECRET", "0123456789abcdef0123456789abcdef");
         assert!(!config(&[secret]).unwrap().events_cable);
@@ -312,6 +387,8 @@ mod tests {
             ("MINUTES_URL", "http://localhost:11434/v1"),
             ("MINUTES_MODEL", "qwen3"),
             ("MINUTES_API_KEY", "minutes-secret-key"),
+            ("ADMIN_USER", "admin"),
+            ("ADMIN_PASSWORD", "admin-secret-password"),
         ])
         .unwrap();
         assert_eq!(cfg.data_file, PathBuf::from("./data/woom.json"));
@@ -321,6 +398,8 @@ mod tests {
         assert!(!debug.contains("log-read-secret"));
         assert!(!debug.contains("caption-secret"));
         assert!(!debug.contains("minutes-secret-key"));
+        assert!(!debug.contains("admin-secret-password"));
+        assert!(debug.contains("admin"));
         assert!(debug.contains("qwen3"));
         assert!(debug.contains("REDACTED"));
     }
